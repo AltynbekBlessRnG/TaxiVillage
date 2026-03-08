@@ -1,6 +1,32 @@
+# Зависимости
 node_modules/
-.env
+.pnp
+.pnp.js
+
+# Сборка
 dist/
-.expo/
-.next/
 build/
+.next/
+out/
+
+# Expo / Mobile
+.expo/
+*.jks
+*.p12
+*.key
+*.mobileprovision
+
+# Локальные настройки и логи
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Прочее
+.DS_Store
+.vscode/
+.idea/
