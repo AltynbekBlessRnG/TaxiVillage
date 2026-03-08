@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Общий пользователь системы
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  phone     String   @unique
+  email     String?  @unique
+  password  String
+
+  /// passenger | driver | admin
+  role      UserRole
+
+  passenger PassengerProfile?
+  driver    DriverProfile?
+}
+
+/// Профиль пассажира
+model PassengerProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  fullName  String?
+
+  rides     Ride[]   @relation("PassengerRides")
+}
+
+/// Профиль водителя
+model DriverProfile {
+  id           String        @id @default(cuid())
+  userId       String        @unique
+  user         User          @relation(fields: [userId], references: [id])
+
+  fullName     String?
+  status       DriverStatus  @default(PENDING) // PENDING / APPROVED / REJECTED
+  isOnline     Boolean       @default(false)
+
+  car          Car?
+  rides        Ride[]        @relation("DriverRides")
+  documents    DriverDocument[]
+}
+
+/// Автомобиль водителя
+model Car {
+  id           String         @id @default(cuid())
+  driverId     String         @unique
+  driver       DriverProfile  @relation(fields: [driverId], references: [id])
+
+  make         String
+  model        String
+  color        String
+  plateNumber  String
+}
+
+/// Документы водителя (права, СТС, лицензия и т.п.)
+model DriverDocument {
+  id          String         @id @default(cuid())
+  driverId    String
+  driver      DriverProfile  @relation(fields: [driverId], references: [id])
+
+  type        DocumentType
+  url         String
+  uploadedAt  DateTime       @default(now())
+  approved    Boolean        @default(false)
+}
+
+/// Тариф
+model Tariff {
+  id               String   @id @default(cuid())
+  name             String
+  baseFare         Decimal  @db.Decimal(10, 2) // базовая стоимость посадки
+  pricePerKm       Decimal  @db.Decimal(10, 2)
+  pricePerMinute   Decimal? @db.Decimal(10, 2)
+
+  isActive         Boolean  @default(true)
+
+  rides            Ride[]
+}
+
+/// Поездка
+model Ride {
+  id               String          @id @default(cuid())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  passengerId      String
+  passenger        PassengerProfile @relation("PassengerRides", fields: [passengerId], references: [id])
+
+  driverId         String?
+  driver           DriverProfile?   @relation("DriverRides", fields: [driverId], references: [id])
+
+  tariffId         String
+  tariff           Tariff          @relation(fields: [tariffId], references: [id])
+
+  status           RideStatus      @default(SEARCHING_DRIVER)
+
+  fromAddress      String
+  fromLat          Float
+  fromLng          Float
+
+  toAddress        String
+  toLat            Float
+  toLng            Float
+
+  estimatedPrice   Decimal?        @db.Decimal(10, 2)
+  finalPrice       Decimal?        @db.Decimal(10, 2)
+
+  startedAt        DateTime?
+  finishedAt       DateTime?
+
+  statusHistory    RideStatusHistory[]
+}
+
+/// История изменения статусов поездки
+model RideStatusHistory {
+  id        String      @id @default(cuid())
+  rideId    String
+  ride      Ride        @relation(fields: [rideId], references: [id])
+
+  status    RideStatus
+  createdAt DateTime    @default(now())
+}
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+  ADMIN
+}
+
+enum DriverStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RideStatus {
+  SEARCHING_DRIVER
+  DRIVER_ASSIGNED
+  ON_THE_WAY
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+enum DocumentType {
+  DRIVER_LICENSE
+  CAR_REGISTRATION
+  TAXI_LICENSE
+  OTHER
+}
+
