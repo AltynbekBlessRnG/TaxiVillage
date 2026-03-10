@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RideStatus } from '@prisma/client';
+import { DocumentType, RideStatus } from '@prisma/client';
 
 @Injectable()
 export class DriversService {
@@ -34,6 +34,62 @@ export class DriversService {
         },
       },
     });
+  }
+
+  async upsertCar(
+    userId: string,
+    data: { make: string; model: string; color: string; plateNumber: string },
+  ) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+      include: { car: true },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver profile not found');
+    }
+    if (driver.car) {
+      return this.prisma.car.update({
+        where: { id: driver.car.id },
+        data,
+      });
+    }
+    return this.prisma.car.create({
+      data: {
+        driverId: driver.id,
+        ...data,
+      },
+    });
+  }
+
+  async addDocument(
+    userId: string,
+    type: DocumentType,
+    fileUrl: string,
+  ) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver profile not found');
+    }
+    return this.prisma.driverDocument.create({
+      data: {
+        driverId: driver.id,
+        type,
+        url: fileUrl,
+      },
+    });
+  }
+
+  async getProfile(userId: string) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+      include: { car: true, documents: true },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver profile not found');
+    }
+    return driver;
   }
 }
 

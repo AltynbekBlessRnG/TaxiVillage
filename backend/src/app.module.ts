@@ -6,6 +6,8 @@ import { UsersModule } from './users/users.module';
 import { RidesModule } from './rides/rides.module';
 import { DriversModule } from './drivers/drivers.module';
 import { AdminModule } from './admin/admin.module';
+import { UploadModule } from './upload/upload.module';
+import { TariffsModule } from './tariffs/tariffs.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { AdminModule } from './admin/admin.module';
     RidesModule,
     DriversModule,
     AdminModule,
+    UploadModule,
+    TariffsModule,
   ],
 })
 export class AppModule {}

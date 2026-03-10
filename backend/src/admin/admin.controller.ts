@@ -1,9 +1,20 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Patch, Param, UseGuards } from '@nestjs/common';
+import { IsBoolean, IsEnum } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { UserRole } from '@prisma/client';
+import { DriverStatus, UserRole } from '@prisma/client';
+
+class UpdateDriverStatusDto {
+  @IsEnum(DriverStatus)
+  status!: DriverStatus;
+}
+
+class ApproveDocumentDto {
+  @IsBoolean()
+  approved!: boolean;
+}
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -28,8 +39,44 @@ export class AdminController {
       include: {
         user: true,
         car: true,
+        documents: true,
       },
       orderBy: { user: { createdAt: 'desc' } },
+    });
+  }
+
+  @Patch('documents/:id/approve')
+  async approveDocument(
+    @Param('id') documentId: string,
+    @Body() dto: ApproveDocumentDto,
+  ) {
+    const doc = await this.prisma.driverDocument.findUnique({
+      where: { id: documentId },
+    });
+    if (!doc) {
+      throw new NotFoundException('Document not found');
+    }
+    return this.prisma.driverDocument.update({
+      where: { id: documentId },
+      data: { approved: dto.approved },
+    });
+  }
+
+  @Patch('drivers/:id/status')
+  async updateDriverStatus(
+    @Param('id') driverId: string,
+    @Body() dto: UpdateDriverStatusDto,
+  ) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { id: driverId },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+    return this.prisma.driverProfile.update({
+      where: { id: driverId },
+      data: { status: dto.status },
+      include: { user: true, car: true, documents: true },
     });
   }
 

@@ -49,6 +49,15 @@ export class AuthService {
     return { user, ...tokens };
   }
 
+  async refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify<JwtPayload>(refreshToken);
+      return this.issueTokens(payload.sub, payload.role);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
   private issueTokens(userId: string, role: UserRole) {
     const payload: JwtPayload = { sub: userId, role };
     const accessToken = this.jwtService.sign(payload, {

@@ -3,6 +3,7 @@ import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
+import { saveAuth } from '../../storage/authStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -19,6 +20,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const response = await apiClient.post('/auth/login', { phone, password });
       const { accessToken, user } = response.data;
       setAuthToken(accessToken);
+      await saveAuth(accessToken, user.role);
 
       if (user.role === 'DRIVER') {
         navigation.replace('DriverHome');

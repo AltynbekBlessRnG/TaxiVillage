@@ -31,6 +31,11 @@ class LoginDto {
   password!: string;
 }
 
+class RefreshDto {
+  @IsString()
+  refreshToken!: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -43,6 +48,11 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto.phone, dto.password);
+  }
+
+  @Post('refresh')
+  refresh(@Body() dto: RefreshDto) {
+    return this.authService.refresh(dto.refreshToken);
   }
 }
 

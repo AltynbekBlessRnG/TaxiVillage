@@ -59,6 +59,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       ) : (
         <Text style={styles.info}>Ожидание заказов...</Text>
       )}
+      <Button
+        title="История поездок"
+        onPress={() => navigation.navigate('RideHistory')}
+      />
     </View>
   );
 };

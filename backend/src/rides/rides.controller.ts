@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { RidesService } from './rides.service';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -12,6 +13,26 @@ class CreateRideDto {
 
   @IsString()
   toAddress!: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  fromLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  fromLng?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  toLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  toLng?: number;
 }
 
 class UpdateRideStatusDto {
@@ -22,6 +43,14 @@ class UpdateRideStatusDto {
 @Controller('rides')
 export class RidesController {
   constructor(private readonly ridesService: RidesService) {}
+
+  @Get('my')
+  @UseGuards(AuthGuard('jwt'))
+  getMyRides(@Req() req: any) {
+    const userId: string = req.user.userId;
+    const role: UserRole = req.user.role;
+    return this.ridesService.getRidesForUser(userId, role);
+  }
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -35,6 +64,14 @@ export class RidesController {
   @UseGuards(AuthGuard('jwt'))
   getById(@Param('id') id: string) {
     return this.ridesService.getRideById(id);
+  }
+
+  @Post(':id/cancel')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  cancel(@Param('id') id: string, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.ridesService.cancelRideByPassenger(userId, id);
   }
 
   @Post(':id/status')

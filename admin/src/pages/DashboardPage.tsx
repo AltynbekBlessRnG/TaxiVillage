@@ -21,19 +21,77 @@ interface Ride {
   toAddress: string;
 }
 
-type Tab = 'users' | 'drivers' | 'rides';
+interface DriverDocument {
+  id: string;
+  type: string;
+  url: string;
+  approved: boolean;
+}
+
+interface Car {
+  id: string;
+  make: string;
+  model: string;
+  color: string;
+  plateNumber: string;
+}
+
+interface Driver {
+  id: string;
+  fullName: string | null;
+  status: string;
+  isOnline: boolean;
+  user: { id: string; phone: string; email?: string };
+  car: Car | null;
+  documents: DriverDocument[];
+}
+
+interface Tariff {
+  id: string;
+  name: string;
+  baseFare: number | string;
+  pricePerKm: number | string;
+  pricePerMinute: number | string | null;
+  isActive: boolean;
+}
+
+type Tab = 'users' | 'drivers' | 'rides' | 'tariffs';
 
 export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
   const [tab, setTab] = useState<Tab>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [rides, setRides] = useState<Ride[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [tariffs, setTariffs] = useState<Tariff[]>([]);
+  const [tariffForm, setTariffForm] = useState<{
+    name: string;
+    baseFare: string;
+    pricePerKm: string;
+    pricePerMinute: string;
+    isActive: boolean;
+  } | null>(null);
+  const [editingTariffId, setEditingTariffId] = useState<string | null>(null);
+
+  const client = React.useMemo(
+    () =>
+      axios.create({
+        baseURL: API_URL,
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    [token],
+  );
+
+  const loadDrivers = React.useCallback(async () => {
+    const res = await client.get('/admin/drivers');
+    setDrivers(res.data);
+  }, [client]);
+
+  const loadTariffs = React.useCallback(async () => {
+    const res = await client.get('/tariffs');
+    setTariffs(res.data);
+  }, [client]);
 
   useEffect(() => {
-    const client = axios.create({
-      baseURL: API_URL,
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
     const load = async () => {
       if (tab === 'users') {
         const res = await client.get('/admin/users');
@@ -43,12 +101,18 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
         const res = await client.get('/admin/rides');
         setRides(res.data);
       }
+      if (tab === 'drivers') {
+        await loadDrivers();
+      }
+      if (tab === 'tariffs') {
+        await loadTariffs();
+      }
     };
 
     load().catch(() => {
       // ignore for MVP
     });
-  }, [tab, token]);
+  }, [tab, client, loadDrivers, loadTariffs]);
 
   return (
     <div className="app-root">
@@ -63,6 +127,9 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
           </button>
           <button className={tab === 'rides' ? 'active' : ''} onClick={() => setTab('rides')}>
             Поездки
+          </button>
+          <button className={tab === 'tariffs' ? 'active' : ''} onClick={() => setTab('tariffs')}>
+            Тарифы
           </button>
         </div>
         <button className="button" style={{ marginTop: 'auto' }} onClick={onLogout}>
@@ -119,10 +186,240 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
           </section>
         )}
 
+        {tab === 'tariffs' && (
+          <section className="card">
+            <h2>Тарифы</h2>
+            {!tariffForm ? (
+              <>
+                <button
+                  className="button"
+                  style={{ marginBottom: 16 }}
+                  onClick={() =>
+                    setTariffForm({
+                      name: '',
+                      baseFare: '100',
+                      pricePerKm: '15',
+                      pricePerMinute: '',
+                      isActive: true,
+                    })
+                  }
+                >
+                  Добавить тариф
+                </button>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Название</th>
+                      <th>Посадка, ₽</th>
+                      <th>₽/км</th>
+                      <th>₽/мин</th>
+                      <th>Активен</th>
+                      <th>Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tariffs.map((t) => (
+                      <tr key={t.id}>
+                        <td>{t.name}</td>
+                        <td>{Number(t.baseFare)}</td>
+                        <td>{Number(t.pricePerKm)}</td>
+                        <td>{t.pricePerMinute != null ? Number(t.pricePerMinute) : '—'}</td>
+                        <td>{t.isActive ? 'Да' : 'Нет'}</td>
+                        <td>
+                          <button
+                            className="button"
+                            style={{ marginRight: 8 }}
+                            onClick={() => {
+                              setEditingTariffId(t.id);
+                              setTariffForm({
+                                name: t.name,
+                                baseFare: String(t.baseFare),
+                                pricePerKm: String(t.pricePerKm),
+                                pricePerMinute: t.pricePerMinute != null ? String(t.pricePerMinute) : '',
+                                isActive: t.isActive,
+                              });
+                            }}
+                          >
+                            Редактировать
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!tariffForm) return;
+                  try {
+                    if (editingTariffId) {
+                      await client.patch(`/tariffs/${editingTariffId}`, {
+                        name: tariffForm.name,
+                        baseFare: Number(tariffForm.baseFare),
+                        pricePerKm: Number(tariffForm.pricePerKm),
+                        pricePerMinute: tariffForm.pricePerMinute
+                          ? Number(tariffForm.pricePerMinute)
+                          : undefined,
+                        isActive: tariffForm.isActive,
+                      });
+                    } else {
+                      await client.post('/tariffs', {
+                        name: tariffForm.name,
+                        baseFare: Number(tariffForm.baseFare),
+                        pricePerKm: Number(tariffForm.pricePerKm),
+                        pricePerMinute: tariffForm.pricePerMinute
+                          ? Number(tariffForm.pricePerMinute)
+                          : undefined,
+                        isActive: tariffForm.isActive,
+                      });
+                    }
+                    setTariffForm(null);
+                    setEditingTariffId(null);
+                    await loadTariffs();
+                  } catch {
+                    // ignore
+                  }
+                }}
+              >
+                <div style={{ marginBottom: 12 }}>
+                  <label>Название</label>
+                  <input
+                    className="input"
+                    value={tariffForm.name}
+                    onChange={(e) => setTariffForm({ ...tariffForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label>Посадка, ₽</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={tariffForm.baseFare}
+                    onChange={(e) => setTariffForm({ ...tariffForm, baseFare: e.target.value })}
+                    required
+                  />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label>₽/км</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={tariffForm.pricePerKm}
+                    onChange={(e) => setTariffForm({ ...tariffForm, pricePerKm: e.target.value })}
+                    required
+                  />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label>₽/мин (опц.)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={tariffForm.pricePerMinute}
+                    onChange={(e) =>
+                      setTariffForm({ ...tariffForm, pricePerMinute: e.target.value })
+                    }
+                  />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={tariffForm.isActive}
+                      onChange={(e) =>
+                        setTariffForm({ ...tariffForm, isActive: e.target.checked })
+                      }
+                    />
+                    Активен
+                  </label>
+                </div>
+                <button type="submit" className="button" style={{ marginRight: 8 }}>
+                  {editingTariffId ? 'Сохранить' : 'Создать'}
+                </button>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => {
+                    setTariffForm(null);
+                    setEditingTariffId(null);
+                  }}
+                >
+                  Отмена
+                </button>
+              </form>
+            )}
+          </section>
+        )}
+
         {tab === 'drivers' && (
           <section className="card">
             <h2>Водители</h2>
-            <p>Просмотр и модерация водителей может быть добавлена здесь (API уже предоставляет данные).</p>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Телефон</th>
+                  <th>Имя</th>
+                  <th>Авто</th>
+                  <th>Статус</th>
+                  <th>Онлайн</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drivers.map((d) => (
+                  <tr key={d.id}>
+                    <td>{d.user.phone}</td>
+                    <td>{d.fullName || '—'}</td>
+                    <td>
+                      {d.car
+                        ? `${d.car.make} ${d.car.model}, ${d.car.plateNumber}`
+                        : '—'}
+                    </td>
+                    <td>{d.status}</td>
+                    <td>{d.isOnline ? 'Да' : 'Нет'}</td>
+                    <td>
+                      {d.status === 'PENDING' && (
+                        <>
+                          <button
+                            className="button"
+                            style={{ marginRight: 8 }}
+                            onClick={async () => {
+                              try {
+                                await client.patch(`/admin/drivers/${d.id}/status`, {
+                                  status: 'APPROVED',
+                                });
+                                await loadDrivers();
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                          >
+                            Одобрить
+                          </button>
+                          <button
+                            className="button"
+                            onClick={async () => {
+                              try {
+                                await client.patch(`/admin/drivers/${d.id}/status`, {
+                                  status: 'REJECTED',
+                                });
+                                await loadDrivers();
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                          >
+                            Отклонить
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </section>
         )}
       </main>

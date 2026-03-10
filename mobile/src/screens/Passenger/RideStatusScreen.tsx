@@ -10,6 +10,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
   const { rideId } = route.params;
   const [status, setStatus] = useState<string>('');
   const [driverInfo, setDriverInfo] = useState<string | null>(null);
+  const [priceInfo, setPriceInfo] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -21,6 +22,15 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         setStatus(ride.status);
         if (ride.driver) {
           setDriverInfo(`${ride.driver.fullName || 'Водитель'} • ${ride.driver.car?.plateNumber ?? ''}`);
+        }
+        const final = ride.finalPrice != null ? Number(ride.finalPrice) : null;
+        const est = ride.estimatedPrice != null ? Number(ride.estimatedPrice) : null;
+        if (final != null) {
+          setPriceInfo(`Итого: ${Math.round(final)} ₽`);
+        } else if (est != null) {
+          setPriceInfo(`Примерно: ${Math.round(est)} ₽`);
+        } else {
+          setPriceInfo(null);
         }
       } catch {
         // ignore for MVP
@@ -35,11 +45,26 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   }, [rideId]);
 
+  const canCancel = status === 'SEARCHING_DRIVER' || status === 'DRIVER_ASSIGNED';
+
+  const handleCancel = async () => {
+    try {
+      await apiClient.post(`/rides/${rideId}/cancel`);
+      navigation.replace('PassengerHome');
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Статус поездки</Text>
       <Text style={styles.status}>{status}</Text>
       {driverInfo && <Text style={styles.driver}>{driverInfo}</Text>}
+      {priceInfo && <Text style={styles.price}>{priceInfo}</Text>}
+      {canCancel && (
+        <Button title="Отменить поездку" onPress={handleCancel} color="#c00" />
+      )}
       <Button title="На главный экран" onPress={() => navigation.replace('PassengerHome')} />
     </View>
   );
@@ -64,6 +89,12 @@ const styles = StyleSheet.create({
   },
   driver: {
     fontSize: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  price: {
+    fontSize: 18,
+    fontWeight: '600',
     marginBottom: 16,
     textAlign: 'center',
   },
