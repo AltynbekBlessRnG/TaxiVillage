@@ -25,7 +25,10 @@
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",
     "@prisma/client": "^5.16.0",
-    "multer": "^2.0.0"
+    "multer": "^2.0.0",
+    "@nestjs/websockets": "^10.0.0",
+    "@nestjs/platform-socket.io": "^10.0.0",
+    "socket.io": "^4.7.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.0",

@@ -3,8 +3,36 @@ import { View, Text, Button, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { createRidesSocket } from '../../api/socket';
+import { loadAuth } from '../../storage/authStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideStatus'>;
+
+function applyRideToState(
+  ride: {
+    status?: string;
+    driver?: { fullName?: string; car?: { plateNumber?: string } };
+    finalPrice?: number | string;
+    estimatedPrice?: number | string;
+  },
+  setStatus: (s: string) => void,
+  setDriverInfo: (s: string | null) => void,
+  setPriceInfo: (s: string | null) => void,
+) {
+  if (ride.status) setStatus(ride.status);
+  if (ride.driver) {
+    setDriverInfo(`${ride.driver.fullName || 'Водитель'} • ${ride.driver.car?.plateNumber ?? ''}`);
+  }
+  const final = ride.finalPrice != null ? Number(ride.finalPrice) : null;
+  const est = ride.estimatedPrice != null ? Number(ride.estimatedPrice) : null;
+  if (final != null) {
+    setPriceInfo(`Итого: ${Math.round(final)} ₽`);
+  } else if (est != null) {
+    setPriceInfo(`Примерно: ${Math.round(est)} ₽`);
+  } else {
+    setPriceInfo(null);
+  }
+}
 
 export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
   const { rideId } = route.params;
@@ -13,35 +41,38 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
   const [priceInfo, setPriceInfo] = useState<string | null>(null);
 
   useEffect(() => {
+    let socket: ReturnType<typeof createRidesSocket> | null = null;
     let isMounted = true;
-    const fetchStatus = async () => {
+
+    const init = async () => {
       try {
         const response = await apiClient.get(`/rides/${rideId}`);
         if (!isMounted) return;
-        const ride = response.data;
-        setStatus(ride.status);
-        if (ride.driver) {
-          setDriverInfo(`${ride.driver.fullName || 'Водитель'} • ${ride.driver.car?.plateNumber ?? ''}`);
-        }
-        const final = ride.finalPrice != null ? Number(ride.finalPrice) : null;
-        const est = ride.estimatedPrice != null ? Number(ride.estimatedPrice) : null;
-        if (final != null) {
-          setPriceInfo(`Итого: ${Math.round(final)} ₽`);
-        } else if (est != null) {
-          setPriceInfo(`Примерно: ${Math.round(est)} ₽`);
-        } else {
-          setPriceInfo(null);
-        }
+        applyRideToState(response.data, setStatus, setDriverInfo, setPriceInfo);
+
+        const auth = await loadAuth();
+        if (!isMounted || !auth?.token) return;
+
+        socket = createRidesSocket(auth.token);
+        socket.on('ride:updated', (ride: { id: string }) => {
+          if (isMounted && ride.id === rideId) {
+            applyRideToState(ride, setStatus, setDriverInfo, setPriceInfo);
+          }
+        });
+        socket.on('ride:created', (ride: { id: string }) => {
+          if (isMounted && ride.id === rideId) {
+            applyRideToState(ride, setStatus, setDriverInfo, setPriceInfo);
+          }
+        });
       } catch {
-        // ignore for MVP
+        // ignore
       }
     };
 
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 3000);
+    init();
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      socket?.disconnect();
     };
   }, [rideId]);
 

@@ -3,6 +3,8 @@ import { View, Text, Button, StyleSheet, Switch } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { createRidesSocket } from '../../api/socket';
+import { loadAuth } from '../../storage/authStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
 
@@ -25,24 +27,41 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    let socket: ReturnType<typeof createRidesSocket> | null = null;
     let isMounted = true;
-    const pollRide = async () => {
+
+    const init = async () => {
       try {
-        const response = await apiClient.get('/drivers/current-ride');
-        if (!isMounted) return;
-        if (response.data?.id) {
-          setCurrentRideId(response.data.id);
+        const auth = await loadAuth();
+        if (!isMounted || !auth?.token) return;
+
+        const res = await apiClient.get('/drivers/current-ride');
+        if (isMounted && res.data?.id) {
+          setCurrentRideId(res.data.id);
         }
+
+        socket = createRidesSocket(auth.token);
+        socket.on('ride:created', (ride: { id: string }) => {
+          if (isMounted) setCurrentRideId(ride.id);
+        });
+        socket.on('ride:updated', (ride: { id: string; status?: string }) => {
+          if (isMounted) {
+            if (ride.status === 'COMPLETED' || ride.status === 'CANCELED') {
+              setCurrentRideId(null);
+            } else {
+              setCurrentRideId(ride.id);
+            }
+          }
+        });
       } catch {
         // ignore
       }
     };
 
-    pollRide();
-    const interval = setInterval(pollRide, 3000);
+    init();
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      socket?.disconnect();
     };
   }, [isOnline]);
 

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RideStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { RidesGateway } from './rides.gateway';
 
 /** Расстояние по прямой (км) по формуле Haversine */
 function haversineDistance(
@@ -25,7 +26,10 @@ function haversineDistance(
 
 @Injectable()
 export class RidesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ridesGateway: RidesGateway,
+  ) {}
 
   async createRideForPassenger(
     userId: string,
@@ -114,6 +118,9 @@ export class RidesService {
       },
     });
 
+    const rideWithUsers = await this.getRideById(ride.id);
+    this.ridesGateway.emitRideCreated(rideWithUsers as any);
+
     return ride;
   }
 
@@ -196,6 +203,8 @@ export class RidesService {
     await this.prisma.rideStatusHistory.create({
       data: { rideId, status: RideStatus.CANCELED },
     });
+    const rideWithUsers = await this.getRideById(rideId);
+    this.ridesGateway.emitRideUpdated(rideWithUsers as any);
     return updated;
   }
 
@@ -240,6 +249,9 @@ export class RidesService {
         status,
       },
     });
+
+    const rideWithUsers = await this.getRideById(rideId);
+    this.ridesGateway.emitRideUpdated(rideWithUsers as any);
 
     return updated;
   }
