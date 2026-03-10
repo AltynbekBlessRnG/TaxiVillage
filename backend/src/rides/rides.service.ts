@@ -95,27 +95,29 @@ export class RidesService {
         estimatedMinutes * pricePerMinute,
     );
 
-    const ride = await this.prisma.ride.create({
-      data: {
-        passengerId: passengerProfile.id,
-        driverId: driver?.id,
-        tariffId,
-        status: driver ? RideStatus.DRIVER_ASSIGNED : RideStatus.SEARCHING_DRIVER,
-        fromAddress: data.fromAddress,
-        toAddress: data.toAddress,
-        fromLat,
-        fromLng,
-        toLat,
-        toLng,
-        estimatedPrice,
-      },
-    });
-
-    await this.prisma.rideStatusHistory.create({
-      data: {
-        rideId: ride.id,
-        status: ride.status,
-      },
+    const ride = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.ride.create({
+        data: {
+          passengerId: passengerProfile.id,
+          driverId: driver?.id,
+          tariffId,
+          status: driver ? RideStatus.DRIVER_ASSIGNED : RideStatus.SEARCHING_DRIVER,
+          fromAddress: data.fromAddress,
+          toAddress: data.toAddress,
+          fromLat,
+          fromLng,
+          toLat,
+          toLng,
+          estimatedPrice,
+        },
+      });
+      await tx.rideStatusHistory.create({
+        data: {
+          rideId: created.id,
+          status: created.status,
+        },
+      });
+      return created;
     });
 
     const rideWithUsers = await this.getRideById(ride.id);
@@ -196,12 +198,15 @@ export class RidesService {
     if (ride.status !== RideStatus.SEARCHING_DRIVER && ride.status !== RideStatus.DRIVER_ASSIGNED) {
       throw new NotFoundException('Cannot cancel ride in current status');
     }
-    const updated = await this.prisma.ride.update({
-      where: { id: rideId },
-      data: { status: RideStatus.CANCELED },
-    });
-    await this.prisma.rideStatusHistory.create({
-      data: { rideId, status: RideStatus.CANCELED },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.ride.update({
+        where: { id: rideId },
+        data: { status: RideStatus.CANCELED },
+      });
+      await tx.rideStatusHistory.create({
+        data: { rideId, status: RideStatus.CANCELED },
+      });
+      return u;
     });
     const rideWithUsers = await this.getRideById(rideId);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);

@@ -71,6 +71,7 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
     isActive: boolean;
   } | null>(null);
   const [editingTariffId, setEditingTariffId] = useState<string | null>(null);
+  const [tariffError, setTariffError] = useState<string | null>(null);
 
   const client = React.useMemo(
     () =>
@@ -253,25 +254,50 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
                 onSubmit={async (e) => {
                   e.preventDefault();
                   if (!tariffForm) return;
+                  setTariffError(null);
+
+                  const name = tariffForm.name.trim();
+                  const baseFareStr = tariffForm.baseFare.trim();
+                  const pricePerKmStr = tariffForm.pricePerKm.trim();
+                  const pricePerMinuteStr = tariffForm.pricePerMinute.trim();
+
+                  const baseFare = baseFareStr === '' ? NaN : Number(baseFareStr);
+                  const pricePerKm = pricePerKmStr === '' ? NaN : Number(pricePerKmStr);
+                  const pricePerMinute =
+                    pricePerMinuteStr === '' ? undefined : Number(pricePerMinuteStr);
+
+                  if (!name) {
+                    setTariffError('Укажите название тарифа.');
+                    return;
+                  }
+                  if (!Number.isFinite(baseFare) || baseFare < 0) {
+                    setTariffError('Поле «Посадка» должно быть числом ≥ 0.');
+                    return;
+                  }
+                  if (!Number.isFinite(pricePerKm) || pricePerKm < 0) {
+                    setTariffError('Поле «₽/км» должно быть числом ≥ 0.');
+                    return;
+                  }
+                  if (pricePerMinute !== undefined && (!Number.isFinite(pricePerMinute) || pricePerMinute < 0)) {
+                    setTariffError('Поле «₽/мин» должно быть числом ≥ 0 или пустым.');
+                    return;
+                  }
+
                   try {
                     if (editingTariffId) {
                       await client.patch(`/tariffs/${editingTariffId}`, {
-                        name: tariffForm.name,
-                        baseFare: Number(tariffForm.baseFare),
-                        pricePerKm: Number(tariffForm.pricePerKm),
-                        pricePerMinute: tariffForm.pricePerMinute
-                          ? Number(tariffForm.pricePerMinute)
-                          : undefined,
+                        name,
+                        baseFare,
+                        pricePerKm,
+                        pricePerMinute,
                         isActive: tariffForm.isActive,
                       });
                     } else {
                       await client.post('/tariffs', {
-                        name: tariffForm.name,
-                        baseFare: Number(tariffForm.baseFare),
-                        pricePerKm: Number(tariffForm.pricePerKm),
-                        pricePerMinute: tariffForm.pricePerMinute
-                          ? Number(tariffForm.pricePerMinute)
-                          : undefined,
+                        name,
+                        baseFare,
+                        pricePerKm,
+                        pricePerMinute,
                         isActive: tariffForm.isActive,
                       });
                     }
@@ -279,10 +305,11 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
                     setEditingTariffId(null);
                     await loadTariffs();
                   } catch {
-                    // ignore
+                    setTariffError('Не удалось сохранить тариф. Проверьте поля и попробуйте ещё раз.');
                   }
                 }}
               >
+                {tariffError && <div className="error" style={{ marginBottom: 12 }}>{tariffError}</div>}
                 <div style={{ marginBottom: 12 }}>
                   <label>Название</label>
                   <input

@@ -32,7 +32,8 @@ export class AuthService {
       fullName: input.fullName,
     });
     const tokens = this.issueTokens(user.id, user.role);
-    return { user, ...tokens };
+    const { password: _password, ...safeUser } = user as any;
+    return { user: safeUser, ...tokens };
   }
 
   async login(phone: string, password: string) {
@@ -46,7 +47,8 @@ export class AuthService {
     }
 
     const tokens = this.issueTokens(user.id, user.role);
-    return { user, ...tokens };
+    const { password: _password, ...safeUser } = user as any;
+    return { user: safeUser, ...tokens };
   }
 
   async refresh(refreshToken: string) {
