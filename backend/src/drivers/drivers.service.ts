@@ -48,13 +48,9 @@ export class DriversService {
       }
     }
 
-    const data: { isOnline: boolean; lastRideFinishedAt?: Date } = { isOnline };
-    if (isOnline) {
-      data.lastRideFinishedAt = new Date();
-    }
     const driver = await this.prisma.driverProfile.update({
       where: { userId },
-      data,
+      data: { isOnline },
     });
     return driver;
   }

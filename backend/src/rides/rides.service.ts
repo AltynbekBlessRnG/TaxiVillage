@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RideStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -287,6 +287,14 @@ export class RidesService {
     });
     if (!driver) {
       throw new NotFoundException('Driver profile not found');
+    }
+
+    // Check driver balance - prevent negative balance
+    const MIN_BALANCE = -1000; // Allow some negative buffer but not too much
+    if (Number(driver.balance) < MIN_BALANCE) {
+      throw new BadRequestException(
+        `Баланс слишком низкий (${driver.balance} ₸). Пополните баланс чтобы принимать заказы. Минимум: ${MIN_BALANCE} ₸`
+      );
     }
 
     const ride = await this.prisma.ride.findUnique({ where: { id: rideId } });
