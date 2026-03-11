@@ -41,6 +41,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     lat: number;
     lng: number;
   }>>([]);
+  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'CASH'>('CARD');
 
   // Handle selected address from FavoriteAddresses screen
   useEffect(() => {
@@ -150,6 +151,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         toLat: toCoord?.latitude,
         toLng: toCoord?.longitude,
         stops: stops.filter(stop => stop.address.trim()),
+        paymentMethod,
       };
 
       const response = await apiClient.post('/rides', payload);
@@ -251,6 +253,29 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
           <TouchableOpacity style={styles.addStopButton} onPress={addStop}>
             <Text style={styles.addStopButtonText}>+ Добавить остановку</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Payment Method Selection */}
+        <View style={styles.paymentContainer}>
+          <Text style={styles.paymentTitle}>Способ оплаты</Text>
+          <View style={styles.paymentButtons}>
+            <TouchableOpacity
+              style={[styles.paymentButton, paymentMethod === 'CARD' && styles.paymentButtonActive]}
+              onPress={() => setPaymentMethod('CARD')}
+            >
+              <Text style={[styles.paymentButtonText, paymentMethod === 'CARD' && styles.paymentButtonTextActive]}>
+                💳 Карта
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.paymentButton, paymentMethod === 'CASH' && styles.paymentButtonActive]}
+              onPress={() => setPaymentMethod('CASH')}
+            >
+              <Text style={[styles.paymentButtonText, paymentMethod === 'CASH' && styles.paymentButtonTextActive]}>
+                💵 Наличные
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Large Primary Button */}

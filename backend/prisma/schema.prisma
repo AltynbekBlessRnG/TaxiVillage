@@ -115,6 +115,8 @@ model Ride {
 
   status           RideStatus      @default(SEARCHING_DRIVER)
 
+  paymentMethod    PaymentMethod    @default(CARD)
+
   fromAddress      String
   fromLat          Float
   fromLng          Float
@@ -193,6 +195,11 @@ enum DocumentType {
 enum MessageSender {
   PASSENGER
   DRIVER
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
 }
 
 /// Избранные адреса пассажира

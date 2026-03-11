@@ -48,6 +48,7 @@ export class RidesService {
         lat: number;
         lng: number;
       }>;
+      paymentMethod?: 'CARD' | 'CASH';
     },
   ) {
     const passengerProfile = await this.prisma.passengerProfile.findUnique({
@@ -108,6 +109,7 @@ export class RidesService {
           fromLng,
           toLat,
           toLng,
+          paymentMethod: data.paymentMethod || 'CARD',
           estimatedPrice,
         },
       });
