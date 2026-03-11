@@ -13,6 +13,7 @@ import { RidesGateway } from './rides.gateway';
   ],
   providers: [RidesService, RidesGateway],
   controllers: [RidesController],
+  exports: [RidesGateway],
 })
 export class RidesModule {}
 

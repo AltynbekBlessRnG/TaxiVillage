@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -10,7 +11,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IsBoolean, IsEnum, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsNumber, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { memoryStorage } from 'multer';
 import { DriversService } from './drivers.service';
 import { UploadService } from '../upload/upload.service';
@@ -22,6 +24,16 @@ import { DocumentType, UserRole } from '@prisma/client';
 class SetStatusDto {
   @IsBoolean()
   isOnline!: boolean;
+}
+
+class UpdateLocationDto {
+  @IsNumber()
+  @Type(() => Number)
+  lat!: number;
+
+  @IsNumber()
+  @Type(() => Number)
+  lng!: number;
 }
 
 class CarDto {
@@ -58,6 +70,14 @@ export class DriversController {
   setStatus(@Body() dto: SetStatusDto, @Req() req: any) {
     const userId: string = req.user.userId;
     return this.driversService.setOnlineStatus(userId, dto.isOnline);
+  }
+
+  @Patch('location')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  updateLocation(@Body() dto: UpdateLocationDto, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.driversService.updateLocation(userId, dto.lat, dto.lng);
   }
 
   @Get('current-ride')

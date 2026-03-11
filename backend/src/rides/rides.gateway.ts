@@ -1,6 +1,7 @@
 import {
   WebSocketGateway,
   WebSocketServer,
+  SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
@@ -57,6 +58,13 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Client ${client.id} disconnected`);
   }
 
+  @SubscribeMessage('join:ride')
+  async handleJoinRide(client: import('socket.io').Socket, rideId: string) {
+    const room = `ride:${rideId}`;
+    await client.join(room);
+    this.logger.log(`Client ${client.id} joined room ${room}`);
+  }
+
   emitRideCreated(ride: RidePayload) {
     const rooms: string[] = [];
     if (ride.passenger?.userId) {
@@ -81,5 +89,15 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     for (const room of rooms) {
       this.server.to(room).emit('ride:updated', ride);
     }
+  }
+
+  emitDriverMoved(rideId: string, lat: number, lng: number) {
+    const room = `ride:${rideId}`;
+    this.server.to(room).emit('driver:moved', { rideId, lat, lng });
+  }
+
+  emitRideOffer(driverUserId: string, ride: RidePayload) {
+    const room = `user:${driverUserId}`;
+    this.server.to(room).emit('ride:offer', ride);
   }
 }

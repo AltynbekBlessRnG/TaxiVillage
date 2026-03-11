@@ -1,16 +1,47 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentType, RideStatus } from '@prisma/client';
+import { RidesGateway } from '../rides/rides.gateway';
 
 @Injectable()
 export class DriversService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ridesGateway: RidesGateway,
+  ) {}
 
   async setOnlineStatus(userId: string, isOnline: boolean) {
+    const data: { isOnline: boolean; lastRideFinishedAt?: Date } = { isOnline };
+    if (isOnline) {
+      data.lastRideFinishedAt = new Date();
+    }
     const driver = await this.prisma.driverProfile.update({
       where: { userId },
-      data: { isOnline },
+      data,
     });
+    return driver;
+  }
+
+  async updateLocation(userId: string, lat: number, lng: number) {
+    const driver = await this.prisma.driverProfile.update({
+      where: { userId },
+      data: { lat, lng },
+    });
+
+    // Check if driver has an active ride and emit driver movement
+    const currentRide = await this.prisma.ride.findFirst({
+      where: {
+        driverId: driver.id,
+        status: {
+          in: [RideStatus.ON_THE_WAY, RideStatus.IN_PROGRESS],
+        },
+      },
+    });
+
+    if (currentRide) {
+      this.ridesGateway.emitDriverMoved(currentRide.id, lat, lng);
+    }
+
     return driver;
   }
 

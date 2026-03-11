@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { RidesService } from './rides.service';
 import { Roles } from '../auth/roles.decorator';
@@ -38,6 +38,12 @@ class CreateRideDto {
 class UpdateRideStatusDto {
   @IsString()
   status!: keyof typeof RideStatus;
+}
+
+class RateRideDto {
+  @IsInt()
+  @Type(() => Number)
+  stars!: number;
 }
 
 @Controller('rides')
@@ -82,6 +88,29 @@ export class RidesController {
     const role: UserRole = req.user.role;
     const status = RideStatus[dto.status];
     return this.ridesService.updateRideStatus(userId, role, id, status);
+  }
+
+  @Post(':id/accept')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  accept(@Param('id') id: string, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.ridesService.acceptRide(userId, id);
+  }
+
+  @Post(':id/reject')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  reject(@Param('id') id: string) {
+    return this.ridesService.rejectRide(id);
+  }
+
+  @Post(':id/rate')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  rate(@Param('id') id: string, @Body() dto: RateRideDto, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.ridesService.rateRide(userId, id, dto.stars);
   }
 }
 
