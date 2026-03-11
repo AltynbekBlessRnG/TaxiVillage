@@ -10,6 +10,7 @@ import { UploadModule } from './upload/upload.module';
 import { TariffsModule } from './tariffs/tariffs.module';
 import { FavoriteAddressesModule } from './favorite-addresses/favorite-addresses.module';
 import { ChatModule } from './chat/chat.module';
+import { GraphQLModule } from './graphql/graphql.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ChatModule } from './chat/chat.module';
     TariffsModule,
     FavoriteAddressesModule,
     ChatModule,
+    GraphQLModule,
   ],
 })
 export class AppModule {}

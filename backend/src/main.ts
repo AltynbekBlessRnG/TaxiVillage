@@ -32,6 +32,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   
   console.log(`TaxiVillage backend is running on http://localhost:${port}/api`);
+  console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
 }
 
 bootstrap().catch((err) => {
