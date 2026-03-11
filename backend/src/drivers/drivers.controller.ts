@@ -13,7 +13,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsBoolean, IsEnum, IsNumber, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { memoryStorage } from 'multer';
+import { memoryStorage, diskStorage } from 'multer';
 import { DriversService } from './drivers.service';
 import { UploadService } from '../upload/upload.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -53,8 +53,26 @@ class AddDocumentDto {
 }
 
 const uploadOpts = {
-  storage: memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  storage: diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, 'uploads/temp'); // Temporary folder for uploads
+    },
+    filename: (req, file, cb) => {
+      // Generate unique filename to prevent collisions
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = file.originalname.split('.').pop();
+      cb(null, `doc-${uniqueSuffix}.${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
+  fileFilter: (req, file, cb) => {
+    // Only allow image files for documents
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new BadRequestException('Only image files are allowed'));
+    }
+  },
 };
 
 @Controller('drivers')

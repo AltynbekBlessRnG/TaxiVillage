@@ -1,14 +1,66 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentType, DriverStatus, RideStatus } from '@prisma/client';
 import { RidesGateway } from '../rides/rides.gateway';
 
 @Injectable()
 export class DriversService {
+  private readonly logger = new Logger(DriversService.name);
+  
   constructor(
     private readonly prisma: PrismaService,
     private readonly ridesGateway: RidesGateway,
   ) {}
+
+  private locationCache = new Map<string, { lat: number; lng: number; lastUpdate: Date }>();
+  private readonly BATCH_INTERVAL = 30000; // 30 seconds
+  private locationBatchTimer?: NodeJS.Timeout;
+
+  // Start location batching on service initialization
+  onModuleInit() {
+    this.locationBatchTimer = setInterval(() => {
+      this.flushLocationBatch();
+    }, this.BATCH_INTERVAL);
+  }
+
+  // Cleanup on service destruction
+  onModuleDestroy() {
+    if (this.locationBatchTimer) {
+      clearInterval(this.locationBatchTimer);
+      this.flushLocationBatch(); // Flush any remaining updates
+    }
+  }
+
+  private async flushLocationBatch() {
+    if (this.locationCache.size === 0) return;
+
+    const updates: Array<{ userId: string; lat: number; lng: number }> = [];
+    
+    for (const [userId, location] of this.locationCache.entries()) {
+      updates.push({ userId, lat: location.lat, lng: location.lng });
+    }
+
+    if (updates.length > 0) {
+      try {
+        // Batch update all locations in a single transaction
+        await this.prisma.$transaction(
+          updates.map(({ userId, lat, lng }) =>
+            this.prisma.driverProfile.update({
+              where: { userId },
+              data: { lat, lng },
+            })
+          )
+        );
+        
+        this.logger.log(`Batch updated ${updates.length} driver locations`);
+      } catch (error) {
+        this.logger.error('Failed to batch update locations:', error);
+      }
+    }
+
+    // Clear the cache
+    this.locationCache.clear();
+  }
 
   async setOnlineStatus(userId: string, isOnline: boolean) {
     // If going online, validate driver profile
@@ -56,26 +108,36 @@ export class DriversService {
   }
 
   async updateLocation(userId: string, lat: number, lng: number) {
-    const driver = await this.prisma.driverProfile.update({
+    // Store in cache instead of immediate DB write
+    this.locationCache.set(userId, { lat, lng, lastUpdate: new Date() });
+    
+    // Also update the driver profile immediately for real-time tracking
+    // But only if we have an active ride (critical for passenger tracking)
+    const driver = await this.prisma.driverProfile.findUnique({
       where: { userId },
-      data: { lat, lng },
     });
 
-    // Check if driver has an active ride and emit driver movement
-    const currentRide = await this.prisma.ride.findFirst({
-      where: {
-        driverId: driver.id,
-        status: {
-          in: [RideStatus.ON_THE_WAY, RideStatus.IN_PROGRESS],
+    if (driver) {
+      // Check if driver has an active ride
+      const currentRide = await this.prisma.ride.findFirst({
+        where: {
+          driverId: driver.id,
+          status: {
+            in: [RideStatus.ON_THE_WAY, RideStatus.IN_PROGRESS],
+          },
         },
-      },
-    });
+      });
 
-    if (currentRide) {
-      this.ridesGateway.emitDriverMoved(currentRide.id, lat, lng);
+      if (currentRide) {
+        // For drivers with active rides, update immediately (critical for passenger)
+        await this.prisma.driverProfile.update({
+          where: { userId },
+          data: { lat, lng },
+        });
+      }
     }
 
-    return driver;
+    return { success: true };
   }
 
   async getCurrentRideForDriver(userId: string) {

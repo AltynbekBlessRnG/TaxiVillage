@@ -91,7 +91,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         // Join ride room for driver tracking
         socket.emit('join:ride', rideId);
         
-        socket.on('ride:updated', (updatedRide: RideData & { id: string }) => {
+        const handleRideUpdated = (updatedRide: RideData & { id: string }) => {
           if (isMounted && updatedRide.id === rideId) {
             setRide(updatedRide);
             applyRideToState(updatedRide, setStatus, setDriverInfo, setPriceInfo, setDriverLocation);
@@ -101,20 +101,10 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
               setShowRating(true);
             }
           }
-        });
-        
-        socket.on('driver:moved', (data: { rideId: string; lat: number; lng: number }) => {
+        };
+
+        const handleDriverMoved = (data: { rideId: string; lat: number; lng: number }) => {
           if (isMounted && data.rideId === rideId) {
-            // TODO: Implement smooth marker animation using react-native-maps Marker.Animated
-            // For smooth animation, consider using:
-            // 1. AnimatedRegion with timing/interpolation for smooth transitions
-            // 2. LayoutAnimation for simple transitions
-            // 3. react-native-maps Marker.Animated with coordinate interpolation
-            //
-            // Example animation implementation:
-            // Animated.timing(driverAnimatedCoordinate, {
-            //   toValue: { latitude: data.lat, longitude: data.lng },
-            //   duration: 500,
             //   useNativeDriver: false,
             // }).start();
             setDriverLocation({ lat: data.lat, lng: data.lng });

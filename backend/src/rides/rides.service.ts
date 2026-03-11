@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RideStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,6 +26,9 @@ function haversineDistance(
 
 @Injectable()
 export class RidesService {
+  private readonly logger = new Logger(RidesService.name);
+  private readonly rideOfferTimeouts = new Map<string, NodeJS.Timeout>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ridesGateway: RidesGateway,
@@ -322,6 +325,9 @@ export class RidesService {
       return u;
     });
 
+    // Clear timeout since ride was accepted
+    this.clearRideOfferTimeout(rideId);
+
     const rideWithUsers = await this.getRideById(rideId);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
 
@@ -333,6 +339,10 @@ export class RidesService {
     if (!ride) {
       throw new NotFoundException('Ride not found');
     }
+    
+    // Clear timeout since ride was rejected
+    this.clearRideOfferTimeout(rideId);
+    
     // Just return the ride - the passenger continues searching or can cancel
     return ride;
   }
@@ -403,7 +413,16 @@ export class RidesService {
     return { success: true };
   }
 
-  private async findAndOfferRideToDriver(rideWithUsers: any) {
+  private async findAndOfferRideToDriver(rideWithUsers: any, attempt: number = 1) {
+    const MAX_ATTEMPTS = 3;
+    const OFFER_TIMEOUT = 30000; // 30 seconds
+    
+    if (attempt > MAX_ATTEMPTS) {
+      this.logger.warn(`Ride ${rideWithUsers.id} - No driver found after ${MAX_ATTEMPTS} attempts, canceling ride`);
+      await this.cancelRideIfSearching(rideWithUsers.id);
+      return;
+    }
+
     const fromLat = rideWithUsers.fromLat;
     const fromLng = rideWithUsers.fromLng;
 
@@ -412,7 +431,7 @@ export class RidesService {
       where: {
         status: 'APPROVED',
         isOnline: true,
-        balance: { gte: new Prisma.Decimal(0) },
+        balance: { gte: new Prisma.Decimal(-1000) }, // Allow some negative but not too much
         lat: { not: null },
         lng: { not: null },
       },
@@ -422,7 +441,8 @@ export class RidesService {
     });
 
     if (drivers.length === 0) {
-      return; // No drivers available
+      this.logger.warn(`Ride ${rideWithUsers.id} - No eligible drivers available`);
+      return;
     }
 
     // Calculate distances and sort
@@ -453,11 +473,45 @@ export class RidesService {
     }
 
     if (selectedDriver) {
+      this.logger.log(`Ride ${rideWithUsers.id} - Offering to driver ${selectedDriver.driver.userId} (attempt ${attempt}/${MAX_ATTEMPTS})`);
+      
+      // Set timeout for this offer
+      const timeout = setTimeout(async () => {
+        this.logger.log(`Ride ${rideWithUsers.id} - Driver ${selectedDriver.driver.userId} didn't respond, trying next driver`);
+        await this.findAndOfferRideToDriver(rideWithUsers, attempt + 1);
+      }, OFFER_TIMEOUT);
+      
+      this.rideOfferTimeouts.set(rideWithUsers.id, timeout);
+      
       // Send ride offer to the selected driver
       this.ridesGateway.emitRideOffer(
         selectedDriver.driver.userId,
         rideWithUsers as any,
       );
+    } else {
+      this.logger.warn(`Ride ${rideWithUsers.id} - No driver found for attempt ${attempt}`);
+    }
+  }
+
+  private async cancelRideIfSearching(rideId: string) {
+    try {
+      await this.prisma.ride.update({
+        where: { id: rideId },
+        data: { status: RideStatus.CANCELED },
+      });
+      
+      const rideWithUsers = await this.getRideById(rideId);
+      this.ridesGateway.emitRideUpdated(rideWithUsers as any);
+    } catch (error) {
+      this.logger.error(`Failed to cancel ride ${rideId}:`, error);
+    }
+  }
+
+  clearRideOfferTimeout(rideId: string) {
+    const timeout = this.rideOfferTimeouts.get(rideId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.rideOfferTimeouts.delete(rideId);
     }
   }
 
@@ -476,4 +530,3 @@ export class RidesService {
     return created.id;
   }
 }
-
