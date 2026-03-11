@@ -103,10 +103,10 @@ export const CREATE_RIDE = gql`
     $passengerId: String!
     $fromAddress: String!
     $toAddress: String!
-    $fromLat: Int
-    $fromLng: Int
-    $toLat: Int
-    $toLng: Int
+    $fromLat: Float
+    $fromLng: Float
+    $toLat: Float
+    $toLng: Float
     $paymentMethod: String
     $stops: [StopInput]
   ) {

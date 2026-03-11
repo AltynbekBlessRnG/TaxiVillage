@@ -1,22 +1,73 @@
-import { Resolver, Query, Mutation, Args, Float } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Float, Int, InputType, Field, ObjectType } from '@nestjs/graphql';
 import { RidesService } from '../rides/rides.service';
 import { Ride } from '@prisma/client';
 
-@Resolver(() => Ride)
+@InputType()
+class StopInput {
+  @Field(() => String)
+  address!: string;
+
+  @Field(() => Float)
+  lat!: number;
+
+  @Field(() => Float)
+  lng!: number;
+}
+
+@ObjectType()
+class RideType {
+  @Field(() => String)
+  id!: string;
+
+  @Field(() => String)
+  status!: string;
+
+  @Field(() => String, { nullable: true })
+  fromAddress?: string;
+
+  @Field(() => String, { nullable: true })
+  toAddress?: string;
+
+  @Field(() => Float, { nullable: true })
+  fromLat?: number;
+
+  @Field(() => Float, { nullable: true })
+  fromLng?: number;
+
+  @Field(() => Float, { nullable: true })
+  toLat?: number;
+
+  @Field(() => Float, { nullable: true })
+  toLng?: number;
+
+  @Field(() => String, { nullable: true })
+  paymentMethod?: string;
+
+  @Field(() => Float, { nullable: true })
+  estimatedPrice?: number;
+
+  @Field(() => Float, { nullable: true })
+  finalPrice?: number;
+
+  @Field(() => String)
+  createdAt!: string;
+}
+
+@Resolver(() => RideType)
 export class RideResolver {
   constructor(private readonly rideService: RidesService) {}
 
-  @Query(() => [Ride], { name: 'rides' })
+  @Query(() => [RideType], { name: 'rides' })
   async getRides(@Args('userId', { type: () => String }) userId: string) {
     return this.rideService.getRidesForUser(userId, 'PASSENGER');
   }
 
-  @Query(() => Ride, { name: 'ride', nullable: true })
+  @Query(() => RideType, { name: 'ride', nullable: true })
   async getRide(@Args('id', { type: () => String }) id: string) {
     return this.rideService.getRideById(id);
   }
 
-  @Mutation(() => Ride, { name: 'createRide' })
+  @Mutation(() => RideType, { name: 'createRide' })
   async createRide(
     @Args('passengerId', { type: () => String }) passengerId: string,
     @Args('fromAddress', { type: () => String }) fromAddress: string,
@@ -26,7 +77,7 @@ export class RideResolver {
     @Args('toLat', { type: () => Float, nullable: true }) toLat?: number,
     @Args('toLng', { type: () => Float, nullable: true }) toLng?: number,
     @Args('paymentMethod', { type: () => String, nullable: true }) paymentMethod?: 'CARD' | 'CASH',
-    @Args('stops', { type: () => [String], nullable: true }) stops?: Array<{address: string, lat: number, lng: number}>,
+    @Args('stops', { type: () => [StopInput], nullable: true }) stops?: StopInput[],
   ) {
     return this.rideService.createRideForPassenger(passengerId, {
       fromAddress,
@@ -36,7 +87,11 @@ export class RideResolver {
       toLat,
       toLng,
       paymentMethod,
-      stops,
+      stops: stops?.map(stop => ({
+        address: stop.address,
+        lat: stop.lat,
+        lng: stop.lng,
+      })),
     });
   }
 }

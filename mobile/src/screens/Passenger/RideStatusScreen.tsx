@@ -73,8 +73,9 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
-    let socket: ReturnType<typeof createRidesSocket> | null = null;
     let isMounted = true;
+    let socket: ReturnType<typeof createRidesSocket> | null = null;
+    let cleanupFn: (() => void) | null = null;
 
     const init = async () => {
       try {
@@ -105,28 +106,43 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
 
         const handleDriverMoved = (data: { rideId: string; lat: number; lng: number }) => {
           if (isMounted && data.rideId === rideId) {
-            //   useNativeDriver: false,
-            // }).start();
             setDriverLocation({ lat: data.lat, lng: data.lng });
           }
-        });
-        
-        socket.on('ride:created', (updatedRide: RideData & { id: string }) => {
+        };
+
+        const handleRideCreated = (updatedRide: RideData & { id: string }) => {
           if (isMounted && updatedRide.id === rideId) {
             applyRideToState(updatedRide, setStatus, setDriverInfo, setPriceInfo, setDriverLocation);
           }
-        });
+        };
+        
+        // Add all event listeners
+        socket.on('ride:created', handleRideCreated);
+        socket.on('ride:updated', handleRideUpdated);
+        socket.on('driver:moved', handleDriverMoved);
+
+        // Store cleanup function
+        cleanupFn = () => {
+          if (socket) {
+            socket.off('ride:created', handleRideCreated);
+            socket.off('ride:updated', handleRideUpdated);
+            socket.off('driver:moved', handleDriverMoved);
+            socket.disconnect();
+          }
+        };
       } catch {
         // ignore
+        cleanupFn = () => {}; // Return empty cleanup function on error
       }
     };
 
     init();
+    
     return () => {
       isMounted = false;
-      socket?.disconnect();
+      cleanupFn?.(); // Execute the cleanup function
     };
-  }, [rideId]);
+  }, [rideId, showRating]);
 
   // Fit map to show markers when driver location changes
   useEffect(() => {
@@ -156,6 +172,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
   const handleCancel = async () => {
     try {
       await apiClient.post(`/rides/${rideId}/cancel`);
+      // @ts-ignore
       navigation.replace('PassengerHome');
     } catch {
       // ignore
@@ -263,6 +280,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
           {status === 'DRIVER_ASSIGNED' && (
             <TouchableOpacity 
               style={styles.secondaryButton}
+              // @ts-ignore
               onPress={() => navigation.navigate('ChatScreen', { rideId })}
             >
               <Text style={styles.secondaryButtonText}>💬 Чат с водителем</Text>
@@ -271,6 +289,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
           
           <TouchableOpacity 
             style={styles.homeButton}
+            // @ts-ignore
             onPress={() => navigation.replace('PassengerHome')}
           >
             <Text style={styles.homeButtonText}>На главный экран</Text>

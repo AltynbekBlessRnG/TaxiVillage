@@ -142,6 +142,38 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     setLoading(true);
     setError(null);
 
+    // Validation
+    if (!fromAddress.trim()) {
+      setError('Укажите адрес отправления');
+      setLoading(false);
+      return;
+    }
+
+    if (!toAddress.trim()) {
+      setError('Укажите адрес назначения');
+      setLoading(false);
+      return;
+    }
+
+    if (!fromCoord || !toCoord) {
+      setError('Не удалось определить координаты. Попробуйте выбрать адреса из списка');
+      setLoading(false);
+      return;
+    }
+
+    // Validate stops
+    const validStops = stops.filter(stop => {
+      if (!stop.address.trim()) return false;
+      if (stop.lat === 0 || stop.lng === 0) return false;
+      return true;
+    });
+
+    if (validStops.length !== stops.length) {
+      setError('Некоторые остановки имеют неверные координаты. Проверьте все остановки');
+      setLoading(false);
+      return;
+    }
+
     try {
       const payload = {
         fromAddress: fromAddress.trim(),
@@ -150,15 +182,17 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         fromLng: fromCoord?.longitude,
         toLat: toCoord?.latitude,
         toLng: toCoord?.longitude,
-        stops: stops.filter(stop => stop.address.trim()),
+        stops: validStops,
         paymentMethod,
       };
 
       const response = await apiClient.post('/rides', payload);
       const rideId: string = response.data.id;
       navigation.navigate('RideStatus', { rideId });
-    } catch (e) {
-      setError('Не удалось создать поездку.');
+    } catch (e: any) {
+      console.error('Create ride error:', e);
+      const errorMessage = e.response?.data?.message || 'Не удалось создать поездку';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

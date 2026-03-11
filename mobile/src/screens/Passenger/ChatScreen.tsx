@@ -55,7 +55,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         const auth = await loadAuth();
         if (!auth?.token) return;
 
-        currentUserId.current = auth.userId;
+        currentUserId.current = auth.userId || '';
 
         // Load ride data to get driver ID
         const rideResponse = await apiClient.get(`/rides/${rideId}`);
@@ -107,17 +107,29 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
       const auth = await loadAuth();
       if (!auth?.token) return;
 
-      // Get driver ID from ride data
-      const driverId = ride?.driver?.id;
-      if (!driverId) {
-        Alert.alert('Ошибка', 'Водитель не найден');
+      // Determine receiver based on user role
+      let receiverId: string;
+      let receiverType: 'PASSENGER' | 'DRIVER';
+
+      if (auth.role === 'DRIVER') {
+        // Driver sending to passenger
+        receiverId = ride?.passenger?.id || '';
+        receiverType = 'PASSENGER';
+      } else {
+        // Passenger sending to driver
+        receiverId = ride?.driver?.id || '';
+        receiverType = 'DRIVER';
+      }
+
+      if (!receiverId) {
+        Alert.alert('Ошибка', 'Получатель не найден');
         return;
       }
 
       const response = await apiClient.post(`/chat/send/${rideId}`, {
         content: newMessage.trim(),
-        receiverId: driverId,
-        receiverType: 'DRIVER',
+        receiverId,
+        receiverType,
       });
 
       setNewMessage('');

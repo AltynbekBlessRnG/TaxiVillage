@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentType, DriverStatus, RideStatus } from '@prisma/client';
 import { RidesGateway } from '../rides/rides.gateway';
@@ -14,13 +14,19 @@ export class DriversService {
 
   private locationCache = new Map<string, { lat: number; lng: number; lastUpdate: Date }>();
   private readonly BATCH_INTERVAL = 30000; // 30 seconds
+  private readonly CACHE_CLEANUP_INTERVAL = 60000; // 1 minute - clean old entries
   private locationBatchTimer?: NodeJS.Timeout;
+  private cacheCleanupTimer?: NodeJS.Timeout;
 
   // Start location batching on service initialization
   onModuleInit() {
     this.locationBatchTimer = setInterval(() => {
       this.flushLocationBatch();
     }, this.BATCH_INTERVAL);
+    
+    this.cacheCleanupTimer = setInterval(() => {
+      this.cleanupOldCacheEntries();
+    }, this.CACHE_CLEANUP_INTERVAL);
   }
 
   // Cleanup on service destruction
@@ -28,6 +34,24 @@ export class DriversService {
     if (this.locationBatchTimer) {
       clearInterval(this.locationBatchTimer);
       this.flushLocationBatch(); // Flush any remaining updates
+    }
+    if (this.cacheCleanupTimer) {
+      clearInterval(this.cacheCleanupTimer);
+    }
+  }
+
+  private cleanupOldCacheEntries() {
+    const now = new Date();
+    const STALE_TIME = 120000; // 2 minutes
+    
+    for (const [userId, location] of this.locationCache.entries()) {
+      if (now.getTime() - location.lastUpdate.getTime() > STALE_TIME) {
+        this.locationCache.delete(userId);
+      }
+    }
+    
+    if (this.locationCache.size > 0) {
+      this.logger.debug(`Location cache contains ${this.locationCache.size} active drivers`);
     }
   }
 

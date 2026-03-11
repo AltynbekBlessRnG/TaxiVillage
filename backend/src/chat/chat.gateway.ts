@@ -7,64 +7,85 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
-import { Logger, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Logger } from '@nestjs/common';
 import { ChatService } from './chat.service';
+import { JwtService } from '@nestjs/jwt';
+import { JwtPayload } from '../auth/auth.service';
+import { Socket } from 'socket.io';
 
 @WebSocketGateway({
+  namespace: '/chat',
   cors: {
     origin: '*',
   },
 })
-export class ChatGateway {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server!: Socket;
+
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  @UseGuards(AuthGuard('jwt'))
-  async handleConnection(client: ConnectedSocket) {
-    this.logger.log(`Client connected: ${client.id}`);
+  async handleConnection(client: Socket) {
+    const token = client.handshake.auth?.token;
+    if (!token) {
+      this.logger.warn('Chat socket connection rejected: no token');
+      client.disconnect();
+      return;
+    }
+
+    try {
+      const payload = this.jwtService.verify<JwtPayload>(token);
+      const userId = payload.sub;
+      (client as any).userId = userId;
+      this.logger.log(`Chat client connected: ${client.id} (user: ${userId})`);
+    } catch (error) {
+      this.logger.warn('Chat socket connection rejected: invalid token');
+      client.disconnect();
+    }
   }
 
-  @OnGatewayDisconnect()
-  handleDisconnect(client: ConnectedSocket) {
-    this.logger.log(`Client disconnected: ${client.id}`);
+  handleDisconnect(client: Socket) {
+    this.logger.log(`Chat client disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('join:ride')
   async handleJoinRide(
-    client: ConnectedSocket,
+    @ConnectedSocket() client: Socket,
     @MessageBody() data: { rideId: string },
   ) {
+    const userId = (client as any).userId;
     client.join(`ride:${data.rideId}`);
-    this.logger.log(`Client ${client.id} joined ride ${data.rideId}`);
+    (client as any).rideId = data.rideId;
+    this.logger.log(`User ${userId} joined chat for ride ${data.rideId}`);
   }
 
   @SubscribeMessage('send:message')
   async handleSendMessage(
-    client: ConnectedSocket,
+    @ConnectedSocket() client: Socket,
     @MessageBody() data: { content: string; receiverId: string; receiverType: string },
   ) {
     try {
-      const userId = client.data.userId; // Set by AuthGuard
-      const rideId = client.data.rideId; // Set when joining ride room
+      const userId = (client as any).userId;
+      const rideId = (client as any).rideId;
       
-      await this.chatService.sendMessage(userId, rideId, {
+      if (!rideId) {
+        client.emit('error', { message: 'Not joined to any ride room' });
+        return;
+      }
+      
+      const message = await this.chatService.sendMessage(userId, rideId, {
         content: data.content,
         receiverId: data.receiverId,
         receiverType: data.receiverType as any,
       });
 
       // Broadcast to ride room
-      client.to(`ride:${rideId}`).emit('message:sent', {
-        id: Date.now().toString(),
-        senderId: userId,
-        senderType: data.receiverType === 'PASSENGER' ? 'DRIVER' : 'PASSENGER',
-        receiverId: data.receiverId,
-        receiverType: data.receiverType,
-        content: data.content,
-        createdAt: new Date().toISOString(),
-      });
+      this.server.to(`ride:${rideId}`).emit('message:sent', message);
 
       this.logger.log(`Message sent from ${userId} in ride ${rideId}`);
     } catch (error) {

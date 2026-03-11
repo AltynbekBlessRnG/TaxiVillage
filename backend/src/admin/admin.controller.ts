@@ -2,10 +2,8 @@ import { Body, Controller, Get, NotFoundException, Patch, Param, UseGuards } fro
 import { IsBoolean, IsEnum, IsNumber, Min } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
-import { DriverStatus, UserRole } from '@prisma/client';
+import { AdminGuard } from '../auth/admin.guard';
+import { DriverStatus } from '@prisma/client';
 
 class UpdateDriverStatusDto {
   @IsEnum(DriverStatus)
@@ -24,8 +22,7 @@ class TopUpDriverDto {
 }
 
 @Controller('admin')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles(UserRole.ADMIN)
+@UseGuards(AdminGuard)
 export class AdminController {
   constructor(private readonly prisma: PrismaService) {}
 

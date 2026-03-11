@@ -13,13 +13,21 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsBoolean, IsEnum, IsNumber, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { memoryStorage, diskStorage } from 'multer';
+import { diskStorage } from 'multer';
 import { DriversService } from './drivers.service';
 import { UploadService } from '../upload/upload.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { DocumentType, UserRole } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Ensure temp directory exists
+const TEMP_DIR = path.join(process.cwd(), 'uploads/temp');
+if (!fs.existsSync(TEMP_DIR)) {
+  fs.mkdirSync(TEMP_DIR, { recursive: true });
+}
 
 class SetStatusDto {
   @IsBoolean()
@@ -55,7 +63,7 @@ class AddDocumentDto {
 const uploadOpts = {
   storage: diskStorage({
     destination: (req, file, cb) => {
-      cb(null, 'uploads/temp'); // Temporary folder for uploads
+      cb(null, TEMP_DIR); // Use predefined temp directory
     },
     filename: (req, file, cb) => {
       // Generate unique filename to prevent collisions
@@ -64,7 +72,10 @@ const uploadOpts = {
       cb(null, `doc-${uniqueSuffix}.${ext}`);
     },
   }),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10 MB limit
+    files: 1 // Limit to 1 file per request
+  },
   fileFilter: (req, file, cb) => {
     // Only allow image files for documents
     if (file.mimetype.startsWith('image/')) {

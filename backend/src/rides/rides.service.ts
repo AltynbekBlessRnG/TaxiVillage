@@ -78,11 +78,41 @@ export class RidesService {
     let distanceKm = 5; // fallback для городской поездки
     const hasFrom = fromLat !== 0 || fromLng !== 0;
     const hasTo = toLat !== 0 || toLng !== 0;
-    if (hasFrom && hasTo) {
-      distanceKm = haversineDistance(fromLat, fromLng, toLat, toLng);
-    } else if (hasFrom && !hasTo) {
-      // только точка отправления — оцениваем 3 км по умолчанию
-      distanceKm = 3;
+    
+    // Calculate total distance including stops
+    distanceKm = 0;
+    const coordinates: { lat: number; lng: number }[] = [];
+    
+    // Add starting point
+    if (hasFrom) {
+      coordinates.push({ lat: fromLat, lng: fromLng });
+    }
+    
+    // Add stops if provided
+    if (data.stops && data.stops.length > 0) {
+      data.stops.forEach(stop => {
+        coordinates.push({ lat: stop.lat, lng: stop.lng });
+      });
+    }
+    
+    // Add destination
+    if (hasTo) {
+      coordinates.push({ lat: toLat, lng: toLng });
+    }
+    
+    // Calculate distance between each consecutive pair of points
+    for (let i = 0; i < coordinates.length - 1; i++) {
+      distanceKm += haversineDistance(
+        coordinates[i].lat,
+        coordinates[i].lng,
+        coordinates[i + 1].lat,
+        coordinates[i + 1].lng
+      );
+    }
+    
+    // If no coordinates available, use default
+    if (distanceKm === 0 && hasFrom && !hasTo) {
+      distanceKm = 3; // только точка отправления — оцениваем 3 км по умолчанию
     }
 
     const estimatedMinutes = Math.ceil((distanceKm / 0.5)); // ~30 км/ч в городе
@@ -287,13 +317,30 @@ export class RidesService {
 
       // Deduct commission from driver balance and update lastRideFinishedAt
       if (status === RideStatus.COMPLETED && commissionAmount && ride.driverId) {
-        await tx.driverProfile.update({
+        const driver = await tx.driverProfile.findUnique({
           where: { id: ride.driverId },
-          data: {
-            balance: { decrement: commissionAmount },
-            lastRideFinishedAt: now,
-          },
+          select: { balance: true }
         });
+
+        if (!driver) {
+          throw new NotFoundException('Driver not found');
+        }
+
+        const currentBalance = Number(driver.balance);
+        const commissionToDeduct = Number(commissionAmount);
+
+        if (currentBalance < commissionToDeduct) {
+          this.logger.warn(`Driver ${ride.driverId} has insufficient balance (${currentBalance}) for commission (${commissionToDeduct})`);
+          // Still proceed with ride completion but don't deduct commission
+        } else {
+          await tx.driverProfile.update({
+            where: { id: ride.driverId },
+            data: {
+              balance: { decrement: commissionAmount },
+              lastRideFinishedAt: now,
+            },
+          });
+        }
       }
 
       await tx.rideStatusHistory.create({
@@ -321,7 +368,7 @@ export class RidesService {
     }
 
     // Check driver balance - prevent negative balance
-    const MIN_BALANCE = -1000; // Allow some negative buffer but not too much
+    const MIN_BALANCE = -500; // Allow small negative buffer but prevent debt accumulation
     if (Number(driver.balance) < MIN_BALANCE) {
       throw new BadRequestException(
         `Баланс слишком низкий (${driver.balance} ₸). Пополните баланс чтобы принимать заказы. Минимум: ${MIN_BALANCE} ₸`
@@ -441,7 +488,7 @@ export class RidesService {
     return { success: true };
   }
 
-  private async findAndOfferRideToDriver(rideWithUsers: any, attempt: number = 1) {
+  private async findAndOfferRideToDriver(rideWithUsers: any, attempt: number = 1, excludedDriverIds: Set<string> = new Set()) {
     const MAX_ATTEMPTS = 3;
     const OFFER_TIMEOUT = 30000; // 30 seconds
     
@@ -454,14 +501,15 @@ export class RidesService {
     const fromLat = rideWithUsers.fromLat;
     const fromLng = rideWithUsers.fromLng;
 
-    // Find all eligible drivers: online, approved, non-negative balance
+    // Find all eligible drivers: online, approved, non-negative balance, not previously offered
     const drivers = await this.prisma.driverProfile.findMany({
       where: {
         status: 'APPROVED',
         isOnline: true,
-        balance: { gte: new Prisma.Decimal(-1000) }, // Allow some negative but not too much
+        balance: { gte: new Prisma.Decimal(-500) }, // Match acceptRide threshold
         lat: { not: null },
         lng: { not: null },
+        id: { notIn: Array.from(excludedDriverIds) }, // Exclude already offered drivers
       },
       include: {
         user: true,
@@ -469,7 +517,7 @@ export class RidesService {
     });
 
     if (drivers.length === 0) {
-      this.logger.warn(`Ride ${rideWithUsers.id} - No eligible drivers available`);
+      this.logger.warn(`Ride ${rideWithUsers.id} - No eligible drivers available (attempt ${attempt})`);
       return;
     }
 
@@ -484,8 +532,9 @@ export class RidesService {
       .filter((d) => d.distance <= 4)
       .sort((a, b) => {
         // Sort by lastRideFinishedAt (oldest first - fair rotation)
-        const timeA = a.driver.lastRideFinishedAt?.getTime() ?? 0;
-        const timeB = b.driver.lastRideFinishedAt?.getTime() ?? 0;
+        // New drivers (null) go to end of queue, not front
+        const timeA = a.driver.lastRideFinishedAt?.getTime() || Date.now();
+        const timeB = b.driver.lastRideFinishedAt?.getTime() || Date.now();
         return timeA - timeB;
       });
 
@@ -503,10 +552,13 @@ export class RidesService {
     if (selectedDriver) {
       this.logger.log(`Ride ${rideWithUsers.id} - Offering to driver ${selectedDriver.driver.userId} (attempt ${attempt}/${MAX_ATTEMPTS})`);
       
+      // Add this driver to excluded list for next attempts
+      excludedDriverIds.add(selectedDriver.driver.id);
+      
       // Set timeout for this offer
       const timeout = setTimeout(async () => {
         this.logger.log(`Ride ${rideWithUsers.id} - Driver ${selectedDriver.driver.userId} didn't respond, trying next driver`);
-        await this.findAndOfferRideToDriver(rideWithUsers, attempt + 1);
+        await this.findAndOfferRideToDriver(rideWithUsers, attempt + 1, excludedDriverIds);
       }, OFFER_TIMEOUT);
       
       this.rideOfferTimeouts.set(rideWithUsers.id, timeout);
