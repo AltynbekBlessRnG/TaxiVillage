@@ -8,14 +8,15 @@ export const apolloClient = new ApolloClient({
   link: httpLink,
   cache: new InMemoryCache(),
   defaultOptions: {
-    watchQuery: true,
-  errorPolicy: 'all',
-  notifyOnNetworkStatusChange: true,
-  connectToDevTools: true,
-  queryDeduplication: true,
-  defaultContext: {
-    headers: {
-      'Content-Type': 'application/json',
+    watchQuery: {
+      errorPolicy: 'all',
+      notifyOnNetworkStatusChange: true,
+    },
+    query: {
+      errorPolicy: 'all',
+    },
+    mutate: {
+      errorPolicy: 'all',
     },
   },
   ssrMode: false,

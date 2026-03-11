@@ -43,6 +43,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ride, setRide] = useState<any>(null);
   const flatListRef = useRef<FlatList>(null);
   const socketRef = useRef<any>(null);
 
@@ -55,6 +56,10 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         if (!auth?.token) return;
 
         currentUserId.current = auth.userId;
+
+        // Load ride data to get driver ID
+        const rideResponse = await apiClient.get(`/rides/${rideId}`);
+        setRide(rideResponse.data);
         
         const socket = createChatSocket(auth.token);
         socketRef.current = socket;
@@ -102,10 +107,16 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
       const auth = await loadAuth();
       if (!auth?.token) return;
 
-      // For demo, assume passenger messaging driver
+      // Get driver ID from ride data
+      const driverId = ride?.driver?.id;
+      if (!driverId) {
+        Alert.alert('Ошибка', 'Водитель не найден');
+        return;
+      }
+
       const response = await apiClient.post(`/chat/send/${rideId}`, {
         content: newMessage.trim(),
-        receiverId: 'driver-id', // Would need actual driver ID from ride data
+        receiverId: driverId,
         receiverType: 'DRIVER',
       });
 

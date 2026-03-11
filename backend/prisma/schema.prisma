@@ -34,8 +34,8 @@ model PassengerProfile {
 
   rides     Ride[]   @relation("PassengerRides")
   favoriteAddresses FavoriteAddress[]
-  sentMessages     Message[]     @relation("SentMessages")
-  receivedMessages Message[]     @relation("ReceivedMessages")
+  sentMessages     Message[]     @relation("SentPassengerMessages")
+  receivedMessages Message[]     @relation("ReceivedPassengerMessages")
 }
 
 /// Профиль водителя
@@ -57,6 +57,8 @@ model DriverProfile {
   car          Car?
   rides        Ride[]        @relation("DriverRides")
   documents    DriverDocument[]
+  sentMessages Message[]     @relation("SentDriverMessages")
+  receivedMessages Message[] @relation("ReceivedDriverMessages")
 }
 
 /// Автомобиль водителя
@@ -225,15 +227,17 @@ model Message {
   rideId      String
   ride        Ride     @relation(fields: [rideId], references: [id])
   
-  // Отправитель
+  // Отправитель - может быть пассажир или водитель
   senderId    String
   senderType  MessageSender
-  sender      PassengerProfile? @relation("SentMessages", fields: [senderId], references: [id])
+  sender      PassengerProfile? @relation("SentPassengerMessages", fields: [senderId], references: [id], map: "Message_senderId_passenger_fkey")
+  driverSender DriverProfile? @relation("SentDriverMessages", fields: [senderId], references: [id], map: "Message_senderId_driver_fkey")
   
-  // Получатель
+  // Получатель - может быть пассажир или водитель
   receiverId  String
   receiverType MessageSender
-  receiver    PassengerProfile? @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  receiver    PassengerProfile? @relation("ReceivedPassengerMessages", fields: [receiverId], references: [id], map: "Message_receiverId_passenger_fkey")
+  driverReceiver DriverProfile? @relation("ReceivedDriverMessages", fields: [receiverId], references: [id], map: "Message_receiverId_driver_fkey")
   
   content     String
   createdAt   DateTime @default(now())
