@@ -62,7 +62,7 @@ function applyRideToState(
   }
 }
 
-export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
+export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) => {
   const { rideId } = route.params;
   const [status, setStatus] = useState<string>('');
   const [driverInfo, setDriverInfo] = useState<string | null>(null);

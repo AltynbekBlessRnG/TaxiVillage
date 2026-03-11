@@ -10,3 +10,11 @@ export function createRidesSocket(token: string): Socket {
     transports: ['websocket'],
   });
 }
+
+export function createChatSocket(token: string): Socket {
+  return io(`${WS_BASE}/chat`, {
+    path: '/socket.io',
+    auth: { token },
+    transports: ['websocket'],
+  });
+}
