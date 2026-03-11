@@ -1,9 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MapView, { Marker, Polyline, type LatLng } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+
+// Dark map style for Google Maps
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
+  { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#4b6878' }] },
+  { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#64779e' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry.stroke', stylers: [{ color: '#334e87' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#0F172A' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#283d6a' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6f9ba5' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3B82F6' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverRide'>;
 
@@ -67,13 +84,14 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Map as full background */}
       <View style={styles.mapWrap}>
         {initialRegion ? (
-          <MapView ref={(r) => (mapRef.current = r)} style={styles.map} initialRegion={initialRegion}>
-            {fromCoord && <Marker coordinate={fromCoord} title="A" />}
-            {toCoord && <Marker coordinate={toCoord} title="B" pinColor="#007AFF" />}
+          <MapView ref={mapRef} style={styles.map} initialRegion={initialRegion} customMapStyle={darkMapStyle}>
+            {fromCoord && <Marker coordinate={fromCoord} title="A" pinColor="#10B981" />}
+            {toCoord && <Marker coordinate={toCoord} title="B" pinColor="#3B82F6" />}
             {fromCoord && toCoord && (
-              <Polyline coordinates={[fromCoord, toCoord]} strokeWidth={4} strokeColor="#007AFF" />
+              <Polyline coordinates={[fromCoord, toCoord]} strokeWidth={4} strokeColor="#3B82F6" />
             )}
           </MapView>
         ) : (
@@ -83,12 +101,40 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
         )}
       </View>
 
-      <View style={styles.panel}>
+      {/* Floating Bottom Sheet */}
+      <View style={styles.bottomSheet}>
+        <View style={styles.handleBar} />
+        
         <Text style={styles.title}>Текущая поездка</Text>
-        <Text style={styles.status}>Статус: {status}</Text>
-        <Button title="Еду к клиенту" onPress={() => updateStatus('ON_THE_WAY')} />
-        <Button title="Везу клиента" onPress={() => updateStatus('IN_PROGRESS')} />
-        <Button title="Завершить поездку" onPress={() => updateStatus('COMPLETED')} />
+        
+        <View style={styles.statusCard}>
+          <Text style={styles.statusLabel}>Статус</Text>
+          <Text style={styles.statusValue}>{status}</Text>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.buttonGroup}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.onTheWayButton]}
+            onPress={() => updateStatus('ON_THE_WAY')}
+          >
+            <Text style={styles.actionButtonText}>Еду к клиенту</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.inProgressButton]}
+            onPress={() => updateStatus('IN_PROGRESS')}
+          >
+            <Text style={styles.actionButtonText}>Везу клиента</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.completeButton]}
+            onPress={() => updateStatus('COMPLETED')}
+          >
+            <Text style={styles.completeButtonText}>Завершить поездку</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -97,35 +143,105 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#0F172A',
   },
   mapWrap: {
-    flex: 1,
-    backgroundColor: '#eee',
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+    backgroundColor: '#0F172A',
   },
   map: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   mapPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0F172A',
   },
   mapPlaceholderText: {
-    color: '#666',
+    color: '#64748B',
+    fontSize: 16,
   },
-  panel: {
-    flex: 1,
-    padding: 24,
+  // Floating Bottom Sheet
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E293B',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 34,
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderBottomWidth: 0,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#475569',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: '#F8FAFC',
     marginBottom: 16,
+    textAlign: 'center',
   },
-  status: {
-    fontSize: 16,
+  statusCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+  },
+  statusLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  statusValue: {
+    color: '#3B82F6',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  buttonGroup: {
+    gap: 12,
+  },
+  actionButton: {
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  onTheWayButton: {
+    backgroundColor: '#F59E0B',
+  },
+  inProgressButton: {
+    backgroundColor: '#3B82F6',
+  },
+  completeButton: {
+    backgroundColor: '#10B981',
+  },
+  completeButtonText: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
 

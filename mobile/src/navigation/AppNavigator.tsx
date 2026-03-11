@@ -6,6 +6,7 @@ import { RegisterScreen } from '../screens/Auth/RegisterScreen';
 import { PassengerHomeScreen } from '../screens/Passenger/PassengerHomeScreen';
 import { RideStatusScreen } from '../screens/Passenger/RideStatusScreen';
 import { DriverHomeScreen } from '../screens/Driver/DriverHomeScreen';
+import { DriverProfileScreen } from '../screens/Driver/DriverProfileScreen';
 import { DriverRideScreen } from '../screens/Driver/DriverRideScreen';
 import { RideHistoryScreen } from '../screens/RideHistoryScreen';
 import { loadAuth } from '../storage/authStorage';
@@ -17,6 +18,7 @@ export type RootStackParamList = {
   PassengerHome: undefined;
   RideStatus: { rideId: string };
   DriverHome: undefined;
+  DriverProfile: undefined;
   DriverRide: { rideId: string };
   RideHistory: undefined;
 };
@@ -58,6 +60,7 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="PassengerHome" component={PassengerHomeScreen} options={{ title: 'Поездка' }} />
       <Stack.Screen name="RideStatus" component={RideStatusScreen} options={{ title: 'Статус поездки' }} />
       <Stack.Screen name="DriverHome" component={DriverHomeScreen} options={{ title: 'Водитель' }} />
+      <Stack.Screen name="DriverProfile" component={DriverProfileScreen} options={{ title: 'Профиль' }} />
       <Stack.Screen name="DriverRide" component={DriverRideScreen} options={{ title: 'Текущая поездка' }} />
       <Stack.Screen name="RideHistory" component={RideHistoryScreen} options={{ title: 'История поездок' }} />
     </Stack.Navigator>

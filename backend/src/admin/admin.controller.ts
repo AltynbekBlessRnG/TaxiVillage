@@ -1,5 +1,6 @@
 import { Body, Controller, Get, NotFoundException, Patch, Param, UseGuards } from '@nestjs/common';
-import { IsBoolean, IsEnum } from 'class-validator';
+import { IsBoolean, IsEnum, IsNumber, Min } from 'class-validator';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
@@ -14,6 +15,12 @@ class UpdateDriverStatusDto {
 class ApproveDocumentDto {
   @IsBoolean()
   approved!: boolean;
+}
+
+class TopUpDriverDto {
+  @IsNumber()
+  @Min(0.01)
+  amount!: number;
 }
 
 @Controller('admin')
@@ -91,6 +98,31 @@ export class AdminController {
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
+  }
+
+  @Patch('drivers/:id/top-up')
+  async topUpDriverBalance(
+    @Param('id') driverId: string,
+    @Body() dto: TopUpDriverDto,
+  ) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { id: driverId },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const amountDecimal = new Prisma.Decimal(dto.amount);
+
+    const updated = await this.prisma.driverProfile.update({
+      where: { id: driverId },
+      data: {
+        balance: { increment: amountDecimal },
+      },
+      include: { user: true, car: true, documents: true },
+    });
+
+    return updated;
   }
 }
 

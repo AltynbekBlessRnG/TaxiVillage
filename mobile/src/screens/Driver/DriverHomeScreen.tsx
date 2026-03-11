@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, Button, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, Switch, Alert, TouchableOpacity, Dimensions, type AlertButton } from 'react-native';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient } from '../../api/client';
+import { apiClient, setAuthToken } from '../../api/client';
 import { createRidesSocket } from '../../api/socket';
-import { loadAuth } from '../../storage/authStorage';
+import { loadAuth, clearAuth } from '../../storage/authStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
 
@@ -29,17 +29,61 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<DriverProfile | null>(null);
 
   const toggleOnline = async (value: boolean) => {
-    setIsOnline(value);
-    try {
-      await apiClient.post('/drivers/status', { isOnline: value });
-      if (value) {
+    // If going online, update state only after successful API call
+    if (value) {
+      try {
+        await apiClient.post('/drivers/status', { isOnline: value });
+        setIsOnline(true);
         // Refresh profile when going online
         const res = await apiClient.get('/drivers/profile');
         setProfile(res.data);
+      } catch (e: any) {
+        let errorMessage = e?.response?.data?.message || 'Не удалось выйти на линию';
+        
+        // Convert technical errors to user-friendly messages with actions
+        if (errorMessage.includes('не одобрен администратором')) {
+          errorMessage = '⏳ Ваш аккаунт ожидает подтверждения администратора. Это может занять до 24 часов.';
+        } else if (errorMessage.includes('автомобиле')) {
+          errorMessage = '🚗 Необходимо заполнить информацию об автомобиле.\n\nПерейдите в «Профиль» → «Мой автомобиль» и добавьте марку, модель, цвет и номер.';
+        } else if (errorMessage.includes('водительского удостоверения')) {
+          errorMessage = '📄 Необходимо загрузить водительское удостоверение.\n\nПерейдите в «Профиль» → «Документы» и загрузите фото прав.';
+        } else if (errorMessage.includes('СТС')) {
+          errorMessage = '📄 Необходимо загрузить СТС.\n\nПерейдите в «Профиль» → «Документы» и загрузите свидетельство о регистрации ТС.';
+        }
+        
+        const buttons: AlertButton[] = [{ text: 'Понятно', style: 'default' }];
+        if (errorMessage.includes('Профиль')) {
+          buttons.push({ text: 'Открыть профиль', onPress: () => navigation.navigate('DriverProfile') });
+        }
+        
+        Alert.alert('Невозможно выйти на линию', errorMessage, buttons);
+        
+        // Keep offline state
+        setIsOnline(false);
       }
-    } catch {
-      // ignore in MVP
+    } else {
+      // Going offline is always allowed
+      setIsOnline(false);
+      try {
+        await apiClient.post('/drivers/status', { isOnline: false });
+      } catch {
+        // ignore errors when going offline
+      }
     }
+  };
+
+  const handleLogout = async () => {
+    // If driver is online, set offline before logout
+    if (isOnline) {
+      try {
+        await apiClient.post('/drivers/status', { isOnline: false });
+      } catch {
+        // ignore error, continue logout
+      }
+    }
+    await clearAuth();
+    setAuthToken(null);
+    navigation.replace('Login');
   };
 
   const acceptRide = useCallback(async (rideId: string) => {
@@ -161,68 +205,299 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Режим водителя</Text>
-      
-      {profile && (
-        <View style={styles.profileCard}>
-          <Text style={styles.balance}>Баланс: {profile.balance ?? 0} ₽</Text>
-          <Text style={styles.rating}>Рейтинг: {(profile.rating ?? 5).toFixed(1)} ⭐</Text>
+      {/* Full screen map as background */}
+      <View style={styles.mapContainer}>
+        <View style={styles.mapPlaceholder}>
+          <Text style={styles.mapPlaceholderText}>Карта доступна при поездке</Text>
         </View>
-      )}
-      
-      <View style={styles.row}>
-        <Text>Онлайн</Text>
-        <Switch value={isOnline} onValueChange={toggleOnline} />
       </View>
 
-      {currentRideId ? (
-        <Button title="Перейти к поездке" onPress={() => navigation.navigate('DriverRide', { rideId: currentRideId })} />
-      ) : (
-        <Text style={styles.info}>Ожидание заказов...</Text>
-      )}
-      <Button
-        title="История поездок"
-        onPress={() => navigation.navigate('RideHistory')}
-      />
+      {/* Floating Bottom Sheet */}
+      <View style={styles.bottomSheet}>
+        <View style={styles.handleBar} />
+
+        {/* Profile Card */}
+        {profile && (
+          <View style={styles.profileCard}>
+            <View style={styles.profileRow}>
+              <View style={styles.balanceSection}>
+                <Text style={styles.balanceLabel}>Баланс</Text>
+                <Text style={styles.balanceValue}>{profile.balance ?? 0} ₽</Text>
+              </View>
+              <View style={styles.ratingSection}>
+                <Text style={styles.ratingLabel}>Рейтинг</Text>
+                <Text style={styles.ratingValue}>{(profile.rating ?? 5).toFixed(1)} ⭐</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Online Switch */}
+        <View style={styles.switchRow}>
+          <View>
+            <Text style={styles.switchLabel}>Рабочий режим</Text>
+            <Text style={styles.switchSubtext}>
+              {isOnline ? 'Онлайн — получение заказов' : 'Офлайн — отдых'}
+            </Text>
+          </View>
+          <View style={[styles.switchContainer, isOnline && styles.switchContainerActive]}>
+            <Switch
+              value={isOnline}
+              onValueChange={toggleOnline}
+              trackColor={{ false: '#475569', true: '#3B82F6' }}
+              thumbColor={isOnline ? '#F8FAFC' : '#94A3B8'}
+            />
+          </View>
+        </View>
+
+        {/* Status Display */}
+        <View style={styles.statusCard}>
+          <View style={[styles.statusDot, currentRideId ? styles.statusDotActive : styles.statusDotIdle]} />
+          <Text style={styles.statusText}>
+            {currentRideId ? 'Есть активный заказ' : 'Ожидание заказов...'}
+          </Text>
+        </View>
+
+        {/* Profile Button */}
+        <TouchableOpacity
+          style={styles.profileButton}
+          onPress={() => navigation.navigate('DriverProfile')}
+        >
+          <Text style={styles.profileButtonText}>👤 Мой профиль</Text>
+        </TouchableOpacity>
+
+        {/* Primary Action Button */}
+        {currentRideId ? (
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => navigation.navigate('DriverRide', { rideId: currentRideId })}
+          >
+            <Text style={styles.primaryButtonText}>Перейти к поездке</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate('RideHistory')}
+          >
+            <Text style={styles.secondaryButtonText}>История поездок</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Logout Button */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Выйти из аккаунта</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
+const { height } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
+    backgroundColor: '#0F172A',
   },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  mapContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+    backgroundColor: '#0F172A',
   },
-  profileCard: {
-    backgroundColor: '#f0f0f0',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
+  mapPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
   },
-  balance: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2e7d32',
-    marginBottom: 4,
-  },
-  rating: {
+  mapPlaceholderText: {
+    color: '#64748B',
     fontSize: 16,
-    color: '#f57c00',
   },
-  row: {
+  // Floating Bottom Sheet
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E293B',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 34,
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderBottomWidth: 0,
+    minHeight: height * 0.45,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#475569',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  // Profile Card
+  profileCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  profileRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  balanceSection: {
+    alignItems: 'center',
+  },
+  balanceLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  balanceValue: {
+    color: '#10B981',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  ratingSection: {
+    alignItems: 'center',
+  },
+  ratingLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  ratingValue: {
+    color: '#F59E0B',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  // Online Switch
+  switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  info: {
-    marginTop: 16,
+  switchLabel: {
+    color: '#F8FAFC',
     fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  switchSubtext: {
+    color: '#94A3B8',
+    fontSize: 13,
+  },
+  switchContainer: {
+    transform: [{ scale: 1.1 }],
+  },
+  switchContainerActive: {
+    // Active state styling if needed
+  },
+  // Status Card
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  statusDotActive: {
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 8,
+    shadowOpacity: 0.8,
+  },
+  statusDotIdle: {
+    backgroundColor: '#64748B',
+  },
+  statusText: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  // Profile Button
+  profileButton: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  profileButtonText: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Buttons
+  primaryButton: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  primaryButtonText: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    backgroundColor: '#334155',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  secondaryButtonText: {
+    color: '#94A3B8',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    backgroundColor: '#7F1D1D',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#991B1B',
+  },
+  logoutButtonText: {
+    color: '#FCA5A5',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

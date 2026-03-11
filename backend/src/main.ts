@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common'; // Добавь Logger
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AppModule } from './app.module';
@@ -9,6 +9,12 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.enableCors();
+
+  // Добавляем простой Middleware для логирования всех запросов
+  app.use((req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
+    Logger.log(`[Request] ${req.method} ${req.url}`, 'HTTP');
+    next();
+  });
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
@@ -22,13 +28,12 @@ async function bootstrap() {
   );
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
-  // eslint-disable-next-line no-console
+  // ВАЖНО: Добавь '0.0.0.0', чтобы бэкенд принимал запросы из сети
+  await app.listen(port, '0.0.0.0');
+  
   console.log(`TaxiVillage backend is running on http://localhost:${port}/api`);
 }
 
 bootstrap().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error('Failed to bootstrap application', err);
 });
-

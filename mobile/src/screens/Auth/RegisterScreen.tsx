@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
@@ -33,8 +33,16 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         navigation.replace('PassengerHome');
       }
-    } catch (e) {
-      setError('Не удалось зарегистрироваться. Попробуйте ещё раз.');
+    } catch (e: any) {
+      let errorMessage = e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';
+      
+      // Обработка специфичных ошибок
+      if (e?.response?.status === 500 && errorMessage.includes('Unique constraint')) {
+        errorMessage = 'Пользователь с таким номером телефона уже существует. Попробуйте войти.';
+      }
+      
+      setError(`Ошибка: ${errorMessage}`);
+      console.log('Register error:', e);
     } finally {
       setLoading(false);
     }
@@ -42,16 +50,18 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Регистрация</Text>
+      <Text style={styles.title}>Создать аккаунт</Text>
       <TextInput
         style={styles.input}
         placeholder="ФИО"
+        placeholderTextColor="#64748B"
         value={fullName}
         onChangeText={setFullName}
       />
       <TextInput
         style={styles.input}
         placeholder="Телефон"
+        placeholderTextColor="#64748B"
         keyboardType="phone-pad"
         value={phone}
         onChangeText={setPhone}
@@ -59,6 +69,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       <TextInput
         style={styles.input}
         placeholder="Пароль"
+        placeholderTextColor="#64748B"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -66,22 +77,35 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.roleRow}>
         <Text style={styles.roleLabel}>Роль:</Text>
-        <Text
+        <TouchableOpacity
           style={[styles.roleOption, role === 'PASSENGER' && styles.roleOptionActive]}
           onPress={() => setRole('PASSENGER')}
         >
-          Пассажир
-        </Text>
-        <Text
+          <Text style={[styles.roleText, role === 'PASSENGER' && styles.roleTextActive]}>
+            Пассажир
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.roleOption, role === 'DRIVER' && styles.roleOptionActive]}
           onPress={() => setRole('DRIVER')}
         >
-          Водитель
-        </Text>
+          <Text style={[styles.roleText, role === 'DRIVER' && styles.roleTextActive]}>
+            Водитель
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
-      <Button title={loading ? 'Создание...' : 'Создать аккаунт'} onPress={handleRegister} disabled={loading} />
+      
+      <TouchableOpacity 
+        style={styles.button} 
+        onPress={handleRegister}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Создание...' : 'Создать аккаунт'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -91,46 +115,79 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0F172A',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
     marginBottom: 24,
     textAlign: 'center',
+    color: '#3B82F6',
+    textShadowColor: 'rgba(59, 130, 246, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#334155',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 12,
+    backgroundColor: '#0F172A',
+    color: '#F8FAFC',
+    fontSize: 16,
   },
   roleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+    marginTop: 4,
   },
   roleLabel: {
     marginRight: 12,
+    color: '#94A3B8',
+    fontSize: 14,
   },
   roleOption: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#334155',
     marginRight: 8,
+    backgroundColor: '#0F172A',
   },
   roleOptionActive: {
-    backgroundColor: '#007AFF',
-    color: '#fff',
-    borderColor: '#007AFF',
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  roleText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  roleTextActive: {
+    color: '#F8FAFC',
+    fontWeight: '600',
   },
   error: {
-    color: 'red',
-    marginBottom: 8,
+    color: '#EF4444',
+    marginBottom: 12,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  button: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonText: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

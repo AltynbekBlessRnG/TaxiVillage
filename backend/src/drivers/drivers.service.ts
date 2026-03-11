@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DocumentType, RideStatus } from '@prisma/client';
+import { DocumentType, DriverStatus, RideStatus } from '@prisma/client';
 import { RidesGateway } from '../rides/rides.gateway';
 
 @Injectable()
@@ -11,6 +11,43 @@ export class DriversService {
   ) {}
 
   async setOnlineStatus(userId: string, isOnline: boolean) {
+    // If going online, validate driver profile
+    if (isOnline) {
+      const driver = await this.prisma.driverProfile.findUnique({
+        where: { userId },
+        include: { car: true, documents: true },
+      });
+
+      if (!driver) {
+        throw new NotFoundException('Профиль водителя не найден');
+      }
+
+      // Check driver approval status
+      if (driver.status !== DriverStatus.APPROVED) {
+        throw new BadRequestException('Водитель не одобрен администратором');
+      }
+
+      // Check car information
+      if (!driver.car) {
+        throw new BadRequestException('Необходимо добавить информацию об автомобиле');
+      }
+      if (!driver.car.make || !driver.car.model || !driver.car.color || !driver.car.plateNumber) {
+        throw new BadRequestException('Необходимо заполнить все поля автомобиля (марка, модель, цвет, номер)');
+      }
+
+      // Check approved documents
+      const approvedDocuments = driver.documents.filter((doc) => doc.approved);
+      const hasDriverLicense = approvedDocuments.some((doc) => doc.type === DocumentType.DRIVER_LICENSE);
+      const hasCarRegistration = approvedDocuments.some((doc) => doc.type === DocumentType.CAR_REGISTRATION);
+
+      if (!hasDriverLicense) {
+        throw new BadRequestException('Необходимо загрузить и получить одобрение водительского удостоверения');
+      }
+      if (!hasCarRegistration) {
+        throw new BadRequestException('Необходимо загрузить и получить одобрение СТС (свидетельство о регистрации ТС)');
+      }
+    }
+
     const data: { isOnline: boolean; lastRideFinishedAt?: Date } = { isOnline };
     if (isOnline) {
       data.lastRideFinishedAt = new Date();

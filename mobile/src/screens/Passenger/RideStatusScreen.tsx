@@ -1,11 +1,28 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, Button, StyleSheet, Alert, Modal, TouchableOpacity } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { View, Text, StyleSheet, Alert, Modal, TouchableOpacity } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT, Polyline } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { createRidesSocket } from '../../api/socket';
 import { loadAuth } from '../../storage/authStorage';
+
+// Dark map style for Google Maps
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
+  { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#4b6878' }] },
+  { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#64779e' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry.stroke', stylers: [{ color: '#334e87' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#0F172A' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#283d6a' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6f9ba5' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3B82F6' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideStatus'>;
 
@@ -88,6 +105,18 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         
         socket.on('driver:moved', (data: { rideId: string; lat: number; lng: number }) => {
           if (isMounted && data.rideId === rideId) {
+            // TODO: Implement smooth marker animation using react-native-maps Marker.Animated
+            // For smooth animation, consider using:
+            // 1. AnimatedRegion with timing/interpolation for smooth transitions
+            // 2. LayoutAnimation for simple transitions
+            // 3. react-native-maps Marker.Animated with coordinate interpolation
+            //
+            // Example animation implementation:
+            // Animated.timing(driverAnimatedCoordinate, {
+            //   toValue: { latitude: data.lat, longitude: data.lng },
+            //   duration: 500,
+            //   useNativeDriver: false,
+            // }).start();
             setDriverLocation({ lat: data.lat, lng: data.lng });
           }
         });
@@ -155,12 +184,13 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Map View */}
+      {/* Map View as full background */}
       {ride && (ride.fromLat || ride.fromLng) && (
         <MapView
           ref={mapRef}
           style={styles.map}
           provider={PROVIDER_DEFAULT}
+          customMapStyle={darkMapStyle}
           initialRegion={{
             latitude: ride.fromLat ?? 0,
             longitude: ride.fromLng ?? 0,
@@ -173,7 +203,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
             <Marker
               coordinate={{ latitude: ride.fromLat, longitude: ride.fromLng }}
               title="Откуда"
-              pinColor="green"
+              pinColor="#10B981"
             />
           )}
           
@@ -182,7 +212,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
             <Marker
               coordinate={{ latitude: ride.toLat, longitude: ride.toLng }}
               title="Куда"
-              pinColor="red"
+              pinColor="#EF4444"
             />
           )}
           
@@ -191,29 +221,69 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
             <Marker
               coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
               title="Водитель"
-              pinColor="blue"
+              pinColor="#3B82F6"
+            />
+          )}
+
+          {/* Route polyline */}
+          {ride.fromLat && ride.fromLng && ride.toLat && ride.toLng && (
+            <Polyline
+              coordinates={[
+                { latitude: ride.fromLat, longitude: ride.fromLng },
+                { latitude: ride.toLat, longitude: ride.toLng },
+              ]}
+              strokeWidth={4}
+              strokeColor="#3B82F6"
             />
           )}
         </MapView>
       )}
 
-      <View style={styles.infoContainer}>
+      {/* Floating Bottom Sheet */}
+      <View style={styles.bottomSheet}>
+        <View style={styles.handleBar} />
+
         <Text style={styles.title}>Статус поездки</Text>
-        <Text style={styles.status}>{status}</Text>
-        {driverInfo && <Text style={styles.driver}>{driverInfo}</Text>}
-        {priceInfo && <Text style={styles.price}>{priceInfo}</Text>}
         
-        {canCancel && (
-          <Button title="Отменить поездку" onPress={handleCancel} color="#c00" />
+        <View style={styles.statusCard}>
+          <View style={[styles.statusDot, getStatusDotColor(status)]} />
+          <Text style={styles.statusText}>{translateStatus(status)}</Text>
+        </View>
+
+        {driverInfo && (
+          <View style={styles.driverCard}>
+            <Text style={styles.driverLabel}>Водитель</Text>
+            <Text style={styles.driverText}>{driverInfo}</Text>
+          </View>
         )}
-        <Button title="На главный экран" onPress={() => navigation.replace('PassengerHome')} />
+
+        {priceInfo && (
+          <View style={styles.priceCard}>
+            <Text style={styles.priceText}>{priceInfo}</Text>
+          </View>
+        )}
+        
+        <View style={styles.buttonGroup}>
+          {canCancel && (
+            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+              <Text style={styles.cancelButtonText}>Отменить поездку</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity 
+            style={styles.homeButton}
+            onPress={() => navigation.replace('PassengerHome')}
+          >
+            <Text style={styles.homeButtonText}>На главный экран</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Rating Modal */}
       <Modal
         visible={showRating}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowRating(false)}
       >
         <View style={styles.modalOverlay}>
@@ -230,7 +300,12 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
                 </TouchableOpacity>
               ))}
             </View>
-            <Button title="Пропустить" onPress={() => setShowRating(false)} />
+            <TouchableOpacity 
+              style={styles.skipButton}
+              onPress={() => setShowRating(false)}
+            >
+              <Text style={styles.skipButtonText}>Пропустить</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -238,58 +313,180 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
   );
 };
 
+// Helper functions for status styling
+function getStatusDotColor(status: string) {
+  switch (status) {
+    case 'COMPLETED':
+      return { backgroundColor: '#10B981' };
+    case 'CANCELED':
+      return { backgroundColor: '#EF4444' };
+    case 'IN_PROGRESS':
+    case 'ON_THE_WAY':
+      return { backgroundColor: '#3B82F6' };
+    case 'DRIVER_ASSIGNED':
+      return { backgroundColor: '#F59E0B' };
+    default:
+      return { backgroundColor: '#64748B' };
+  }
+}
+
+function translateStatus(status: string): string {
+  const translations: Record<string, string> = {
+    'SEARCHING_DRIVER': 'Поиск водителя...',
+    'DRIVER_ASSIGNED': 'Водитель назначен',
+    'ON_THE_WAY': 'Водитель в пути',
+    'IN_PROGRESS': 'Поездка в процессе',
+    'COMPLETED': 'Поездка завершена',
+    'CANCELED': 'Поездка отменена',
+  };
+  return translations[status] || status;
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0F172A',
   },
   map: {
-    flex: 2,
-    width: '100%',
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
-  infoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+  // Floating Bottom Sheet
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E293B',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 34,
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderBottomWidth: 0,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#475569',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: '#F8FAFC',
     marginBottom: 16,
     textAlign: 'center',
   },
-  status: {
-    fontSize: 18,
-    marginBottom: 8,
-    textAlign: 'center',
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  driver: {
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  statusText: {
+    color: '#F8FAFC',
     fontSize: 16,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  price: {
-    fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16,
-    textAlign: 'center',
+    flex: 1,
   },
+  driverCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  driverLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  driverText: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  priceCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+  },
+  priceText: {
+    color: '#10B981',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  buttonGroup: {
+    gap: 12,
+  },
+  cancelButton: {
+    backgroundColor: '#7F1D1D',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#991B1B',
+  },
+  cancelButtonText: {
+    color: '#FCA5A5',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  homeButton: {
+    backgroundColor: '#334155',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  homeButtonText: {
+    color: '#94A3B8',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1E293B',
     padding: 24,
-    borderRadius: 12,
+    borderRadius: 24,
     alignItems: 'center',
     minWidth: 280,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: '#F8FAFC',
     marginBottom: 20,
   },
   starsContainer: {
@@ -300,7 +497,19 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   star: {
-    fontSize: 32,
+    fontSize: 36,
+  },
+  skipButton: {
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  skipButtonText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

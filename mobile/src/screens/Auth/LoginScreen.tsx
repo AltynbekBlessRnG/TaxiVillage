@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
@@ -27,8 +27,10 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         navigation.replace('PassengerHome');
       }
-    } catch (e) {
-      setError('Не удалось войти. Проверьте данные.');
+    } catch (e: any) {
+      const errorMessage = e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';
+      setError(`Ошибка: ${errorMessage}`);
+      console.log('Login error:', e);
     } finally {
       setLoading(false);
     }
@@ -52,9 +54,11 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         onChangeText={setPassword}
       />
       {error && <Text style={styles.error}>{error}</Text>}
-      <Button title={loading ? 'Вход...' : 'Войти'} onPress={handleLogin} disabled={loading} />
+      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+        <Text style={styles.buttonText}>{loading ? 'Вход...' : 'Войти'}</Text>
+      </TouchableOpacity>
       <View style={styles.linkRow}>
-        <Text>Нет аккаунта?</Text>
+        <Text style={styles.linkText}>Нет аккаунта?</Text>
         <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
           Зарегистрироваться
         </Text>
@@ -68,35 +72,63 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0F172A',
   },
   title: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 32,
     textAlign: 'center',
+    color: '#3B82F6',
+    textShadowColor: '#3B82F6',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
   },
   input: {
+    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
+    borderColor: '#334155',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+    color: '#F8FAFC',
+    fontSize: 16,
+  },
+  inputFocused: {
+    borderColor: '#3B82F6',
   },
   error: {
-    color: 'red',
-    marginBottom: 8,
+    color: '#ef4444',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  button: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonText: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '600',
   },
   linkRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: 24,
     gap: 8,
+  },
+  linkText: {
+    color: '#94A3B8',
   },
   link: {
     marginLeft: 4,
-    color: '#007AFF',
+    color: '#3B82F6',
+    fontWeight: '600',
   },
 });
 

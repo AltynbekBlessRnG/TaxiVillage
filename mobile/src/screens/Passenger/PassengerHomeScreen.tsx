@@ -1,10 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline, type LatLng } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient } from '../../api/client';
+import { apiClient, setAuthToken } from '../../api/client';
+import { clearAuth } from '../../storage/authStorage';
+
+// Dark map style for Google Maps
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
+  { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#4b6878' }] },
+  { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#64779e' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry.stroke', stylers: [{ color: '#334e87' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#0F172A' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#283d6a' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6f9ba5' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3B82F6' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PassengerHome'>;
 
@@ -12,10 +30,12 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const mapRef = useRef<MapView | null>(null);
   const [fromAddress, setFromAddress] = useState('');
   const [toAddress, setToAddress] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [fromCoord, setFromCoord] = useState<LatLng | null>(null);
   const [toCoord, setToCoord] = useState<LatLng | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fromFocused, setFromFocused] = useState(false);
+  const [toFocused, setToFocused] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -83,6 +103,12 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [fromCoord]);
 
+  const handleLogout = async () => {
+    await clearAuth();
+    setAuthToken(null);
+    navigation.replace('Login');
+  };
+
   const createRide = async () => {
     setLoading(true);
     setError(null);
@@ -121,13 +147,19 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.mapWrap}>
+      {/* Full screen map as background */}
+      <View style={styles.mapContainer}>
         {initialRegion ? (
-          <MapView ref={(r) => (mapRef.current = r)} style={styles.map} initialRegion={initialRegion}>
-            {fromCoord && <Marker coordinate={fromCoord} title="Откуда" />}
-            {toCoord && <Marker coordinate={toCoord} title="Куда" pinColor="#007AFF" />}
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={initialRegion}
+            customMapStyle={darkMapStyle}
+          >
+            {fromCoord && <Marker coordinate={fromCoord} title="Откуда" pinColor="#3B82F6" />}
+            {toCoord && <Marker coordinate={toCoord} title="Куда" pinColor="#EF4444" />}
             {fromCoord && toCoord && (
-              <Polyline coordinates={[fromCoord, toCoord]} strokeWidth={4} strokeColor="#007AFF" />
+              <Polyline coordinates={[fromCoord, toCoord]} strokeWidth={4} strokeColor="#3B82F6" />
             )}
           </MapView>
         ) : (
@@ -137,72 +169,212 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </View>
 
-      <View style={styles.form}>
-        <Text style={styles.title}>Новая поездка</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Откуда"
-          value={fromAddress}
-          onChangeText={setFromAddress}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Куда"
-          value={toAddress}
-          onChangeText={setToAddress}
-        />
+      {/* Floating Bottom Sheet */}
+      <View style={styles.bottomSheet}>
+        <View style={styles.handleBar} />
+
+        {/* From Input with Icon */}
+        <View style={styles.inputContainer}>
+          <View style={styles.iconCircle}>
+            <Text style={styles.iconText}>●</Text>
+          </View>
+          <TextInput
+            style={[styles.input, fromFocused && styles.inputFocused]}
+            placeholder="Откуда"
+            placeholderTextColor="#64748B"
+            value={fromAddress}
+            onChangeText={setFromAddress}
+            onFocus={() => setFromFocused(true)}
+            onBlur={() => setFromFocused(false)}
+          />
+        </View>
+
+        {/* To Input with Icon */}
+        <View style={styles.inputContainer}>
+          <View style={[styles.iconCircle, styles.iconCircleRed]}>
+            <Text style={[styles.iconText, styles.iconTextRed]}>⚑</Text>
+          </View>
+          <TextInput
+            style={[styles.input, toFocused && styles.inputFocused]}
+            placeholder="Куда"
+            placeholderTextColor="#64748B"
+            value={toAddress}
+            onChangeText={setToAddress}
+            onFocus={() => setToFocused(true)}
+            onBlur={() => setToFocused(false)}
+          />
+        </View>
+
         {error && <Text style={styles.error}>{error}</Text>}
-        <Button title={loading ? 'Создание...' : 'Заказать'} onPress={createRide} disabled={loading} />
-        <View style={styles.spacer} />
-        <Button title="История поездок" onPress={() => navigation.navigate('RideHistory')} />
+
+        {/* Large Primary Button */}
+        <TouchableOpacity
+          style={[styles.primaryButton, loading && styles.buttonDisabled]}
+          onPress={createRide}
+          disabled={loading}
+        >
+          <Text style={styles.primaryButtonText}>
+            {loading ? 'Создание...' : 'Заказать такси'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Secondary Buttons */}
+        <View style={styles.secondaryButtons}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate('RideHistory')}
+          >
+            <Text style={styles.secondaryButtonText}>История</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Выйти</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 };
 
+const { height } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0F172A',
   },
-  mapWrap: {
-    flex: 1,
-    backgroundColor: '#eee',
+  mapContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
   map: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   mapPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0F172A',
   },
   mapPlaceholderText: {
-    color: '#666',
+    color: '#64748B',
+    fontSize: 16,
   },
-  form: {
-    flex: 1,
-    padding: 24,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  input: {
+  // Floating Bottom Sheet
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E293B',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 34,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#334155',
+    borderBottomWidth: 0,
+    minHeight: height * 0.4,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#475569',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  // Inputs with Icons
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  error: {
-    color: 'red',
-    marginBottom: 8,
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3B82F620',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  spacer: {
-    height: 10,
+  iconCircleRed: {
+    backgroundColor: '#EF444420',
+  },
+  iconText: {
+    color: '#3B82F6',
+    fontSize: 14,
+  },
+  iconTextRed: {
+    color: '#EF4444',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#F8FAFC',
+    fontSize: 16,
+  },
+  inputFocused: {
+    borderColor: '#3B82F6',
+  },
+  error: {
+    color: '#EF4444',
+    marginBottom: 12,
+    fontSize: 14,
+  },
+  // Buttons
+  primaryButton: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  primaryButtonText: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  secondaryButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    gap: 12,
+  },
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    backgroundColor: '#7F1D1D',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: '#FCA5A5',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

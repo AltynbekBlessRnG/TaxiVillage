@@ -41,6 +41,7 @@ interface Driver {
   fullName: string | null;
   status: string;
   isOnline: boolean;
+  balance?: number | string;
   user: { id: string; phone: string; email?: string };
   car: Car | null;
   documents: DriverDocument[];
@@ -55,10 +56,17 @@ interface Tariff {
   isActive: boolean;
 }
 
-type Tab = 'users' | 'drivers' | 'rides' | 'tariffs';
+type Tab = 'overview' | 'users' | 'drivers' | 'rides' | 'tariffs';
+
+interface Stats {
+  totalRides: number;
+  totalDrivers: number;
+  totalRevenue: number;
+}
 
 export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
-  const [tab, setTab] = useState<Tab>('users');
+  const [tab, setTab] = useState<Tab>('overview');
+  const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [rides, setRides] = useState<Ride[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -92,6 +100,25 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
     setTariffs(res.data);
   }, [client]);
 
+  const loadStats = React.useCallback(async () => {
+    try {
+      const [ridesRes, driversRes] = await Promise.all([
+        client.get('/admin/rides'),
+        client.get('/admin/drivers'),
+      ]);
+      const rides = ridesRes.data;
+      const drivers = driversRes.data;
+      const totalRevenue = rides.reduce((sum: number, ride: any) => sum + (ride.finalPrice || 0), 0);
+      setStats({
+        totalRides: rides.length,
+        totalDrivers: drivers.length,
+        totalRevenue,
+      });
+    } catch {
+      // ignore
+    }
+  }, [client]);
+
   useEffect(() => {
     const load = async () => {
       if (tab === 'users') {
@@ -108,29 +135,35 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
       if (tab === 'tariffs') {
         await loadTariffs();
       }
+      if (tab === 'overview') {
+        await loadStats();
+      }
     };
 
     load().catch(() => {
       // ignore for MVP
     });
-  }, [tab, client, loadDrivers, loadTariffs]);
+  }, [tab, client, loadDrivers, loadTariffs, loadStats]);
 
   return (
     <div className="app-root">
       <aside className="sidebar">
         <div className="sidebar-title">TaxiVillage Admin</div>
         <div className="sidebar-nav">
+          <button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
+            📊 Обзор
+          </button>
           <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>
-            Пользователи
+            👤 Пользователи
           </button>
           <button className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>
-            Водители
+            🚗 Водители
           </button>
           <button className={tab === 'rides' ? 'active' : ''} onClick={() => setTab('rides')}>
-            Поездки
+            📍 Поездки
           </button>
           <button className={tab === 'tariffs' ? 'active' : ''} onClick={() => setTab('tariffs')}>
-            Тарифы
+            💰 Тарифы
           </button>
         </div>
         <button className="button" style={{ marginTop: 'auto' }} onClick={onLogout}>
@@ -139,6 +172,34 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
       </aside>
 
       <main className="content">
+        {tab === 'overview' && (
+          <section>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon stat-icon-blue">📍</div>
+                <div className="stat-content">
+                  <p className="stat-value">{stats?.totalRides ?? '...'}</p>
+                  <p className="stat-label">Всего поездок</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon stat-icon-green">🚗</div>
+                <div className="stat-content">
+                  <p className="stat-value">{stats?.totalDrivers ?? '...'}</p>
+                  <p className="stat-label">Всего водителей</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon stat-icon-purple">💰</div>
+                <div className="stat-content">
+                  <p className="stat-value">{stats?.totalRevenue ? `${Math.round(stats.totalRevenue).toLocaleString()} ₽` : '...'}</p>
+                  <p className="stat-label">Общая выручка</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         {tab === 'users' && (
           <section className="card">
             <h2>Пользователи</h2>
@@ -391,6 +452,7 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
                   <th>Авто</th>
                   <th>Статус</th>
                   <th>Онлайн</th>
+                  <th>Баланс</th>
                   <th>Действия</th>
                 </tr>
               </thead>
@@ -404,13 +466,41 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
                         ? `${d.car.make} ${d.car.model}, ${d.car.plateNumber}`
                         : '—'}
                     </td>
-                    <td>{d.status}</td>
-                    <td>{d.isOnline ? 'Да' : 'Нет'}</td>
                     <td>
+                      <span className={`badge badge-${d.status.toLowerCase()}`}>
+                        {d.status === 'APPROVED' ? '✓ Одобрен' : d.status === 'REJECTED' ? '✕ Отклонен' : '⏳ Ожидает'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${d.isOnline ? 'online' : 'offline'}`}>
+                        {d.isOnline ? 'Онлайн' : 'Офлайн'}
+                      </span>
+                    </td>
+                    <td>{d.balance != null ? Number(d.balance).toFixed(2) : '0.00'} ₽</td>
+                    <td>
+                      <button
+                        className="button button-primary"
+                        style={{ marginRight: 8 }}
+                        onClick={() => {
+                          const amountStr = window.prompt('Введите сумму для пополнения (₽):', '100');
+                          if (!amountStr) return;
+                          const amount = parseFloat(amountStr);
+                          if (Number.isNaN(amount) || amount <= 0) {
+                            alert('Сумма должна быть положительным числом');
+                            return;
+                          }
+                          client
+                            .patch(`/admin/drivers/${d.id}/top-up`, { amount })
+                            .then(() => loadDrivers())
+                            .catch(() => alert('Не удалось пополнить баланс'));
+                        }}
+                      >
+                        Пополнить
+                      </button>
                       {d.status === 'PENDING' && (
                         <>
                           <button
-                            className="button"
+                            className="button button-success"
                             style={{ marginRight: 8 }}
                             onClick={async () => {
                               try {
@@ -426,7 +516,7 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
                             Одобрить
                           </button>
                           <button
-                            className="button"
+                            className="button button-danger"
                             onClick={async () => {
                               try {
                                 await client.patch(`/admin/drivers/${d.id}/status`, {
