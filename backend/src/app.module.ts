@@ -8,6 +8,8 @@ import { DriversModule } from './drivers/drivers.module';
 import { AdminModule } from './admin/admin.module';
 import { UploadModule } from './upload/upload.module';
 import { TariffsModule } from './tariffs/tariffs.module';
+import { FavoriteAddressesModule } from './favorite-addresses/favorite-addresses.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { TariffsModule } from './tariffs/tariffs.module';
     AdminModule,
     UploadModule,
     TariffsModule,
+    FavoriteAddressesModule,
+    ChatModule,
   ],
 })
 export class AppModule {}

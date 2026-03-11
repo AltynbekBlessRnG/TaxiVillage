@@ -26,7 +26,7 @@ const darkMapStyle = [
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PassengerHome'>;
 
-export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
+export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const mapRef = useRef<MapView | null>(null);
   const [fromAddress, setFromAddress] = useState('');
   const [toAddress, setToAddress] = useState('');
@@ -36,6 +36,15 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [error, setError] = useState<string | null>(null);
   const [fromFocused, setFromFocused] = useState(false);
   const [toFocused, setToFocused] = useState(false);
+
+  // Handle selected address from FavoriteAddresses screen
+  useEffect(() => {
+    if (route.params?.selectedAddress) {
+      const { address, lat, lng } = route.params.selectedAddress;
+      setFromAddress(address);
+      setFromCoord({ latitude: lat, longitude: lng });
+    }
+  }, [route.params?.selectedAddress]);
 
   useEffect(() => {
     let mounted = true;
@@ -220,6 +229,13 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Secondary Buttons */}
         <View style={styles.secondaryButtons}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate('FavoriteAddresses')}
+          >
+            <Text style={styles.secondaryButtonText}>⭐ Избранные</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => navigation.navigate('RideHistory')}

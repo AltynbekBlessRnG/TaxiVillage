@@ -260,6 +260,15 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
             </TouchableOpacity>
           )}
           
+          {status === 'DRIVER_ASSIGNED' && (
+            <TouchableOpacity 
+              style={styles.secondaryButton}
+              onPress={() => navigation.navigate('ChatScreen', { rideId })}
+            >
+              <Text style={styles.secondaryButtonText}>💬 Чат с водителем</Text>
+            </TouchableOpacity>
+          )}
+          
           <TouchableOpacity 
             style={styles.homeButton}
             onPress={() => navigation.replace('PassengerHome')}
@@ -453,6 +462,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   homeButtonText: {
+    color: '#94A3B8',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    backgroundColor: '#334155',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
     color: '#94A3B8',
     fontSize: 16,
     fontWeight: '600',

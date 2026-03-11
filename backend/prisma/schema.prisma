@@ -33,6 +33,9 @@ model PassengerProfile {
   fullName  String?
 
   rides     Ride[]   @relation("PassengerRides")
+  favoriteAddresses FavoriteAddress[]
+  sentMessages     Message[]     @relation("SentMessages")
+  receivedMessages Message[]     @relation("ReceivedMessages")
 }
 
 /// Профиль водителя
@@ -128,8 +131,8 @@ model Ride {
 
   commissionAmount Decimal?        @db.Decimal(10, 2)
   driverRating     Int?
-
   statusHistory    RideStatusHistory[]
+  messages        Message[]
 }
 
 /// История изменения статусов поездки
@@ -168,5 +171,49 @@ enum DocumentType {
   CAR_REGISTRATION
   TAXI_LICENSE
   OTHER
+}
+
+enum MessageSender {
+  PASSENGER
+  DRIVER
+}
+
+/// Избранные адреса пассажира
+model FavoriteAddress {
+  id          String   @id @default(cuid())
+  passengerId String
+  passenger   PassengerProfile @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  
+  name        String   // "Дом", "Работа", "Спортзал"
+  address     String   // Полный адрес
+  lat         Float
+  lng         Float
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([passengerId, name])
+}
+
+/// Сообщения в чате между водителем и пассажиром
+model Message {
+  id          String   @id @default(cuid())
+  rideId      String
+  ride        Ride     @relation(fields: [rideId], references: [id])
+  
+  // Отправитель
+  senderId    String
+  senderType  MessageSender
+  sender      PassengerProfile? @relation("SentMessages", fields: [senderId], references: [id])
+  
+  // Получатель
+  receiverId  String
+  receiverType MessageSender
+  receiver    PassengerProfile? @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  content     String
+  createdAt   DateTime @default(now())
+  
+  @@index([rideId, createdAt])
 }
 
