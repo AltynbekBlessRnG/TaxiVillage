@@ -36,6 +36,11 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [error, setError] = useState<string | null>(null);
   const [fromFocused, setFromFocused] = useState(false);
   const [toFocused, setToFocused] = useState(false);
+  const [stops, setStops] = useState<Array<{
+    address: string;
+    lat: number;
+    lng: number;
+  }>>([]);
 
   // Handle selected address from FavoriteAddresses screen
   useEffect(() => {
@@ -118,31 +123,34 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     navigation.replace('Login');
   };
 
+  const addStop = () => {
+    setStops([...stops, { address: '', lat: 0, lng: 0 }]);
+  };
+
+  const removeStop = (index: number) => {
+    setStops(stops.filter((_, i) => i !== index));
+  };
+
+  const updateStop = (index: number, field: 'address' | 'lat' | 'lng', value: string | number) => {
+    const updatedStops = [...stops];
+    updatedStops[index] = { ...updatedStops[index], [field]: value };
+    setStops(updatedStops);
+  };
+
   const createRide = async () => {
     setLoading(true);
     setError(null);
-    try {
-      const fromLat = fromCoord?.latitude;
-      const fromLng = fromCoord?.longitude;
-      const toLat = toCoord?.latitude;
-      const toLng = toCoord?.longitude;
 
-      const payload: {
-        fromAddress: string;
-        toAddress: string;
-        fromLat?: number;
-        fromLng?: number;
-        toLat?: number;
-        toLng?: number;
-      } = { fromAddress, toAddress };
-      if (fromLat != null && fromLng != null) {
-        payload.fromLat = fromLat;
-        payload.fromLng = fromLng;
-      }
-      if (toLat != null && toLng != null) {
-        payload.toLat = toLat;
-        payload.toLng = toLng;
-      }
+    try {
+      const payload = {
+        fromAddress: fromAddress.trim(),
+        toAddress: toAddress.trim(),
+        fromLat: fromCoord?.latitude,
+        fromLng: fromCoord?.longitude,
+        toLat: toCoord?.latitude,
+        toLng: toCoord?.longitude,
+        stops: stops.filter(stop => stop.address.trim()),
+      };
 
       const response = await apiClient.post('/rides', payload);
       const rideId: string = response.data.id;
@@ -215,6 +223,35 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
+
+        {/* Stops Management */}
+        <View style={styles.stopsContainer}>
+          <Text style={styles.stopsTitle}>Промежуточные остановки</Text>
+          {stops.map((stop, index) => (
+            <View key={index} style={styles.stopItem}>
+              <View style={styles.stopNumber}>
+                <Text style={styles.stopNumberText}>{index + 1}</Text>
+              </View>
+              <View style={styles.stopInputContainer}>
+                <TextInput
+                  style={styles.stopInput}
+                  placeholder="Адрес остановки"
+                  value={stop.address}
+                  onChangeText={(text) => updateStop(index, 'address', text)}
+                />
+                <TouchableOpacity
+                  style={styles.removeStopButton}
+                  onPress={() => removeStop(index)}
+                >
+                  <Text style={styles.removeStopText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+          <TouchableOpacity style={styles.addStopButton} onPress={addStop}>
+            <Text style={styles.addStopButtonText}>+ Добавить остановку</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Large Primary Button */}
         <TouchableOpacity
@@ -360,7 +397,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#F8FAFC',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   secondaryButtons: {
     flexDirection: 'row',

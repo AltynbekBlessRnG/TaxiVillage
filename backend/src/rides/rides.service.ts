@@ -43,6 +43,11 @@ export class RidesService {
       fromLng?: number;
       toLat?: number;
       toLng?: number;
+      stops?: Array<{
+        address: string;
+        lat: number;
+        lng: number;
+      }>;
     },
   ) {
     const passengerProfile = await this.prisma.passengerProfile.findUnique({
@@ -106,6 +111,21 @@ export class RidesService {
           estimatedPrice,
         },
       });
+
+      // Create stops if provided
+      if (data.stops && data.stops.length > 0) {
+        for (let i = 0; i < data.stops.length; i++) {
+          await tx.rideStop.create({
+            data: {
+              rideId: created.id,
+              address: data.stops[i].address,
+              lat: data.stops[i].lat,
+              lng: data.stops[i].lng,
+            },
+          });
+        }
+      }
+
       await tx.rideStatusHistory.create({
         data: {
           rideId: created.id,
@@ -171,6 +191,9 @@ export class RidesService {
           },
         },
         tariff: true,
+        stops: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     if (!ride) {

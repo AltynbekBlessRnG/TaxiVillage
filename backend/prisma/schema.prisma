@@ -123,6 +123,9 @@ model Ride {
   toLat            Float
   toLng            Float
 
+  // Промежуточные остановки
+  stops            RideStop[]
+
   estimatedPrice   Decimal?        @db.Decimal(10, 2)
   finalPrice       Decimal?        @db.Decimal(10, 2)
 
@@ -131,8 +134,22 @@ model Ride {
 
   commissionAmount Decimal?        @db.Decimal(10, 2)
   driverRating     Int?
+
   statusHistory    RideStatusHistory[]
   messages        Message[]
+}
+
+/// Остановка поездки
+model RideStop {
+  id        String   @id @default(cuid())
+  rideId    String
+  ride      Ride     @relation(fields: [rideId], references: [id])
+
+  address   String
+  lat       Float
+  lng       Float
+
+  createdAt DateTime @default(now())
 }
 
 /// История изменения статусов поездки
