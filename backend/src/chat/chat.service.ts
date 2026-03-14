@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessageSender } from '@prisma/client';
 
@@ -22,33 +22,11 @@ export class ChatService {
         ],
       },
       orderBy: { createdAt: 'asc' },
-      include: {
-        sender: {
-          include: {
-            user: {
-              select: {
-                fullName: true,
-              },
-            },
-          },
-        },
-        receiver: {
-          include: {
-            user: {
-              select: {
-                fullName: true,
-              },
-            },
-          },
-        },
-      },
     });
-
     return messages;
   }
 
   async sendMessage(userId: string, rideId: string, data: SendMessageDto) {
-    // Verify user is part of the ride
     const ride = await this.prisma.ride.findFirst({
       where: {
         id: rideId,
@@ -63,16 +41,6 @@ export class ChatService {
       throw new BadRequestException('Вы не участвуете в этой поездке');
     }
 
-    // Verify receiver is part of the ride
-    const receiverProfile = await this.prisma.passengerProfile.findFirst({
-      where: { id: data.receiverId },
-    });
-
-    if (!receiverProfile) {
-      throw new BadRequestException('Получатель не найден');
-    }
-
-    // Determine sender type (opposite of receiver type)
     const senderType = data.receiverType === MessageSender.PASSENGER 
       ? MessageSender.DRIVER 
       : MessageSender.PASSENGER;
@@ -90,15 +58,6 @@ export class ChatService {
   }
 
   async markMessagesAsRead(userId: string, rideId: string) {
-    await this.prisma.message.updateMany({
-      where: {
-        rideId,
-        receiverId: userId,
-      },
-      data: {
-        // In a real app, you'd add a 'readAt' field
-        // For now, we'll just return success
-      },
-    });
+    return { success: true };
   }
 }

@@ -54,9 +54,19 @@ export class UsersService {
       },
     });
   }
+  async findOne(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        passenger: true,
+        driver: true,
+      },
+    });
+  }
 
   findByPhone(phone: string) {
     return this.prisma.user.findUnique({ where: { phone } });
   }
+  
 }
 

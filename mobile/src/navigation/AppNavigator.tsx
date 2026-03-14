@@ -61,7 +61,11 @@ export const AppNavigator: React.FC = () => {
     <Stack.Navigator initialRouteName={initialRoute}>
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Вход' }} />
       <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Регистрация' }} />
-      <Stack.Screen name="PassengerHome" component={PassengerHomeScreen} options={{ title: 'Поездка' }} />
+      <Stack.Screen 
+  name="PassengerHome" 
+  component={PassengerHomeScreen} 
+  options={{ headerShown: false }} 
+/>
       <Stack.Screen name="FavoriteAddresses" component={FavoriteAddressesScreen} options={{ title: 'Избранные адреса' }} />
       <Stack.Screen name="RideStatus" component={RideStatusScreen} options={{ title: 'Статус поездки' }} />
       <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ title: 'Чат' }} />

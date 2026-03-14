@@ -5,6 +5,8 @@ import { join } from 'path';
 import { RideResolver } from './ride.resolver';
 import { DriverResolver } from './driver.resolver';
 import { PassengerResolver } from './passenger.resolver';
+import { RidesModule } from '../rides/rides.module';
+import { DriversModule } from '../drivers/drivers.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { PassengerResolver } from './passenger.resolver';
       playground: true,
       introspection: true,
     }),
+    RidesModule,   // Добавили это
+    DriversModule,
   ],
   providers: [
     RideResolver,
@@ -22,4 +26,4 @@ import { PassengerResolver } from './passenger.resolver';
     PassengerResolver,
   ],
 })
-export class GraphQLModule {}
+export class AppGraphQLModule {}

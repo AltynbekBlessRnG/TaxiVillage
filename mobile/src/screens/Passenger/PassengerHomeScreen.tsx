@@ -1,606 +1,269 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Dimensions, KeyboardAvoidingView, Platform, Animated, Pressable, ScrollView, FlatList, Keyboard } from 'react-native';
+import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
-import MapView, { Marker, Polyline, type LatLng } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
 import { clearAuth } from '../../storage/authStorage';
 
-// Dark map style for Google Maps
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
-  { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#4b6878' }] },
-  { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#64779e' }] },
-  { featureType: 'landscape.man_made', elementType: 'geometry.stroke', stylers: [{ color: '#334e87' }] },
-  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#0F172A' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#283d6a' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6f9ba5' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3B82F6' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+type Props = NativeStackScreenProps<RootStackParamList, 'PassengerHome'>;
+const { width, height } = Dimensions.get('window');
+
+const RECENT_PLACES = [
+  { id: '1', name: 'Центральный рынок', address: 'ул. Тауелсыздык', lat: 46.1745, lng: 80.9312 },
+  { id: '2', name: 'Районная больница', address: 'ул. Абая', lat: 46.1620, lng: 80.9405 },
+  { id: '3', name: 'ЖД Вокзал', address: 'Ушарал-1', lat: 46.1850, lng: 80.9120 },
 ];
 
-type Props = NativeStackScreenProps<RootStackParamList, 'PassengerHome'>;
-
 export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
-  const mapRef = useRef<MapView | null>(null);
-  const [fromAddress, setFromAddress] = useState('');
+  // --- СОСТОЯНИЯ ---
+  const [fromAddress, setFromAddress] = useState('Определяем адрес...');
   const [toAddress, setToAddress] = useState('');
-  const [fromCoord, setFromCoord] = useState<LatLng | null>(null);
-  const [toCoord, setToCoord] = useState<LatLng | null>(null);
+  const [fromCoord, setFromCoord] = useState<{latitude: number, longitude: number} | null>(null);
+  const [toCoord, setToCoord] = useState<{latitude: number, longitude: number} | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fromFocused, setFromFocused] = useState(false);
-  const [toFocused, setToFocused] = useState(false);
-  const [stops, setStops] = useState<Array<{
-    address: string;
-    lat: number;
-    lng: number;
-  }>>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'CASH'>('CARD');
+  const [activeField, setActiveField] = useState<'from' | 'to'>('from');
+  const [profile, setProfile] = useState<{fullName: string, phone: string} | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isSearching, setIsSearching] = useState(false); 
+  const [isRouteSelected, setIsRouteSelected] = useState(false);
+  
+  const menuAnim = useRef(new Animated.Value(width)).current; 
+  const webViewRef = useRef<WebView>(null);
 
-  // Handle selected address from FavoriteAddresses screen
-  useEffect(() => {
-    if (route.params?.selectedAddress) {
-      const { address, lat, lng } = route.params.selectedAddress;
-      setFromAddress(address);
-      setFromCoord({ latitude: lat, longitude: lng });
-    }
-  }, [route.params?.selectedAddress]);
+  // --- ФУНКЦИИ ---
+  const sendToMap = (command: any) => {
+    webViewRef.current?.injectJavaScript(`window.handleAppMessage(${JSON.stringify(command)})`);
+  };
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        if (!mounted) return;
-        setFromCoord({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-      } catch {
-        // ignore
+  const handleLogout = async () => { 
+    await clearAuth(); 
+    setAuthToken(null); 
+    navigation.replace('Login'); 
+  };
+
+  const toggleMenu = (open: boolean) => {
+    if (open) { Keyboard.dismiss(); setIsSearching(false); fetchProfile(); }
+    setShowMenu(open);
+    Animated.timing(menuAnim, { toValue: open ? width * 0.2 : width, duration: 300, useNativeDriver: true }).start();
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const res = await apiClient.get('/users/me'); 
+      setProfile({ fullName: res.data.passenger?.fullName || 'Пользователь', phone: res.data.phone });
+    } catch (e) { console.log(e); }
+  };
+
+  const reverseGeocode = async (lat: number, lng: number, target: 'from' | 'to') => {
+    try {
+      const result = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (result.length > 0) {
+        const addr = result[0];
+        const formatted = `${addr.street || ''} ${addr.name || ''}`.trim() || 'Ушарал';
+        target === 'from' ? setFromAddress(formatted) : setToAddress(formatted);
       }
+    } catch (e) { console.log(e); }
+  };
+
+  const handleSearchSubmit = async () => {
+    if (toAddress.length < 3) return;
+    Keyboard.dismiss();
+    try {
+      const results = await Location.geocodeAsync(toAddress);
+      if (results.length > 0) {
+        const coords = { latitude: results[0].latitude, longitude: results[0].longitude };
+        setToCoord(coords);
+        setIsSearching(false);
+        setIsRouteSelected(true);
+      }
+    } catch (e) { alert('Адрес не найден'); }
+  };
+
+  const selectPlace = (place: any) => {
+    setToAddress(place.name);
+    setToCoord({ latitude: place.lat, longitude: place.lng });
+    setIsSearching(false);
+    setIsRouteSelected(true);
+    Keyboard.dismiss();
+  };
+
+  const onMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'MAP_MOVE_END') {
+        const coords = { latitude: data.lat, longitude: data.lng };
+        if (activeField === 'from') { setFromCoord(coords); reverseGeocode(data.lat, data.lng, 'from'); }
+        else { setToCoord(coords); reverseGeocode(data.lat, data.lng, 'to'); }
+      }
+    } catch (e) {}
+  };
+
+  // --- ЭФФЕКТЫ ---
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync({});
+      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setFromCoord(coords);
+      reverseGeocode(coords.latitude, coords.longitude, 'from');
+      setTimeout(() => sendToMap({ type: 'SET_VIEW', lat: coords.latitude, lng: coords.longitude }), 1000);
     })();
-    return () => {
-      mounted = false;
-    };
+    fetchProfile();
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const q = toAddress.trim();
-    if (!q) {
-      setToCoord(null);
-      return;
+    if (fromCoord && toCoord && isRouteSelected) {
+      sendToMap({ type: 'DRAW_ROUTE', from: [fromCoord.latitude, fromCoord.longitude], to: [toCoord.latitude, toCoord.longitude] });
+    } else if (!isRouteSelected) {
+      sendToMap({ type: 'CLEAR_ROUTE' });
     }
+  }, [fromCoord, toCoord, isRouteSelected]);
 
-    const timeout = setTimeout(async () => {
-      try {
-        const results = await Location.geocodeAsync(q);
-        if (cancelled) return;
-        if (results.length > 0) {
-          setToCoord({ latitude: results[0].latitude, longitude: results[0].longitude });
-        } else {
-          setToCoord(null);
-        }
-      } catch {
-        if (!cancelled) setToCoord(null);
+  const mapHtml = useMemo(() => `
+    <!DOCTYPE html><html><head>
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>body{margin:0;padding:0;background:#0F172A}#map{height:100vh;width:100vw}.leaflet-control-attribution{display:none}</style>
+    </head><body><div id="map"></div><script>
+    var map=L.map('map',{zoomControl:false}).setView([46.1663,80.9329],16);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+    var markerB=null,routeLine=null;
+    window.handleAppMessage=function(d){
+      if(d.type==='SET_VIEW')map.flyTo([d.lat,d.lng],17);
+      if(d.type==='DRAW_ROUTE'){
+        if(routeLine)map.removeLayer(routeLine);if(markerB)map.removeLayer(markerB);
+        markerB=L.marker(d.to).addTo(map);
+        routeLine=L.polyline([d.from,d.to],{color:'#3B82F6',weight:5}).addTo(map);
+        map.fitBounds(routeLine.getBounds(),{padding:[100,100]});
       }
-    }, 600);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timeout);
+      if(d.type==='CLEAR_ROUTE'){if(routeLine)map.removeLayer(routeLine);if(markerB)map.removeLayer(markerB);routeLine=null;markerB=null;}
     };
-  }, [toAddress]);
-
-  useEffect(() => {
-    if (!mapRef.current || !fromCoord || !toCoord) return;
-    mapRef.current.fitToCoordinates([fromCoord, toCoord], {
-      edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
-      animated: true,
-    });
-  }, [fromCoord, toCoord]);
-
-  const initialRegion = useMemo(() => {
-    if (!fromCoord) return undefined;
-    return {
-      latitude: fromCoord.latitude,
-      longitude: fromCoord.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    };
-  }, [fromCoord]);
-
-  const handleLogout = async () => {
-    await clearAuth();
-    setAuthToken(null);
-    navigation.replace('Login');
-  };
-
-  const addStop = () => {
-    setStops([...stops, { address: '', lat: 0, lng: 0 }]);
-  };
-
-  const removeStop = (index: number) => {
-    setStops(stops.filter((_, i) => i !== index));
-  };
-
-  const updateStop = (index: number, field: 'address' | 'lat' | 'lng', value: string | number) => {
-    const updatedStops = [...stops];
-    updatedStops[index] = { ...updatedStops[index], [field]: value };
-    setStops(updatedStops);
-  };
-
-  const createRide = async () => {
-    setLoading(true);
-    setError(null);
-
-    // Validation
-    if (!fromAddress.trim()) {
-      setError('Укажите адрес отправления');
-      setLoading(false);
-      return;
-    }
-
-    if (!toAddress.trim()) {
-      setError('Укажите адрес назначения');
-      setLoading(false);
-      return;
-    }
-
-    if (!fromCoord || !toCoord) {
-      setError('Не удалось определить координаты. Попробуйте выбрать адреса из списка');
-      setLoading(false);
-      return;
-    }
-
-    // Validate stops
-    const validStops = stops.filter(stop => {
-      if (!stop.address.trim()) return false;
-      if (stop.lat === 0 || stop.lng === 0) return false;
-      return true;
-    });
-
-    if (validStops.length !== stops.length) {
-      setError('Некоторые остановки имеют неверные координаты. Проверьте все остановки');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const payload = {
-        fromAddress: fromAddress.trim(),
-        toAddress: toAddress.trim(),
-        fromLat: fromCoord?.latitude,
-        fromLng: fromCoord?.longitude,
-        toLat: toCoord?.latitude,
-        toLng: toCoord?.longitude,
-        stops: validStops,
-        paymentMethod,
-      };
-
-      const response = await apiClient.post('/rides', payload);
-      const rideId: string = response.data.id;
-      navigation.navigate('RideStatus', { rideId });
-    } catch (e: any) {
-      console.error('Create ride error:', e);
-      const errorMessage = e.response?.data?.message || 'Не удалось создать поездку';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+    map.on('moveend',function(){var c=map.getCenter();window.ReactNativeWebView.postMessage(JSON.stringify({type:'MAP_MOVE_END',lat:c.lat,lng:c.lng}));});
+    </script></body></html>
+  `, []);
 
   return (
     <View style={styles.container}>
-      {/* Full screen map as background */}
       <View style={styles.mapContainer}>
-        {initialRegion ? (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={initialRegion}
-            customMapStyle={darkMapStyle}
-          >
-            {fromCoord && <Marker coordinate={fromCoord} title="Откуда" pinColor="#3B82F6" />}
-            {toCoord && <Marker coordinate={toCoord} title="Куда" pinColor="#EF4444" />}
-            {fromCoord && toCoord && (
-              <Polyline coordinates={[fromCoord, toCoord]} strokeWidth={4} strokeColor="#3B82F6" />
-            )}
-          </MapView>
-        ) : (
-          <View style={styles.mapPlaceholder}>
-            <Text style={styles.mapPlaceholderText}>Определяем геопозицию…</Text>
+        <WebView ref={webViewRef} originWhitelist={['*']} source={{ html: mapHtml }} style={styles.map} onMessage={onMessage} />
+        {!isRouteSelected && (
+          <View style={styles.pinContainer} pointerEvents="none">
+            <View style={styles.pinCircle}><View style={styles.pinDot}/></View><View style={styles.pinLeg}/>
           </View>
         )}
+        <TouchableOpacity style={[styles.locationBtn, isRouteSelected && {bottom: 380}]} onPress={() => sendToMap({ type: 'SET_VIEW', lat: fromCoord?.latitude, lng: fromCoord?.longitude })}>
+          <Text style={{fontSize: 20}}>🎯</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Floating Bottom Sheet */}
-      <View style={styles.bottomSheet}>
-        <View style={styles.handleBar} />
-
-        {/* From Input with Icon */}
-        <View style={styles.inputContainer}>
-          <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>●</Text>
-          </View>
-          <TextInput
-            style={[styles.input, fromFocused && styles.inputFocused]}
-            placeholder="Откуда"
-            placeholderTextColor="#64748B"
-            value={fromAddress}
-            onChangeText={setFromAddress}
-            onFocus={() => setFromFocused(true)}
-            onBlur={() => setFromFocused(false)}
-          />
-        </View>
-
-        {/* To Input with Icon */}
-        <View style={styles.inputContainer}>
-          <View style={[styles.iconCircle, styles.iconCircleRed]}>
-            <Text style={[styles.iconText, styles.iconTextRed]}>⚑</Text>
-          </View>
-          <TextInput
-            style={[styles.input, toFocused && styles.inputFocused]}
-            placeholder="Куда"
-            placeholderTextColor="#64748B"
-            value={toAddress}
-            onChangeText={setToAddress}
-            onFocus={() => setToFocused(true)}
-            onBlur={() => setToFocused(false)}
-          />
-        </View>
-
-        {error && <Text style={styles.error}>{error}</Text>}
-
-        {/* Stops Management */}
-        <View style={styles.stopsContainer}>
-          <Text style={styles.stopsTitle}>Промежуточные остановки</Text>
-          {stops.map((stop, index) => (
-            <View key={index} style={styles.stopItem}>
-              <View style={styles.stopNumber}>
-                <Text style={styles.stopNumberText}>{index + 1}</Text>
-              </View>
-              <View style={styles.stopInputContainer}>
-                <TextInput
-                  style={styles.stopInput}
-                  placeholder="Адрес остановки"
-                  value={stop.address}
-                  onChangeText={(text) => updateStop(index, 'address', text)}
-                />
-                <TouchableOpacity
-                  style={styles.removeStopButton}
-                  onPress={() => removeStop(index)}
-                >
-                  <Text style={styles.removeStopText}>×</Text>
+      {/* ПОИСК */}
+      {!isSearching && !isRouteSelected && (
+        <View style={styles.topInterface}>
+          <View style={styles.searchCard}>
+            <View style={styles.searchHeader}>
+              <View style={{flex: 1}}>
+                <TouchableOpacity onPress={() => { setIsSearching(true); setActiveField('from'); }} style={styles.searchRow}>
+                  <View style={[styles.dot, {backgroundColor: '#3B82F6'}]} /><Text style={styles.topInputText} numberOfLines={1}>{fromAddress}</Text>
+                </TouchableOpacity>
+                <View style={styles.line} />
+                <TouchableOpacity onPress={() => { setIsSearching(true); setActiveField('to'); }} style={styles.searchRow}>
+                  <View style={[styles.dot, {backgroundColor: '#EF4444'}]} /><Text style={[styles.topInputText, !toAddress && {color: '#64748B'}]} numberOfLines={1}>{toAddress || 'Куда поедете?'}</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity style={styles.profileBtn} onPress={() => toggleMenu(true)}><Text style={{fontSize: 24}}>👤</Text></TouchableOpacity>
             </View>
-          ))}
-          <TouchableOpacity style={styles.addStopButton} onPress={addStop}>
-            <Text style={styles.addStopButtonText}>+ Добавить остановку</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Payment Method Selection */}
-        <View style={styles.paymentContainer}>
-          <Text style={styles.paymentTitle}>Способ оплаты</Text>
-          <View style={styles.paymentButtons}>
-            <TouchableOpacity
-              style={[styles.paymentButton, paymentMethod === 'CARD' && styles.paymentButtonActive]}
-              onPress={() => setPaymentMethod('CARD')}
-            >
-              <Text style={[styles.paymentButtonText, paymentMethod === 'CARD' && styles.paymentButtonTextActive]}>
-                💳 Карта
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.paymentButton, paymentMethod === 'CASH' && styles.paymentButtonActive]}
-              onPress={() => setPaymentMethod('CASH')}
-            >
-              <Text style={[styles.paymentButtonText, paymentMethod === 'CASH' && styles.paymentButtonTextActive]}>
-                💵 Наличные
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
+      )}
 
-        {/* Large Primary Button */}
-        <TouchableOpacity
-          style={[styles.primaryButton, loading && styles.buttonDisabled]}
-          onPress={createRide}
-          disabled={loading}
-        >
-          <Text style={styles.primaryButtonText}>
-            {loading ? 'Создание...' : 'Заказать такси'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Secondary Buttons */}
-        <View style={styles.secondaryButtons}>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => navigation.navigate('FavoriteAddresses')}
-          >
-            <Text style={styles.secondaryButtonText}>⭐ Избранные</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => navigation.navigate('RideHistory')}
-          >
-            <Text style={styles.secondaryButtonText}>История</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Выйти</Text>
-          </TouchableOpacity>
+      {/* ОВЕРЛЕЙ ПОИСКА */}
+      {isSearching && (
+        <View style={styles.searchOverlay}>
+          <View style={styles.searchHeaderFull}>
+            <TouchableOpacity onPress={() => { setIsSearching(false); Keyboard.dismiss(); }}><Text style={{fontSize: 24}}>←</Text></TouchableOpacity>
+            <TextInput style={styles.inputFull} placeholder="Куда поедете?" value={toAddress} onChangeText={setToAddress} autoFocus returnKeyType="done" onSubmitEditing={handleSearchSubmit} />
+            <TouchableOpacity onPress={() => { setIsSearching(false); Keyboard.dismiss(); }}><Text style={{color: '#3B82F6', fontWeight: 'bold'}}>Карта</Text></TouchableOpacity>
+          </View>
+          <FlatList data={RECENT_PLACES} keyExtractor={(item) => item.id} renderItem={({ item }) => (
+            <TouchableOpacity style={styles.historyItem} onPress={() => selectPlace(item)}>
+              <View style={styles.historyIcon}><Text>🕒</Text></View>
+              <View><Text style={styles.historyName}>{item.name}</Text><Text style={styles.historyAddr}>{item.address}</Text></View>
+            </TouchableOpacity>
+          )} keyboardShouldPersistTaps="handled" />
         </View>
-      </View>
+      )}
+
+      {/* МЕНЮ ЗАКАЗА */}
+      {isRouteSelected && (
+        <View style={styles.confirmSheet}>
+          <TouchableOpacity style={{alignItems: 'center', marginBottom: 10}} onPress={() => setIsRouteSelected(false)}><View style={styles.handle}/></TouchableOpacity>
+          <View style={styles.addressBlock}>
+            <Text style={styles.addressText} numberOfLines={1}>● {fromAddress}</Text>
+            <Text style={styles.addressText} numberOfLines={1}>■ {toAddress}</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20}}>
+            <TouchableOpacity style={[styles.tariffCard, styles.tariffActive]}><Text style={{fontSize: 30}}>🚕</Text><Text style={styles.tariffName}>UberX</Text><Text>550 ₸</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.tariffCard}><Text style={{fontSize: 30}}>✨</Text><Text style={styles.tariffName}>Comfort</Text><Text>800 ₸</Text></TouchableOpacity>
+          </ScrollView>
+          <TouchableOpacity style={styles.mainConfirmBtn} onPress={() => navigation.navigate('RideStatus', { rideId: 'test' })}><Text style={styles.mainConfirmBtnText}>ЗАКАЗАТЬ</Text></TouchableOpacity>
+        </View>
+      )}
+
+      {/* БОКОВОЕ МЕНЮ */}
+      {showMenu && <Pressable style={styles.overlay} onPress={() => toggleMenu(false)} />}
+      <Animated.View style={[styles.sideMenu, { transform: [{ translateX: menuAnim }] }]}>
+        <View style={styles.menuHeader}><Text style={styles.userName}>{profile?.fullName || 'Загрузка...'}</Text><Text style={styles.userPhone}>{profile?.phone || ''}</Text></View>
+        <ScrollView style={{padding: 20}}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(false); navigation.navigate('RideHistory'); }}><Text style={styles.menuItemText}>История заказов</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.menuItem, {marginTop: 20}]} onPress={handleLogout}><Text style={[styles.menuItemText, {color: '#EF4444'}]}>Выйти</Text></TouchableOpacity>
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 };
 
-const { height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  mapContainer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-  },
-  mapPlaceholderText: {
-    color: '#64748B',
-    fontSize: 16,
-  },
-  // Floating Bottom Sheet
-  bottomSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#1E293B',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 34,
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderBottomWidth: 0,
-    minHeight: height * 0.4,
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#475569',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  // Inputs with Icons
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#3B82F620',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  iconCircleRed: {
-    backgroundColor: '#EF444420',
-  },
-  iconText: {
-    color: '#3B82F6',
-    fontSize: 14,
-  },
-  iconTextRed: {
-    color: '#EF4444',
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: '#F8FAFC',
-    fontSize: 16,
-  },
-  inputFocused: {
-    borderColor: '#3B82F6',
-  },
-  error: {
-    color: '#EF4444',
-    marginBottom: 12,
-    fontSize: 14,
-  },
-  // Buttons
-  primaryButton: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    color: '#F8FAFC',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  secondaryButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    gap: 12,
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: '#334155',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    backgroundColor: '#7F1D1D',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  logoutButtonText: {
-    color: '#FCA5A5',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Stops Management
-  stopsContainer: {
-    marginBottom: 16,
-  },
-  stopsTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  stopItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  stopNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#334155',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  stopNumberText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  stopInputContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stopInput: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: '#F8FAFC',
-    fontSize: 14,
-  },
-  removeStopButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  removeStopText: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  addStopButton: {
-    backgroundColor: '#334155',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#475569',
-  },
-  addStopButtonText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Payment Method Styles
-  paymentContainer: {
-    marginBottom: 16,
-  },
-  paymentTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  paymentButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  paymentButton: {
-    flex: 1,
-    backgroundColor: '#334155',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#475569',
-  },
-  paymentButtonActive: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
-  },
-  paymentButtonText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  paymentButtonTextActive: {
-    color: '#F8FAFC',
-  },
+  container: { flex: 1, backgroundColor: '#0F172A' },
+  mapContainer: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
+  map: { flex: 1 },
+  pinContainer: { position: 'absolute', top: '50%', left: '50%', marginLeft: -12, marginTop: -34, alignItems: 'center', justifyContent: 'center', width: 24, height: 36, zIndex: 10 },
+  pinCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#EF4444', justifyContent: 'center', alignItems: 'center' },
+  pinDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#EF4444' },
+  pinLeg: { width: 1.5, height: 12, backgroundColor: '#EF4444' },
+  locationBtn: { position: 'absolute', bottom: 40, right: 20, width: 50, height: 50, backgroundColor: 'white', borderRadius: 25, justifyContent: 'center', alignItems: 'center', elevation: 5, zIndex: 10 },
+  topInterface: { position: 'absolute', top: 60, left: 20, right: 20, zIndex: 100 },
+  searchCard: { backgroundColor: 'white', borderRadius: 15, padding: 15, elevation: 10 },
+  searchHeader: { flexDirection: 'row', alignItems: 'center' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', height: 40 },
+  dot: { width: 6, height: 6, borderRadius: 3, marginRight: 15 },
+  topInputText: { flex: 1, color: '#1E293B', fontSize: 16 },
+  line: { height: 1, backgroundColor: '#F1F5F9', marginLeft: 25, marginVertical: 5 },
+  profileBtn: { marginLeft: 15 },
+  searchOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'white', zIndex: 300, paddingTop: 50 },
+  searchHeaderFull: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  inputFull: { flex: 1, height: 45, backgroundColor: '#F1F5F9', borderRadius: 10, paddingHorizontal: 15, marginHorizontal: 10, fontSize: 16, color: 'black' },
+  historyItem: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  historyIcon: { width: 36, height: 36, backgroundColor: '#F1F5F9', borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  historyName: { fontSize: 16, color: '#1E293B', fontWeight: '600' },
+  historyAddr: { fontSize: 13, color: '#94A3B8' },
+  confirmSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, zIndex: 150, elevation: 20 },
+  handle: { width: 40, height: 5, backgroundColor: '#E2E8F0', borderRadius: 3 },
+  addressBlock: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 15, marginBottom: 15 },
+  addressText: { fontSize: 15, color: '#1E293B', marginBottom: 5 },
+  tariffCard: { width: 100, height: 100, backgroundColor: '#F8FAFC', borderRadius: 15, padding: 10, marginRight: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
+  tariffActive: { borderColor: '#000' },
+  tariffName: { fontSize: 12, fontWeight: 'bold' },
+  mainConfirmBtn: { height: 60, backgroundColor: 'black', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  mainConfirmBtnText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 500 },
+  sideMenu: { position: 'absolute', top: 0, right: 0, width: width * 0.8, height: '100%', backgroundColor: 'white', zIndex: 1000 },
+  menuHeader: { backgroundColor: '#1E293B', padding: 30, paddingTop: 60 },
+  userName: { color: 'white', fontSize: 20, fontWeight: 'bold' },
+  userPhone: { color: '#94A3B8', fontSize: 14 },
+  menuItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  menuItemText: { fontSize: 16, color: '#1E293B' },
 });
-

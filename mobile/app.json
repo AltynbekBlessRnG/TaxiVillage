@@ -6,6 +6,28 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "taxivillage",
+    "ios": {
+      "bundleIdentifier": "com.taxivillage.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location to show your position on the map and find nearby drivers.",
+        "NSLocationAlwaysUsageDescription": "This app needs access to location to show your position on the map and find nearby drivers."
+      }
+    },
+    "android": {
+      "package": "com.taxivillage.app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDwsRsx3HSk0TFFGuwDlrd2EYCgy2IYSdw"
+        }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.INTERNET"
+      ],
+      "usesCleartextTraffic": true
+    },
     "plugins": [
       [
         "expo-location",
@@ -17,21 +39,6 @@
           "isAndroidBackgroundLocationEnabled": false
         }
       ]
-    ],
-    "android": {
-      "permissions": [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.INTERNET"
-      ],
-      "usesCleartextTraffic": true
-    },
-    "ios": {
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "This app needs access to location to show your position on the map and find nearby drivers.",
-        "NSLocationAlwaysUsageDescription": "This app needs access to location to show your position on the map and find nearby drivers."
-      }
-    }
+    ]
   }
 }

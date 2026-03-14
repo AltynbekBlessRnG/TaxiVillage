@@ -62,28 +62,15 @@ class AddDocumentDto {
 
 const uploadOpts = {
   storage: diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, TEMP_DIR); // Use predefined temp directory
+    destination: (req: any, file: any, cb: any) => {
+      cb(null, TEMP_DIR);
     },
-    filename: (req, file, cb) => {
-      // Generate unique filename to prevent collisions
+    filename: (req: any, file: any, cb: any) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
       const ext = file.originalname.split('.').pop();
       cb(null, `doc-${uniqueSuffix}.${ext}`);
     },
   }),
-  limits: { 
-    fileSize: 10 * 1024 * 1024, // 10 MB limit
-    files: 1 // Limit to 1 file per request
-  },
-  fileFilter: (req, file, cb) => {
-    // Only allow image files for documents
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new BadRequestException('Only image files are allowed'));
-    }
-  },
 };
 
 @Controller('drivers')

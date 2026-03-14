@@ -8,6 +8,7 @@ import { RidesModule } from '../rides/rides.module';
   imports: [UploadModule, RidesModule],
   providers: [DriversService],
   controllers: [DriversController],
+  exports: [DriversService],
 })
 export class DriversModule {}
 
