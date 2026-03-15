@@ -33,6 +33,11 @@ class CreateRideDto {
   @IsNumber()
   @Type(() => Number)
   toLng?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  estimatedPrice?: number; 
 }
 
 class UpdateRideStatusDto {

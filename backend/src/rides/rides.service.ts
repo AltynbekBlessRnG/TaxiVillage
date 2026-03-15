@@ -49,6 +49,7 @@ export class RidesService {
         lng: number;
       }>;
       paymentMethod?: 'CARD' | 'CASH';
+      estimatedPrice?: number;
     },
   ) {
     const passengerProfile = await this.prisma.passengerProfile.findUnique({
@@ -121,29 +122,26 @@ export class RidesService {
     const pricePerMinute = tariff.pricePerMinute
       ? Number(tariff.pricePerMinute)
       : 0;
-    const estimatedPrice = new Prisma.Decimal(
-      baseFare +
-        distanceKm * pricePerKm +
-        estimatedMinutes * pricePerMinute,
-    );
+    const finalEstimatedPrice = data.estimatedPrice 
+  ? new Prisma.Decimal(data.estimatedPrice) 
+  : new Prisma.Decimal(baseFare + distanceKm * pricePerKm + estimatedMinutes * pricePerMinute);
 
-    const ride = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.ride.create({
-        data: {
-          passengerId: passengerProfile.id,
-          tariffId,
-          status: RideStatus.SEARCHING_DRIVER,
-          fromAddress: data.fromAddress,
-          toAddress: data.toAddress,
-          fromLat,
-          fromLng,
-          toLat,
-          toLng,
-          // @ts-ignore - paymentMethod field exists in schema but not in types yet
-          paymentMethod: data.paymentMethod || 'CARD',
-          estimatedPrice,
-        },
-      });
+const ride = await this.prisma.$transaction(async (tx) => {
+  const created = await tx.ride.create({
+    data: {
+      passengerId: passengerProfile.id,
+      tariffId,
+      status: RideStatus.SEARCHING_DRIVER,
+      fromAddress: data.fromAddress,
+      toAddress: data.toAddress,
+      fromLat,
+      fromLng,
+      toLat,
+      toLng,
+      paymentMethod: data.paymentMethod || 'CARD',
+      estimatedPrice: finalEstimatedPrice, // Используем нашу переменную
+    },
+  });
 
       // Create stops if provided
       if (data.stops && data.stops.length > 0) {
