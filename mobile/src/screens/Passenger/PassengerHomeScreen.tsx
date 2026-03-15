@@ -9,11 +9,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { loadAuth, clearAuth } from '../../storage/authStorage';
+import { initializeNotifications, sendLocalNotification, NOTIFICATION_TYPES } from '../../utils/notifications';
 
 // Импортируем наши "забетонированные" компоненты
 import { SearchSheet } from '../../components/Passenger/SearchSheet';
 import { ConfirmationSheet } from '../../components/Passenger/ConfirmationSheet';
 import { SearchingSheet } from '../../components/Passenger/SearchingSheet';
+import { OrderDetailsSheet } from '../../components/Passenger/OrderDetailsSheet';
 import { createRidesSocket } from '../../api/socket';
 
 const { width, height } = Dimensions.get('window');
@@ -35,6 +37,11 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [toCoord, setToCoord] = useState<{lat: number, lng: number} | null>(null);
   
   const [offeredPrice, setOfferedPrice] = useState('');
+  const [comment, setComment] = useState('');
+  const [stops, setStops] = useState<Array<{address: string, lat: number, lng: number}>>([]);
+  const [isStopSelectionMode, setIsStopSelectionMode] = useState(false);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [nearbyDrivers, setNearbyDrivers] = useState<Array<{id: string, lat: number, lng: number, fullName: string}>>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [mapCenter, setMapCenter] = useState<{lat: number, lng: number} | null>(null);
@@ -49,6 +56,9 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   // 1. ИНИЦИАЛИЗАЦИЯ (Профиль + Геопозиция)
   useEffect(() => {
     const init = async () => {
+      // Initialize notifications
+      await initializeNotifications();
+      
       try {
         const res = await apiClient.get('/users/me');
         setUserProfile({ fullName: res.data.passenger?.fullName, phone: res.data.phone });
@@ -72,6 +82,39 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     };
     init();
   }, []);
+
+  useEffect(() => {
+    // Fetch nearby drivers when in IDLE mode and we have user location
+    if (screenState === 'IDLE' && userLocation) {
+      fetchNearbyDrivers();
+    }
+  }, [screenState, userLocation]);
+
+  useEffect(() => {
+    // Update driver markers on map when nearbyDrivers change
+    if (webViewRef.current && nearbyDrivers.length > 0) {
+      webViewRef.current.injectJavaScript(`window.updateDrivers(${JSON.stringify(nearbyDrivers)})`);
+    }
+  }, [nearbyDrivers]);
+
+  const fetchNearbyDrivers = async () => {
+    if (!userLocation) return;
+    
+    try {
+      const res = await apiClient.get('/drivers/nearby', {
+        params: {
+          lat: userLocation.lat,
+          lng: userLocation.lng,
+          radius: 5 // 5km radius
+        }
+      });
+      
+      setNearbyDrivers(res.data || []);
+    } catch (error) {
+      console.log('Failed to fetch nearby drivers:', error);
+    }
+  };
+
   useEffect(() => {
   let socket: any = null;
 
@@ -85,12 +128,33 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         console.log('Статус заказа обновился:', updatedRide.status);
         
         if (updatedRide.status === 'DRIVER_ASSIGNED') {
+          // Send push notification
+          sendLocalNotification(
+            'Водитель назначен',
+            'Ваш водитель найден и уже едет к вам',
+            { type: NOTIFICATION_TYPES.DRIVER_ASSIGNED, rideId: updatedRide.id }
+          );
+          
           // УРА! Водитель найден. Переходим на экран статуса
           socket.disconnect();
           navigation.navigate('RideStatus', { rideId: updatedRide.id });
         }
         
+        if (updatedRide.status === 'ON_THE_WAY') {
+          sendLocalNotification(
+            'Водитель в пути',
+            'Ваш водитель едет к вам',
+            { type: NOTIFICATION_TYPES.DRIVER_ARRIVED, rideId: updatedRide.id }
+          );
+        }
+        
         if (updatedRide.status === 'CANCELED') {
+          sendLocalNotification(
+            'Поездка отменена',
+            'Водитель не найден, попробуйте еще раз',
+            { type: 'RIDE_CANCELED', rideId: updatedRide.id }
+          );
+          
           Alert.alert("Упс", "Водитель не найден, попробуйте еще раз");
           changeState('IDLE');
         }
@@ -164,6 +228,44 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  // 5. ОБРАБОТКА ВЫБОРА АДРЕСА ИЗ AUTOCOMPLETE
+  const handleAddressSelect = (field: 'from' | 'to', address: string, lat: number, lng: number) => {
+    if (field === 'from') {
+      setFromAddress(address);
+      setFromCoord({ lat, lng });
+    } else {
+      setToAddress(address);
+      setToCoord({ lat, lng });
+      
+      // Если это выбор остановки
+      if (isStopSelectionMode) {
+        setStops([...stops, { address, lat, lng }]);
+        setIsStopSelectionMode(false);
+        return;
+      }
+    }
+  };
+
+  // 6. ДОБАВЛЕНИЕ ОСТАНОВКИ
+  const handleAddStop = () => {
+    setIsStopSelectionMode(true);
+    changeState('SEARCH');
+  };
+
+  // 7. РЕДАКТИРОВАНИЕ КОММЕНТАРИЯ
+  const handleEditComment = () => {
+    Alert.prompt(
+      "Комментарий к заказу",
+      "Укажите детали для водителя (например: черный забор, подъезд 3)",
+      [
+        { text: "Отмена", style: "cancel" },
+        { text: "Сохранить", onPress: (text: string | undefined) => setComment(text || '') }
+      ],
+      "plain-text",
+      comment
+    );
+  };
+
   // 4. СОЗДАНИЕ ЗАКАЗА И ПЕРЕХОД В ПОИСК
 const handleCreateRide = async () => {
   if (!toCoord) { Alert.alert("Ошибка", "Выберите место назначения"); return; }
@@ -173,6 +275,12 @@ const handleCreateRide = async () => {
       fromAddress, toAddress,
       fromLat: fromCoord?.lat, fromLng: fromCoord?.lng,
       toLat: toCoord?.lat, toLng: toCoord?.lng,
+      comment,
+      stops: stops.map(stop => ({
+        address: stop.address,
+        lat: stop.lat,
+        lng: stop.lng
+      })),
       estimatedPrice: parseFloat(offeredPrice) || 0
     });
 
@@ -187,6 +295,11 @@ const handleCreateRide = async () => {
   }
 };
 
+  // 8. ПОКАЗАТЬ ДЕТАЛИ ЗАКАЗА
+  const handleShowDetails = () => {
+    setShowOrderDetails(true);
+  };
+
   const toggleMenu = (show: boolean) => {
     if (show) setIsMenuOpen(true);
     Animated.parallel([
@@ -196,8 +309,8 @@ const handleCreateRide = async () => {
   };
 
   const mapHtml = useMemo(() => `
-    <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body{margin:0;padding:0;background:#000}#map{height:100vh;width:100vw}.user-dot{width:18px;height:18px;background:#3B82F6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 15px #3B82F6}</style></head><body><div id="map"></div><script>var map=L.map('map',{zoomControl:false}).setView([43.2389, 76.8897], 15);L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);var userMarker = null;window.setUserLocation = function(lat, lng) { if(userMarker) map.removeLayer(userMarker); userMarker = L.marker([lat, lng], {icon: L.divIcon({className:'user-dot',iconSize:[18,18]})}).addTo(map); map.flyTo([lat, lng], 16); };map.on('moveend', function(){ var c=map.getCenter(); window.ReactNativeWebView.postMessage(JSON.stringify({lat:c.lat,lng:c.lng})); });</script></body></html>
-  `, []);
+    <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body{margin:0;padding:0;background:#000}#map{height:100vh;width:100vw}.user-dot{width:18px;height:18px;background:#3B82F6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 15px #3B82F6}.driver-dot{width:16px;height:16px;background:#EF4444;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px #EF4444}</style></head><body><div id="map"></div><script>var map=L.map('map',{zoomControl:false}).setView([43.2389, 76.8897], 15);L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);var userMarker = null;var driverMarkers = [];window.setUserLocation = function(lat, lng) { if(userMarker) map.removeLayer(userMarker); userMarker = L.marker([lat, lng], {icon: L.divIcon({className:'user-dot',iconSize:[18,18]})}).addTo(map); map.flyTo([lat, lng], 16); };window.updateDrivers = function(drivers) { driverMarkers.forEach(marker => map.removeLayer(marker)); driverMarkers = []; drivers.forEach(function(driver) { var marker = L.marker([driver.lat, driver.lng], {icon: L.divIcon({className:'driver-dot',iconSize:[16,16]})}).addTo(map); driverMarkers.push(marker); }); };map.on('moveend', function(){ var c=map.getCenter(); window.ReactNativeWebView.postMessage(JSON.stringify({lat:c.lat,lng:c.lng})); });</script></body></html>
+  `, [nearbyDrivers]);
 
   return (
     <View style={styles.container}>
@@ -255,6 +368,7 @@ const handleCreateRide = async () => {
         onClose={() => changeState('IDLE')}
         onMapPick={() => changeState('MAP_PICK')}
         onSubmit={handleGeocodeAndProceed}
+        onAddressSelect={handleAddressSelect}
       />
 
       {/* ПОДТВЕРЖДЕНИЕ НА КАРТЕ */}
@@ -275,12 +389,31 @@ const handleCreateRide = async () => {
         onEditAddress={() => changeState('SEARCH')}
         onSwipeDown={() => changeState('IDLE')}
         loading={loading}
+        comment={comment}
+        setComment={setComment}
+        stops={stops}
+        onAddStop={handleAddStop}
+        onEditComment={handleEditComment}
       />
 
       {/* ШТОРКА ПОИСКА ВОДИТЕЛЯ (SearchingSheet) */}
       {screenState === 'SEARCHING' && (
-        <SearchingSheet onCancel={() => changeState('IDLE')} />
+        <SearchingSheet 
+          onCancel={() => changeState('IDLE')} 
+          onShowDetails={handleShowDetails}
+        />
       )}
+
+      {/* МОДАЛКА ДЕТАЛЕЙ ЗАКАЗА */}
+      <OrderDetailsSheet
+        visible={showOrderDetails}
+        onClose={() => setShowOrderDetails(false)}
+        fromAddress={fromAddress}
+        comment={comment}
+        stops={stops}
+        toAddress={toAddress}
+        price={offeredPrice}
+      />
 
       {/* БОКОВОЕ МЕНЮ */}
       {isMenuOpen && (

@@ -5,9 +5,10 @@ const { width } = Dimensions.get('window');
 
 interface Props {
   onCancel: () => void;
+  onShowDetails: () => void;
 }
 
-export const SearchingSheet: React.FC<Props> = ({ onCancel }) => {
+export const SearchingSheet: React.FC<Props> = ({ onCancel, onShowDetails }) => {
   const [seconds, setSeconds] = useState(0);
   
   // Анимация для полоски
@@ -70,7 +71,7 @@ export const SearchingSheet: React.FC<Props> = ({ onCancel }) => {
             <Text style={styles.btnLabel}>Отменить{'\n'}поездку</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.circleBtnContainer}>
+          <TouchableOpacity style={styles.circleBtnContainer} onPress={onShowDetails}>
             <View style={styles.circleBtn}>
               <Text style={styles.btnIcon}>☰</Text>
             </View>

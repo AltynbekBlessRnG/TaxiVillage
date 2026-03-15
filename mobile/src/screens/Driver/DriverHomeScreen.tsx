@@ -13,6 +13,12 @@ interface RideOffer {
   id: string;
   fromAddress: string;
   toAddress: string;
+  comment?: string;
+  stops?: Array<{
+    address: string;
+    lat: number;
+    lng: number;
+  }>;
   estimatedPrice?: number;
   fromLat: number;
   fromLng: number;
@@ -146,9 +152,27 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           const distance = '—';
           const price = ride.estimatedPrice ? Math.round(ride.estimatedPrice) : '—';
           
+          // Build message with comment and stops
+          let message = `От: ${ride.fromAddress}\nДо: ${ride.toAddress}`;
+          
+          // Add stops if any
+          if (ride.stops && ride.stops.length > 0) {
+            message += '\n\nОстановки:';
+            ride.stops.forEach((stop, index) => {
+              message += `\n${index + 1}. ${stop.address}`;
+            });
+          }
+          
+          // Add comment if any
+          if (ride.comment) {
+            message += `\n\nКомментарий: ${ride.comment}`;
+          }
+          
+          message += `\n\nЦена: ${price} ₽`;
+          
           Alert.alert(
             'Новый заказ',
-            `От: ${ride.fromAddress}\nДо: ${ride.toAddress}\nЦена: ${price} ₽`,
+            message,
             [
               { text: 'Пропустить', onPress: () => rejectRide(ride.id) },
               { text: 'Принять', onPress: () => acceptRide(ride.id) },

@@ -3,6 +3,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DocumentType, DriverStatus, RideStatus } from '@prisma/client';
 import { RidesGateway } from '../rides/rides.gateway';
 
+/** Haversine distance calculation */
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 @Injectable()
 export class DriversService {
   private readonly logger = new Logger(DriversService.name);
@@ -234,12 +249,49 @@ export class DriversService {
   async getProfile(userId: string) {
     const driver = await this.prisma.driverProfile.findUnique({
       where: { userId },
-      include: { car: true, documents: true },
+      include: {
+        car: true,
+        user: true,
+      },
     });
     if (!driver) {
       throw new NotFoundException('Driver profile not found');
     }
     return driver;
+  }
+
+  async getNearbyDrivers(lat: number, lng: number, radius: number) {
+    // Find all online, approved drivers with valid locations
+    const drivers = await this.prisma.driverProfile.findMany({
+      where: {
+        status: 'APPROVED',
+        isOnline: true,
+        lat: { not: null },
+        lng: { not: null },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        lat: true,
+        lng: true,
+      },
+    });
+
+    // Filter by distance and return only necessary info
+    const nearbyDrivers = drivers
+      .map(driver => ({
+        id: driver.id,
+        fullName: driver.fullName || 'Водитель',
+        lat: driver.lat!,
+        lng: driver.lng!,
+      }))
+      .filter(driver => {
+        const distance = haversineDistance(lat, lng, driver.lat, driver.lng);
+        return distance <= radius;
+      })
+      .slice(0, 20); // Limit to 20 drivers for performance
+
+    return nearbyDrivers;
   }
 }
 

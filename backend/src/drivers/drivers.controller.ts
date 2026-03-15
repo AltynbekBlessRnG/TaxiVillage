@@ -120,6 +120,22 @@ export class DriversController {
     return this.driversService.upsertCar(userId, dto);
   }
 
+  @Get('nearby')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  getNearbyDrivers(@Req() req: any) {
+    const userId: string = req.user.userId;
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    const radius = parseFloat(req.query.radius as string) || 5;
+    
+    if (!lat || !lng) {
+      throw new BadRequestException('lat and lng are required');
+    }
+    
+    return this.driversService.getNearbyDrivers(lat, lng, radius);
+  }
+
   @Post('documents')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.DRIVER)

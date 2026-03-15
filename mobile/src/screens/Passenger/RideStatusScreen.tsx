@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, Modal, TouchableOpacity } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, Polyline } from 'react-native-maps';
+import { MaterialIcons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { createRidesSocket } from '../../api/socket';
 import { loadAuth } from '../../storage/authStorage';
+import { ChatScreen } from '../../components/Chat/ChatScreen';
+import { RideCompletionModal } from '../../components/RideCompletionModal';
+import { sendLocalNotification, NOTIFICATION_TYPES } from '../../utils/notifications';
 
 // Dark map style for Google Maps
 const darkMapStyle = [
@@ -27,14 +31,31 @@ const darkMapStyle = [
 type Props = NativeStackScreenProps<RootStackParamList, 'RideStatus'>;
 
 interface RideData {
-  status?: string;
+  id: string;
+  status: string;
+  fromAddress: string;
+  toAddress: string;
   fromLat?: number;
   fromLng?: number;
   toLat?: number;
   toLng?: number;
-  driver?: { fullName?: string; car?: { plateNumber?: string }; lat?: number; lng?: number };
-  finalPrice?: number | string;
-  estimatedPrice?: number | string;
+  comment?: string;
+  stops?: Array<{ address: string; lat: number; lng: number }>;
+  estimatedPrice?: number;
+  finalPrice?: number;
+  driver?: {
+    id: string;
+    fullName: string;
+    phone: string;
+    lat?: number;
+    lng?: number;
+    car?: {
+      brand: string;
+      model: string;
+      color: string;
+      plateNumber: string;
+    };
+  };
 }
 
 function applyRideToState(
@@ -70,6 +91,9 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
   const [ride, setRide] = useState<RideData | null>(null);
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showRating, setShowRating] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
@@ -79,12 +103,17 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
 
     const init = async () => {
       try {
+        // Get current user ID
+        const auth = await loadAuth();
+        if (auth?.userId) {
+          setCurrentUserId(auth.userId);
+        }
+        
         const response = await apiClient.get(`/rides/${rideId}`);
         if (!isMounted) return;
         setRide(response.data);
         applyRideToState(response.data, setStatus, setDriverInfo, setPriceInfo, setDriverLocation);
 
-        const auth = await loadAuth();
         if (!isMounted || !auth?.token) return;
 
         socket = createRidesSocket(auth.token);
@@ -97,9 +126,16 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
             setRide(updatedRide);
             applyRideToState(updatedRide, setStatus, setDriverInfo, setPriceInfo, setDriverLocation);
             
-            // Show rating modal when ride is completed
-            if (updatedRide.status === 'COMPLETED' && !showRating) {
-              setShowRating(true);
+            // Show completion modal when ride is completed
+            if (updatedRide.status === 'COMPLETED' && !showCompletionModal) {
+              // Send notification
+              sendLocalNotification(
+                'Поездка завершена',
+                `К оплате: ${updatedRide.finalPrice || updatedRide.estimatedPrice} ₽`,
+                { type: 'RIDE_COMPLETED', rideId: updatedRide.id }
+              );
+              
+              setShowCompletionModal(true);
             }
           }
         };
@@ -264,6 +300,35 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
           </View>
         )}
 
+        {/* Route Information */}
+        <View style={styles.routeCard}>
+          <Text style={styles.routeLabel}>Маршрут</Text>
+          <View style={styles.routePoint}>
+            <View style={[styles.pointDot, styles.greenDot]} />
+            <Text style={styles.routeText}>{ride?.fromAddress}</Text>
+          </View>
+          {ride?.stops && ride.stops.length > 0 && (
+            ride.stops.map((stop, index) => (
+              <View key={index} style={styles.routePoint}>
+                <View style={[styles.pointDot, styles.orangeDot]} />
+                <Text style={styles.routeText}>{stop.address}</Text>
+              </View>
+            ))
+          )}
+          <View style={styles.routePoint}>
+            <View style={[styles.pointDot, styles.redDot]} />
+            <Text style={styles.routeText}>{ride?.toAddress}</Text>
+          </View>
+        </View>
+
+        {/* Comment */}
+        {ride?.comment && (
+          <View style={styles.commentCard}>
+            <Text style={styles.commentLabel}>Комментарий</Text>
+            <Text style={styles.commentText}>{ride.comment}</Text>
+          </View>
+        )}
+
         {priceInfo && (
           <View style={styles.priceCard}>
             <Text style={styles.priceText}>{priceInfo}</Text>
@@ -277,11 +342,10 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
             </TouchableOpacity>
           )}
           
-          {status === 'DRIVER_ASSIGNED' && (
+          {status === 'DRIVER_ASSIGNED' && ride?.driver && (
             <TouchableOpacity 
               style={styles.secondaryButton}
-              // @ts-ignore
-              onPress={() => navigation.navigate('ChatScreen', { rideId })}
+              onPress={() => setShowChat(true)}
             >
               <Text style={styles.secondaryButtonText}>💬 Чат с водителем</Text>
             </TouchableOpacity>
@@ -297,36 +361,26 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }: Props) 
         </View>
       </View>
 
-      {/* Rating Modal */}
-      <Modal
-        visible={showRating}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRating(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Оцените поездку</Text>
-            <View style={styles.starsContainer}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={star}
-                  onPress={() => submitRating(star)}
-                  style={styles.starButton}
-                >
-                  <Text style={styles.star}>⭐</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity 
-              style={styles.skipButton}
-              onPress={() => setShowRating(false)}
-            >
-              <Text style={styles.skipButtonText}>Пропустить</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {/* Ride Completion Modal */}
+      <RideCompletionModal
+        visible={showCompletionModal}
+        onClose={() => setShowCompletionModal(false)}
+        rideId={rideId}
+        finalPrice={ride?.finalPrice || ride?.estimatedPrice || 0}
+        driverName={ride?.driver?.fullName || 'Водитель'}
+        onRatingSubmitted={() => navigation.replace('PassengerHome', {})}
+      />
+
+      {/* Chat Modal */}
+      <ChatScreen
+        visible={showChat}
+        onClose={() => setShowChat(false)}
+        rideId={rideId}
+        currentUserId={currentUserId}
+        userType="PASSENGER"
+        receiverId={ride?.driver?.id || ''}
+        receiverName={ride?.driver?.fullName || 'Водитель'}
+      />
     </View>
   );
 };
@@ -407,109 +461,148 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
   },
   statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     marginRight: 12,
   },
   statusText: {
-    color: '#F8FAFC',
     fontSize: 16,
     fontWeight: '600',
-    flex: 1,
+    color: '#F8FAFC',
   },
   driverCard: {
     backgroundColor: '#0F172A',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
   },
   driverLabel: {
-    color: '#94A3B8',
     fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontWeight: '500',
+    color: '#94A3B8',
     marginBottom: 4,
   },
   driverText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#F8FAFC',
-    fontSize: 14,
+  },
+  routeCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  routeLabel: {
+    fontSize: 12,
     fontWeight: '500',
+    color: '#94A3B8',
+    marginBottom: 8,
+  },
+  routePoint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pointDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  greenDot: {
+    backgroundColor: '#10B981',
+  },
+  orangeDot: {
+    backgroundColor: '#F97316',
+  },
+  redDot: {
+    backgroundColor: '#EF4444',
+  },
+  routeText: {
+    fontSize: 14,
+    color: '#E2E8F0',
+    flex: 1,
+  },
+  commentCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  commentLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  commentText: {
+    fontSize: 14,
+    color: '#E2E8F0',
   },
   priceCard: {
     backgroundColor: '#0F172A',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
+    marginBottom: 20,
   },
   priceText: {
-    color: '#10B981',
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
+    color: '#10B981',
+    textAlign: 'center',
   },
   buttonGroup: {
     gap: 12,
   },
   cancelButton: {
-    backgroundColor: '#7F1D1D',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#991B1B',
   },
   cancelButtonText: {
-    color: '#FCA5A5',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  homeButton: {
-    backgroundColor: '#334155',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  homeButtonText: {
-    color: '#94A3B8',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
   },
   secondaryButton: {
-    backgroundColor: '#334155',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    backgroundColor: '#3B82F6',
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
   },
   secondaryButtonText: {
-    color: '#94A3B8',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
   },
-  // Modal
+  homeButton: {
+    backgroundColor: '#475569',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  homeButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Rating Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     backgroundColor: '#1E293B',
-    padding: 24,
     borderRadius: 24,
+    padding: 32,
     alignItems: 'center',
-    minWidth: 280,
     borderWidth: 1,
     borderColor: '#334155',
   },
@@ -517,29 +610,29 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#F8FAFC',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   starsContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    gap: 12,
+    marginBottom: 24,
   },
   starButton: {
     padding: 8,
   },
   star: {
-    fontSize: 36,
+    fontSize: 32,
   },
   skipButton: {
-    backgroundColor: '#334155',
-    borderRadius: 12,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    alignItems: 'center',
+    backgroundColor: '#475569',
+    borderRadius: 8,
   },
   skipButtonText: {
-    color: '#94A3B8',
+    color: '#FFF',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });
 

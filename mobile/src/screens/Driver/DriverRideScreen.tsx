@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert } from 'react-native';
 import MapView, { Marker, Polyline, type LatLng } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -29,6 +29,9 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
   const [status, setStatus] = useState<string>('');
   const [fromCoord, setFromCoord] = useState<LatLng | null>(null);
   const [toCoord, setToCoord] = useState<LatLng | null>(null);
+  const [estimatedPrice, setEstimatedPrice] = useState<number>(0);
+  const [showPriceInput, setShowPriceInput] = useState(false);
+  const [finalPrice, setFinalPrice] = useState<string>('');
   const mapRef = useRef<MapView | null>(null);
 
   useEffect(() => {
@@ -36,6 +39,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
       try {
         const response = await apiClient.get(`/rides/${rideId}`);
         setStatus(response.data.status);
+        setEstimatedPrice(response.data.estimatedPrice || 0);
         const fromLat: number = response.data.fromLat;
         const fromLng: number = response.data.fromLng;
         const toLat: number = response.data.toLat;
@@ -72,11 +76,26 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const updateStatus = async (newStatus: string) => {
     try {
+      if (newStatus === 'COMPLETED') {
+        // Show price input modal
+        setShowPriceInput(true);
+        return;
+      }
+      
       await apiClient.post(`/rides/${rideId}/status`, { status: newStatus });
       setStatus(newStatus);
-      if (newStatus === 'COMPLETED') {
-        navigation.replace('DriverHome');
-      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const completeRide = async () => {
+    try {
+      const price = parseFloat(finalPrice) || estimatedPrice;
+      await apiClient.post(`/rides/${rideId}/complete`, { finalPrice: price });
+      setStatus('COMPLETED');
+      setShowPriceInput(false);
+      navigation.replace('DriverHome');
     } catch {
       // ignore
     }
@@ -136,6 +155,47 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Price Input Modal */}
+      <Modal
+        visible={showPriceInput}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPriceInput(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Завершить поездку</Text>
+            <Text style={styles.modalSubtitle}>Укажите финальную стоимость поездки</Text>
+            
+            <TextInput
+              style={styles.priceInput}
+              value={finalPrice}
+              onChangeText={setFinalPrice}
+              placeholder={`${estimatedPrice} ₽`}
+              placeholderTextColor="#94A3B8"
+              keyboardType="numeric"
+              autoFocus
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowPriceInput(false)}
+              >
+                <Text style={styles.cancelButtonText}>Отмена</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={completeRide}
+              >
+                <Text style={styles.confirmButtonText}>Завершить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -242,6 +302,75 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontSize: 18,
     fontWeight: '700',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#1E293B',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    minWidth: 300,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  priceInput: {
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    minWidth: 150,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  cancelButton: {
+    backgroundColor: '#374151',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    backgroundColor: '#10B981',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

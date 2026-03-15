@@ -110,6 +110,14 @@ export class RidesController {
     return this.ridesService.rejectRide(id);
   }
 
+  @Post(':id/complete')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  complete(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.ridesService.completeRide(userId, id, dto.finalPrice);
+  }
+
   @Post(':id/rate')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.PASSENGER)

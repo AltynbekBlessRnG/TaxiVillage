@@ -1,0 +1,80 @@
+import { io, Socket } from 'socket.io-client';
+import { loadAuth } from '../storage/authStorage';
+
+export interface Message {
+  id: string;
+  content: string;
+  senderId: string;
+  senderType: 'PASSENGER' | 'DRIVER';
+  receiverId: string;
+  receiverType: 'PASSENGER' | 'DRIVER';
+  createdAt: string;
+}
+
+export class ChatSocket {
+  private socket: Socket | null = null;
+  private rideId: string | null = null;
+
+  async connect(rideId: string): Promise<void> {
+    const auth = await loadAuth();
+    if (!auth?.token) {
+      throw new Error('No auth token found');
+    }
+
+    this.rideId = rideId;
+    this.socket = io('http://localhost:3001/chat', {
+      auth: { token: auth.token },
+    });
+
+    return new Promise((resolve, reject) => {
+      this.socket!.on('connect', () => {
+        console.log('Chat socket connected');
+        this.socket!.emit('join:ride', { rideId });
+        resolve();
+      });
+
+      this.socket!.on('connect_error', (error) => {
+        console.error('Chat socket connection error:', error);
+        reject(error);
+      });
+    });
+  }
+
+  disconnect(): void {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+      this.rideId = null;
+    }
+  }
+
+  sendMessage(content: string, receiverId: string, receiverType: 'PASSENGER' | 'DRIVER'): void {
+    if (!this.socket || !this.rideId) {
+      throw new Error('Chat socket not connected');
+    }
+
+    this.socket.emit('send:message', {
+      content,
+      receiverId,
+      receiverType,
+    });
+  }
+
+  onMessage(callback: (message: Message) => void): void {
+    if (!this.socket) {
+      throw new Error('Chat socket not connected');
+    }
+
+    this.socket.on('message:sent', callback);
+  }
+
+  onError(callback: (error: any) => void): void {
+    if (!this.socket) {
+      throw new Error('Chat socket not connected');
+    }
+
+    this.socket.on('error', callback);
+  }
+}
+
+export const createChatSocket = () => new ChatSocket();

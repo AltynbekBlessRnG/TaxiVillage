@@ -43,6 +43,7 @@ export class RidesService {
       fromLng?: number;
       toLat?: number;
       toLng?: number;
+      comment?: string;
       stops?: Array<{
         address: string;
         lat: number;
@@ -138,6 +139,7 @@ const ride = await this.prisma.$transaction(async (tx) => {
       fromLng,
       toLat,
       toLng,
+      comment: data.comment || null,
       paymentMethod: data.paymentMethod || 'CARD',
       estimatedPrice: finalEstimatedPrice, // Используем нашу переменную
     },
@@ -173,7 +175,12 @@ const ride = await this.prisma.$transaction(async (tx) => {
     // Trigger Smart Dispatch
     await this.findAndOfferRideToDriver(rideWithUsers);
 
-    return ride;
+    // Return ride with hasRoute flag
+    const hasRoute = (fromLat !== 0 || fromLng !== 0) && (toLat !== 0 || toLng !== 0);
+    return {
+      ...ride,
+      hasRoute
+    };
   }
 
   async getRidesForUser(userId: string, role: UserRole) {
@@ -525,9 +532,9 @@ const ride = await this.prisma.$transaction(async (tx) => {
       distance: haversineDistance(fromLat, fromLng, driver.lat!, driver.lng!),
     }));
 
-    // Filter drivers within 4km radius
+    // Filter drivers within 3km radius
     const nearbyDrivers = driversWithDistance
-      .filter((d) => d.distance <= 4)
+      .filter((d) => d.distance <= 3)
       .sort((a, b) => {
         // Sort by lastRideFinishedAt (oldest first - fair rotation)
         // New drivers (null) go to end of queue, not front
@@ -539,10 +546,10 @@ const ride = await this.prisma.$transaction(async (tx) => {
     let selectedDriver: (typeof driversWithDistance)[0] | null = null;
 
     if (nearbyDrivers.length > 0) {
-      // Select the driver with oldest lastRideFinishedAt within 4km
+      // Select the driver with oldest lastRideFinishedAt within 3km
       selectedDriver = nearbyDrivers[0];
     } else {
-      // No drivers in 4km radius - pick the closest one citywide
+      // No drivers in 3km radius - pick the closest one citywide
       driversWithDistance.sort((a, b) => a.distance - b.distance);
       selectedDriver = driversWithDistance[0];
     }
@@ -606,5 +613,59 @@ const ride = await this.prisma.$transaction(async (tx) => {
       },
     });
     return created.id;
+  }
+
+  async completeRide(driverId: string, rideId: string, finalPrice?: number) {
+    // Verify driver is assigned to this ride
+    const ride = await this.prisma.ride.findFirst({
+      where: {
+        id: rideId,
+        driverId,
+        status: 'IN_PROGRESS',
+      },
+    });
+
+    if (!ride) {
+      throw new Error('Ride not found or not in progress');
+    }
+
+    // Update ride status and final price
+    const updatedRide = await this.prisma.ride.update({
+      where: { id: rideId },
+      data: {
+        status: 'COMPLETED',
+        finalPrice: finalPrice || ride.estimatedPrice,
+        finishedAt: new Date(),
+      },
+      include: {
+        passenger: {
+          include: {
+            user: true,
+          },
+        },
+        driver: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    // Update driver's last ride finished time
+    await this.prisma.driverProfile.update({
+      where: { id: driverId },
+      data: {
+        lastRideFinishedAt: new Date(),
+      },
+    });
+
+    // Emit ride completion event
+    this.ridesGateway.server.emit('ride:updated', {
+      id: rideId,
+      status: 'COMPLETED',
+      finalPrice: updatedRide.finalPrice,
+    });
+
+    return updatedRide;
   }
 }

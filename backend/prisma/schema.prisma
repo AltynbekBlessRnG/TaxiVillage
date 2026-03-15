@@ -127,6 +127,8 @@ model Ride {
   toLat            Float
   toLng            Float
 
+  comment          String?
+
   // Промежуточные остановки
   stops            RideStop[]
 
