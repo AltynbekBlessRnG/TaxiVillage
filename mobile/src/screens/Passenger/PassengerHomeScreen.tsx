@@ -57,7 +57,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     const init = async () => {
       // Initialize notifications
-      await initializeNotifications();
+      // await initializeNotifications();
       
       try {
         const res = await apiClient.get('/users/me');
@@ -129,11 +129,11 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         
         if (updatedRide.status === 'DRIVER_ASSIGNED') {
           // Send push notification
-          sendLocalNotification(
-            'Водитель назначен',
-            'Ваш водитель найден и уже едет к вам',
-            { type: NOTIFICATION_TYPES.DRIVER_ASSIGNED, rideId: updatedRide.id }
-          );
+          // sendLocalNotification(
+          //   'Водитель назначен',
+          //   'Ваш водитель найден и уже едет к вам',
+          //   { type: NOTIFICATION_TYPES.DRIVER_ASSIGNED, rideId: updatedRide.id }
+          // );
           
           // УРА! Водитель найден. Переходим на экран статуса
           socket.disconnect();
@@ -271,10 +271,13 @@ const handleCreateRide = async () => {
   if (!toCoord) { Alert.alert("Ошибка", "Выберите место назначения"); return; }
   setLoading(true);
   try {
-    const res = await apiClient.post('/rides', {
-      fromAddress, toAddress,
-      fromLat: fromCoord?.lat, fromLng: fromCoord?.lng,
-      toLat: toCoord?.lat, toLng: toCoord?.lng,
+    const payload = {
+      fromAddress, 
+      toAddress,
+      fromLat: fromCoord?.lat, 
+      fromLng: fromCoord?.lng,
+      toLat: toCoord?.lat, 
+      toLng: toCoord?.lng,
       comment,
       stops: stops.map(stop => ({
         address: stop.address,
@@ -282,19 +285,27 @@ const handleCreateRide = async () => {
         lng: stop.lng
       })),
       estimatedPrice: parseFloat(offeredPrice) || 0
-    });
+    };
+
+    console.log('Отправка заказа:', payload); // Увидишь данные в консоли
+
+    const res = await apiClient.post('/rides', payload);
 
     if (res.data?.id) {
-      setCurrentRideId(res.data.id); // Сохраняем ID созданного заказа
+      setCurrentRideId(res.data.id);
       changeState('SEARCHING');
     }
-  } catch (e) { 
-    Alert.alert("Ошибка", "Не удалось создать заказ"); 
+  } catch (e: any) { 
+    // ТЕПЕРЬ МЫ УВИДИМ РЕАЛЬНУЮ ОШИБКУ
+    const serverMessage = e.response?.data?.message;
+    const errorMessage = Array.isArray(serverMessage) ? serverMessage.join(', ') : serverMessage;
+    
+    Alert.alert("Ошибка сервера", errorMessage || "Не удалось создать заказ"); 
+    console.log('Full Error Data:', e.response?.data);
   } finally { 
     setLoading(false); 
   }
 };
-
   // 8. ПОКАЗАТЬ ДЕТАЛИ ЗАКАЗА
   const handleShowDetails = () => {
     setShowOrderDetails(true);

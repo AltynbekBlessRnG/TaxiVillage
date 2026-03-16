@@ -13,21 +13,13 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsBoolean, IsEnum, IsNumber, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer'; // ИЗМЕНЕНО: используем память вместо диска
 import { DriversService } from './drivers.service';
 import { UploadService } from '../upload/upload.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { DocumentType, UserRole } from '@prisma/client';
-import * as fs from 'fs';
-import * as path from 'path';
-
-// Ensure temp directory exists
-const TEMP_DIR = path.join(process.cwd(), 'uploads/temp');
-if (!fs.existsSync(TEMP_DIR)) {
-  fs.mkdirSync(TEMP_DIR, { recursive: true });
-}
 
 class SetStatusDto {
   @IsBoolean()
@@ -38,7 +30,6 @@ class UpdateLocationDto {
   @IsNumber()
   @Type(() => Number)
   lat!: number;
-
   @IsNumber()
   @Type(() => Number)
   lng!: number;
@@ -60,17 +51,9 @@ class AddDocumentDto {
   type!: DocumentType;
 }
 
+// ИЗМЕНЕНО: Простая настройка для хранения файла в буфере
 const uploadOpts = {
-  storage: diskStorage({
-    destination: (req: any, file: any, cb: any) => {
-      cb(null, TEMP_DIR);
-    },
-    filename: (req: any, file: any, cb: any) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const ext = file.originalname.split('.').pop();
-      cb(null, `doc-${uniqueSuffix}.${ext}`);
-    },
-  }),
+  storage: memoryStorage(),
 };
 
 @Controller('drivers')
@@ -124,15 +107,10 @@ export class DriversController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.PASSENGER)
   getNearbyDrivers(@Req() req: any) {
-    const userId: string = req.user.userId;
     const lat = parseFloat(req.query.lat as string);
     const lng = parseFloat(req.query.lng as string);
     const radius = parseFloat(req.query.radius as string) || 5;
-    
-    if (!lat || !lng) {
-      throw new BadRequestException('lat and lng are required');
-    }
-    
+    if (!lat || !lng) throw new BadRequestException('lat and lng are required');
     return this.driversService.getNearbyDrivers(lat, lng, radius);
   }
 
@@ -149,8 +127,8 @@ export class DriversController {
     if (!file) {
       throw new BadRequestException('File is required');
     }
+    // Теперь file.buffer существует, и UploadService сможет его сохранить
     const url = this.uploadService.saveFile(file, `doc-${userId}`);
     return this.driversService.addDocument(userId, dto.type, url);
   }
 }
-

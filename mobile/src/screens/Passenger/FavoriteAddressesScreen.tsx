@@ -447,6 +447,10 @@ const styles = StyleSheet.create({
   saveModalButtonDisabled: {
     backgroundColor: '#475569',
   },
+  presetButtonTextActive: {
+  color: '#F8FAFC',
+  fontWeight: '600',
+},
   saveModalButtonText: {
     fontSize: 16,
     fontWeight: '600',

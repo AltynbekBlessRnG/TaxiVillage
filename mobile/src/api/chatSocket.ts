@@ -22,7 +22,7 @@ export class ChatSocket {
     }
 
     this.rideId = rideId;
-    this.socket = io('http://localhost:3001/chat', {
+    this.socket = io('http://192.168.0.11:3000/chat', {
       auth: { token: auth.token },
     });
 

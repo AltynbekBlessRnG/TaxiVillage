@@ -37,7 +37,15 @@ class CreateRideDto {
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  estimatedPrice?: number; 
+  estimatedPrice?: number;
+
+  // ДОБАВЬ ЭТИ ДВА ПОЛЯ:
+  @IsOptional()
+  @IsString()
+  comment?: string;
+
+  @IsOptional()
+  stops?: any[]; // Остановки
 }
 
 class UpdateRideStatusDto {
@@ -111,12 +119,12 @@ export class RidesController {
   }
 
   @Post(':id/complete')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.DRIVER)
-  complete(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
-    const userId: string = req.user.userId;
-    return this.ridesService.completeRide(userId, id, dto.finalPrice);
-  }
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(UserRole.DRIVER)
+async complete(@Param('id') id: string, @Body() dto: { finalPrice?: number }, @Req() req: any) {
+  const userId: string = req.user.userId;
+  return this.ridesService.completeRide(userId, id, dto.finalPrice);
+}
 
   @Post(':id/rate')
   @UseGuards(AuthGuard('jwt'), RolesGuard)

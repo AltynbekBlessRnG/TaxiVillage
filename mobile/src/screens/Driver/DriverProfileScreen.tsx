@@ -8,7 +8,9 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
@@ -48,14 +50,13 @@ const DOCUMENT_TYPES = {
 
 export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<DriverProfileData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  // Car form state
   const [carMake, setCarMake] = useState('');
   const [carModel, setCarModel] = useState('');
   const [carColor, setCarColor] = useState('');
   const [carPlate, setCarPlate] = useState('');
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -120,6 +121,57 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   const getDocumentStatus = (doc: Document) => {
     return doc.approved ? <Text>✅ Одобрено</Text> : <Text>⏳ Ожидает проверки</Text>;
+  };
+
+  const pickAndUploadDocument = async (docType: 'DRIVER_LICENSE' | 'CAR_REGISTRATION') => {
+    try {
+      // Request permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.status !== 'granted') {
+        Alert.alert('Ошибка', 'Нужен доступ к галерее для загрузки документов');
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setUploadingDoc(docType);
+        
+        // Create FormData
+        const formData = new FormData();
+        formData.append('type', docType);
+        formData.append('file', {
+          uri: result.assets[0].uri,
+          type: 'image/jpeg',
+          name: `${docType}_${Date.now()}.jpg`,
+        } as any);
+
+        // Upload to backend
+        try {
+          const response = await apiClient.post('/drivers/documents', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          
+          Alert.alert('Успешно', 'Документ отправлен на проверку');
+          loadProfile(); // Reload profile to show new document
+        } catch (error: any) {
+          Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить документ');
+        } finally {
+          setUploadingDoc(null);
+        }
+      }
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось выбрать изображение');
+      setUploadingDoc(null);
+    }
   };
 
   if (loading) {
@@ -193,6 +245,30 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}><Text>📄 Документы</Text></Text>
 
+        {/* Upload Buttons */}
+        <View style={styles.uploadButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.uploadButton, uploadingDoc === 'DRIVER_LICENSE' && styles.uploadButtonDisabled]}
+            onPress={() => pickAndUploadDocument('DRIVER_LICENSE')}
+            disabled={uploadingDoc !== null}
+          >
+            <Text style={styles.uploadButtonText}>
+              {uploadingDoc === 'DRIVER_LICENSE' ? 'Загрузка...' : '📷 Водительское удостоверение'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.uploadButton, uploadingDoc === 'CAR_REGISTRATION' && styles.uploadButtonDisabled]}
+            onPress={() => pickAndUploadDocument('CAR_REGISTRATION')}
+            disabled={uploadingDoc !== null}
+          >
+            <Text style={styles.uploadButtonText}>
+              {uploadingDoc === 'CAR_REGISTRATION' ? 'Загрузка...' : '📷 СТС'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Existing Documents */}
         {profile?.documents && profile.documents.length > 0 ? (
           profile.documents.map((doc) => (
             <View key={doc.id} style={styles.documentCard}>
@@ -206,7 +282,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.documentNote}>
           <Text style={styles.noteText}>
-            ℹ️ Загрузка документов доступна через админ-панель. Свяжитесь с администратором для загрузки документов.
+            📸 Выберите качественные фотографии документов. Файлы будут проверены администратором.
           </Text>
         </View>
       </View>
@@ -321,14 +397,37 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#3B82F6',
-    paddingVertical: 14,
     borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    marginTop: 8,
   },
   buttonText: {
     color: '#F8FAFC',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  uploadButtonsContainer: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  uploadButton: {
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4B5563',
+  },
+  uploadButtonDisabled: {
+    backgroundColor: '#1F2937',
+    borderColor: '#374151',
+    opacity: 0.6,
+  },
+  uploadButtonText: {
+    color: '#F8FAFC',
+    fontSize: 14,
     fontWeight: '600',
   },
   documentCard: {

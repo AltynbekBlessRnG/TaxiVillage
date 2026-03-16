@@ -141,6 +141,15 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         if (isMounted && res.data?.id) {
           setCurrentRideId(res.data.id);
         }
+        socket = createRidesSocket(auth.token);
+
+socket.on('connect', () => {
+  console.log('✅ Водитель успешно подключился к сокетам!');
+});
+
+socket.on('connect_error', (err: any) => {
+  console.log('❌ Ошибка подключения сокетов у водителя:', err.message);
+});
 
         socket = createRidesSocket(auth.token);
         

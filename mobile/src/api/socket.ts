@@ -1,9 +1,12 @@
 import { io, Socket } from 'socket.io-client';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
-const WS_BASE = API_URL.replace(/\/api\/?$/, '') || 'http://localhost:3000';
+// ЗАМЕНИ ЭТОТ IP НА СВОЙ (как в client.ts)
+const SERVER_IP = '192.168.0.11'; 
+
+const WS_BASE = `http://${SERVER_IP}:3000`;
 
 export function createRidesSocket(token: string): Socket {
+  console.log('Попытка подключения к сокетам по адресу:', `${WS_BASE}/rides`);
   return io(`${WS_BASE}/rides`, {
     path: '/socket.io',
     auth: { token },
