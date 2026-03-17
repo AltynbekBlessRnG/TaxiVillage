@@ -170,13 +170,16 @@ const ride = await this.prisma.$transaction(async (tx) => {
     });
 
     const rideWithUsers = await this.getRideById(ride.id);
-    this.ridesGateway.emitRideCreated(rideWithUsers as any);
+    
+    // Проверяем, есть ли реальные координаты
+    const hasRoute = (fromLat !== 0 && fromLng !== 0) && (toLat !== 0 && toLng !== 0);
+    const ridePayload = { ...rideWithUsers, hasRoute };
 
-    // Trigger Smart Dispatch
-    await this.findAndOfferRideToDriver(rideWithUsers);
+    this.ridesGateway.emitRideCreated(ridePayload as any);
 
-    // Return ride with hasRoute flag
-    const hasRoute = (fromLat !== 0 || fromLng !== 0) && (toLat !== 0 || toLng !== 0);
+    // Trigger Smart Dispatch (передаем payload вместе с флагом hasRoute!)
+    await this.findAndOfferRideToDriver(ridePayload);
+
     return {
       ...ride,
       hasRoute
@@ -527,9 +530,13 @@ const ride = await this.prisma.$transaction(async (tx) => {
     }
 
     // Calculate distances and sort
+    // Calculate distances and sort
     const driversWithDistance = drivers.map((driver) => ({
       driver,
-      distance: haversineDistance(fromLat, fromLng, driver.lat!, driver.lng!),
+      // Если координат нет (они равны 0), ставим дистанцию 0, чтобы заказ точно попал в радиус 3км
+      distance: (fromLat === 0 && fromLng === 0) 
+        ? 0 
+        : haversineDistance(fromLat, fromLng, driver.lat!, driver.lng!),
     }));
 
     // Filter drivers within 3km radius
@@ -615,56 +622,70 @@ const ride = await this.prisma.$transaction(async (tx) => {
     return created.id;
   }
 
-  async completeRide(driverId: string, rideId: string, finalPrice?: number) {
-    // Verify driver is assigned to this ride
+  async completeRide(userId: string, rideId: string, finalPrice?: number) {
+    // 1. Находим профиль водителя по userId (Именно здесь был баг!)
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId }
+    });
+    
+    if (!driver) {
+      throw new BadRequestException('Профиль водителя не найден');
+    }
+
+    // 2. Ищем саму поездку по правильному driver.id
     const ride = await this.prisma.ride.findFirst({
       where: {
         id: rideId,
-        driverId,
-        status: 'IN_PROGRESS',
+        driverId: driver.id,
       },
+      include: { tariff: true }
     });
 
     if (!ride) {
-      throw new Error('Ride not found or not in progress');
+      throw new BadRequestException('Поездка не найдена');
     }
 
-    // Update ride status and final price
-    const updatedRide = await this.prisma.ride.update({
-      where: { id: rideId },
-      data: {
-        status: 'COMPLETED',
-        finalPrice: finalPrice || ride.estimatedPrice,
-        finishedAt: new Date(),
-      },
-      include: {
-        passenger: {
-          include: {
-            user: true,
-          },
+    const priceToUse = finalPrice || Number(ride.estimatedPrice || 0);
+    
+    // 3. Считаем комиссию системы (по умолчанию 10%)
+    const commissionPercent = ride.tariff?.systemCommissionPercent ?? 10;
+    const commissionAmount = new Prisma.Decimal((priceToUse * commissionPercent) / 100);
+
+    // 4. Обновляем всё в одной безопасной транзакции
+    const updatedRide = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.ride.update({
+        where: { id: rideId },
+        data: {
+          status: 'COMPLETED',
+          finalPrice: priceToUse,
+          finishedAt: new Date(),
+          commissionAmount: commissionAmount
         },
-        driver: {
-          include: {
-            user: true,
-          },
+        include: {
+          passenger: { include: { user: true } },
+          driver: { include: { user: true } },
         },
-      },
+      });
+
+      // Списываем комиссию с баланса водителя
+      await tx.driverProfile.update({
+        where: { id: driver.id },
+        data: {
+          balance: { decrement: commissionAmount },
+          lastRideFinishedAt: new Date(),
+        },
+      });
+
+      // Пишем в историю статусов
+      await tx.rideStatusHistory.create({
+        data: { rideId, status: 'COMPLETED' },
+      });
+
+      return u;
     });
 
-    // Update driver's last ride finished time
-    await this.prisma.driverProfile.update({
-      where: { id: driverId },
-      data: {
-        lastRideFinishedAt: new Date(),
-      },
-    });
-
-    // Emit ride completion event
-    this.ridesGateway.server.emit('ride:updated', {
-      id: rideId,
-      status: 'COMPLETED',
-      finalPrice: updatedRide.finalPrice,
-    });
+    // 5. Отправляем сокет всем участникам, чтобы у пассажира вылезла табличка оплаты
+    this.ridesGateway.emitRideUpdated(updatedRide as any);
 
     return updatedRide;
   }

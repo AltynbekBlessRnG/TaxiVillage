@@ -175,7 +175,14 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       let result = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
       if (result.length > 0) {
         let addr = result[0];
-        let formatted = `${addr.street || ''} ${addr.name || ''}`.trim() || "Неизвестная улица";
+        let formatted = `${addr.street || ''} ${addr.name || ''}`.trim();
+        
+        // Если геокодер вернул Plus Code (содержит плюсик) или пустоту
+        if (!formatted || formatted.includes('+')) {
+          // Берем район, город или пишем дефолтный текст
+          formatted = addr.district || addr.city || addr.subregion || "Точка на карте";
+        }
+
         if (field === 'from') {
             setFromAddress(formatted);
             setFromCoord({ lat, lng });
@@ -210,39 +217,83 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   // 3. ГЕОКОДИРОВАНИЕ ПРИ ВВОДЕ С КЛАВИАТУРЫ
+  // 3. ГЕОКОДИРОВАНИЕ ПРИ ВВОДЕ С КЛАВИАТУРЫ
   const handleGeocodeAndProceed = async () => {
-    if (!toAddress) return;
+    if (!toAddress) { Alert.alert("Ошибка", "Введите адрес назначения"); return; }
     setLoading(true);
     try {
       const [f, t] = await Promise.all([
-        Location.geocodeAsync(fromAddress),
-        Location.geocodeAsync(toAddress)
+        Location.geocodeAsync(fromAddress).catch(() => []), // Игнорируем ошибку
+        Location.geocodeAsync(toAddress).catch(() => [])    // Игнорируем ошибку
       ]);
-      if (f[0]) setFromCoord({ lat: f[0].latitude, lng: f[0].longitude });
-      if (t[0]) setToCoord({ lat: t[0].latitude, lng: t[0].longitude });
+
+      if (f && f.length > 0) setFromCoord({ lat: f[0].latitude, lng: f[0].longitude });
+      else setFromCoord(null);
+
+      if (t && t.length > 0) setToCoord({ lat: t[0].latitude, lng: t[0].longitude });
+      else setToCoord(null);
+
+      // ВАЖНО: Всегда переходим к заказу, даже если координаты null
       changeState('ORDER_SETUP');
-    } catch (e) { 
-      Alert.alert("Ошибка", "Адрес не найден"); 
+    } catch (e) {
+      changeState('ORDER_SETUP'); 
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. СОЗДАНИЕ ЗАКАЗА И ПЕРЕХОД В ПОИСК
+  const handleCreateRide = async () => {
+    if (!toAddress) { Alert.alert("Ошибка", "Укажите адрес назначения"); return; }
+    setLoading(true);
+    try {
+      const payload = {
+        fromAddress, 
+        toAddress,
+        fromLat: fromCoord?.lat || 0, // Бэкенд ждет число, поэтому шлем 0 если нет координат
+        fromLng: fromCoord?.lng || 0,
+        toLat: toCoord?.lat || 0, 
+        toLng: toCoord?.lng || 0,
+        comment,
+        stops: stops.map(stop => ({
+          address: stop.address,
+          lat: stop.lat || 0,
+          lng: stop.lng || 0
+        })),
+        estimatedPrice: parseFloat(offeredPrice) || 0
+      };
+
+      console.log('Отправка заказа:', payload);
+
+      const res = await apiClient.post('/rides', payload);
+
+      if (res.data?.id) {
+        setCurrentRideId(res.data.id);
+        changeState('SEARCHING');
+      }
+    } catch (e: any) { 
+      const serverMessage = e.response?.data?.message;
+      const errorMessage = Array.isArray(serverMessage) ? serverMessage.join(', ') : serverMessage;
+      Alert.alert("Ошибка сервера", errorMessage || "Не удалось создать заказ"); 
+      console.log('Full Error Data:', e.response?.data);
     } finally { 
       setLoading(false); 
     }
   };
-
   // 5. ОБРАБОТКА ВЫБОРА АДРЕСА ИЗ AUTOCOMPLETE
   const handleAddressSelect = (field: 'from' | 'to', address: string, lat: number, lng: number) => {
     if (field === 'from') {
       setFromAddress(address);
       setFromCoord({ lat, lng });
     } else {
-      setToAddress(address);
-      setToCoord({ lat, lng });
-      
-      // Если это выбор остановки
       if (isStopSelectionMode) {
         setStops([...stops, { address, lat, lng }]);
         setIsStopSelectionMode(false);
+        changeState('ORDER_SETUP'); // Возвращаемся к заказу после добавления остановки
         return;
       }
+      setToAddress(address);
+      setToCoord({ lat, lng });
     }
   };
 
@@ -250,6 +301,9 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleAddStop = () => {
     setIsStopSelectionMode(true);
     changeState('SEARCH');
+  };
+  const handleRemoveStop = (indexToRemove: number) => {
+    setStops(stops.filter((_, index) => index !== indexToRemove));
   };
 
   // 7. РЕДАКТИРОВАНИЕ КОММЕНТАРИЯ
@@ -266,47 +320,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
-  // 4. СОЗДАНИЕ ЗАКАЗА И ПЕРЕХОД В ПОИСК
-const handleCreateRide = async () => {
-  if (!toCoord) { Alert.alert("Ошибка", "Выберите место назначения"); return; }
-  setLoading(true);
-  try {
-    const payload = {
-      fromAddress, 
-      toAddress,
-      fromLat: fromCoord?.lat, 
-      fromLng: fromCoord?.lng,
-      toLat: toCoord?.lat, 
-      toLng: toCoord?.lng,
-      comment,
-      stops: stops.map(stop => ({
-        address: stop.address,
-        lat: stop.lat,
-        lng: stop.lng
-      })),
-      estimatedPrice: parseFloat(offeredPrice) || 0
-    };
 
-    console.log('Отправка заказа:', payload); // Увидишь данные в консоли
-
-    const res = await apiClient.post('/rides', payload);
-
-    if (res.data?.id) {
-      setCurrentRideId(res.data.id);
-      changeState('SEARCHING');
-    }
-  } catch (e: any) { 
-    // ТЕПЕРЬ МЫ УВИДИМ РЕАЛЬНУЮ ОШИБКУ
-    const serverMessage = e.response?.data?.message;
-    const errorMessage = Array.isArray(serverMessage) ? serverMessage.join(', ') : serverMessage;
-    
-    Alert.alert("Ошибка сервера", errorMessage || "Не удалось создать заказ"); 
-    console.log('Full Error Data:', e.response?.data);
-  } finally { 
-    setLoading(false); 
-  }
-};
-  // 8. ПОКАЗАТЬ ДЕТАЛИ ЗАКАЗА
   const handleShowDetails = () => {
     setShowOrderDetails(true);
   };
@@ -372,11 +386,17 @@ const handleCreateRide = async () => {
       )}
 
       {/* ШТОРКА ПОИСКА (SearchSheet) */}
+      
       <SearchSheet 
         anim={searchSheetAnim}
         fromAddress={fromAddress} setFromAddress={setFromAddress}
         toAddress={toAddress} setToAddress={setToAddress}
-        onClose={() => changeState('IDLE')}
+        isStopSelectionMode={isStopSelectionMode}
+        onClose={() => {
+          setIsStopSelectionMode(false);
+          // Если конечный адрес уже есть, возвращаемся к заказу, иначе на главный экран
+          changeState(toAddress ? 'ORDER_SETUP' : 'IDLE'); 
+        }}
         onMapPick={() => changeState('MAP_PICK')}
         onSubmit={handleGeocodeAndProceed}
         onAddressSelect={handleAddressSelect}
@@ -385,7 +405,27 @@ const handleCreateRide = async () => {
       {/* ПОДТВЕРЖДЕНИЕ НА КАРТЕ */}
       {screenState === 'MAP_PICK' && (
         <View style={styles.confirmMapPick}>
-          <TouchableOpacity style={styles.zincMainBtn} onPress={async () => { if(mapCenter) await updateAddress(mapCenter.lat, mapCenter.lng, 'to'); changeState('ORDER_SETUP'); }}>
+          <TouchableOpacity style={styles.zincMainBtn} onPress={async () => { 
+            if(mapCenter) {
+              try {
+                let result = await Location.reverseGeocodeAsync({ latitude: mapCenter.lat, longitude: mapCenter.lng });
+                let addrStr = "Неизвестная улица";
+                if (result.length > 0) {
+                  let addr = result[0];
+                  addrStr = `${addr.street || ''} ${addr.name || ''}`.trim() || "Неизвестная улица";
+                }
+
+                if (isStopSelectionMode) {
+                  setStops([...stops, { address: addrStr, lat: mapCenter.lat, lng: mapCenter.lng }]);
+                  setIsStopSelectionMode(false);
+                } else {
+                  setToAddress(addrStr);
+                  setToCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
+                }
+              } catch (e) { console.log(e); }
+            }
+            changeState('ORDER_SETUP'); 
+          }}>
             <Text style={styles.zincMainBtnText}>Готово</Text>
           </TouchableOpacity>
         </View>
@@ -404,7 +444,7 @@ const handleCreateRide = async () => {
         setComment={setComment}
         stops={stops}
         onAddStop={handleAddStop}
-        onEditComment={handleEditComment}
+        onRemoveStop={handleRemoveStop}
       />
 
       {/* ШТОРКА ПОИСКА ВОДИТЕЛЯ (SearchingSheet) */}

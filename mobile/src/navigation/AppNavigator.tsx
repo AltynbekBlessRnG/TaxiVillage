@@ -69,7 +69,7 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="FavoriteAddresses" component={FavoriteAddressesScreen} options={{ title: 'Избранные адреса' }} />
       <Stack.Screen name="RideStatus" component={RideStatusScreen} options={{ title: 'Статус поездки' }} />
       <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ title: 'Чат' }} />
-      <Stack.Screen name="DriverHome" component={DriverHomeScreen} options={{ title: 'Водитель' }} />
+      <Stack.Screen name="DriverHome" component={DriverHomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="DriverProfile" component={DriverProfileScreen} options={{ title: 'Профиль' }} />
       <Stack.Screen name="DriverRide" component={DriverRideScreen} options={{ title: 'Текущая поездка' }} />
       <Stack.Screen name="RideHistory" component={RideHistoryScreen} options={{ title: 'История поездок' }} />
