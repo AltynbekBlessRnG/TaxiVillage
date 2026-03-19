@@ -6,8 +6,8 @@ import {
   Modal,
   TouchableOpacity,
   Alert,
+  ActivityIndicator
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { apiClient } from '../api/client';
 
 interface RideCompletionModalProps {
@@ -36,27 +36,15 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
 
   const submitRating = async () => {
     if (rating === 0) {
-      Alert.alert('Ошибка', 'Пожалуйста, оцените поездку');
+      Alert.alert('Ошибка', 'Пожалуйста, поставьте оценку');
       return;
     }
 
     setSubmitting(true);
     try {
       await apiClient.post(`/rides/${rideId}/rate`, { stars: rating });
-      
-      Alert.alert(
-        'Спасибо!',
-        'Ваша оценка принята. Водитель будет благодарен!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              onClose();
-              onRatingSubmitted?.();
-            },
-          },
-        ]
-      );
+      onClose();
+      onRatingSubmitted?.();
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось отправить оценку');
     } finally {
@@ -74,28 +62,29 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={skipRating}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          {/* Success Icon */}
-          <View style={styles.successIcon}>
-            <MaterialIcons name="check-circle" size={64} color="#10B981" />
+          
+          {/* Иконка успеха */}
+          <View style={styles.successIconBox}>
+            <Text style={styles.successIcon}>✓</Text>
           </View>
 
-          {/* Title */}
-          <Text style={styles.modalTitle}>Поездка окончена!</Text>
+          {/* Заголовок и Цена */}
+          <Text style={styles.modalTitle}>Поездка завершена</Text>
+          <Text style={styles.priceText}>{finalPrice} ₸</Text>
           
-          {/* Price */}
-          <Text style={styles.priceText}>К оплате: {finalPrice} ₽</Text>
-          
-          {/* Driver Info */}
-          <Text style={styles.driverText}>Ваш водитель: {driverName}</Text>
+          {/* Инфо о водителе */}
+          <View style={styles.driverBox}>
+            <Text style={styles.driverLabel}>Водитель</Text>
+            <Text style={styles.driverText}>{driverName}</Text>
+          </View>
 
-          {/* Rating Section */}
+          {/* Блок оценки */}
           <View style={styles.ratingSection}>
-            <Text style={styles.ratingTitle}>Оцените водителя</Text>
-            <Text style={styles.ratingSubtitle}>Ваша оценка поможет другим пассажирам</Text>
+            <Text style={styles.ratingTitle}>Оцените поездку</Text>
             
             <View style={styles.starsContainer}>
               {[1, 2, 3, 4, 5].map((star) => (
@@ -105,36 +94,40 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
                   style={styles.starButton}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons
-                    name={star <= rating ? 'star' : 'star-border'}
-                    size={40}
-                    color={star <= rating ? '#F59E0B' : '#475569'}
-                  />
+                  <Text style={[
+                    styles.starIcon, 
+                    { color: star <= rating ? '#F59E0B' : '#27272A' }
+                  ]}>
+                    ★
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          {/* Buttons */}
+          {/* Кнопки */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, styles.skipButton]}
+              style={[styles.submitButton, rating === 0 && styles.disabledButton]}
+              onPress={submitRating}
+              disabled={rating === 0 || submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={styles.submitButtonText}>Отправить оценку</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.skipButton}
               onPress={skipRating}
               disabled={submitting}
             >
               <Text style={styles.skipButtonText}>Пропустить</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.button, styles.submitButton, rating === 0 && styles.disabledButton]}
-              onPress={submitRating}
-              disabled={rating === 0 || submitting}
-            >
-              <Text style={styles.submitButtonText}>
-                {submitting ? 'Отправка...' : 'Отправить оценку'}
-              </Text>
-            </TouchableOpacity>
           </View>
+
         </View>
       </View>
     </Modal>
@@ -144,92 +137,124 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    backgroundColor: '#1E293B',
-    borderRadius: 24,
+    backgroundColor: '#18181B',
+    borderRadius: 32,
     padding: 32,
     alignItems: 'center',
-    margin: 20,
+    width: '100%',
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
+  },
+  successIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   successIcon: {
-    marginBottom: 16,
+    color: '#10B981',
+    fontSize: 32,
+    fontWeight: '900',
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 12,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#F4F4F5',
+    marginBottom: 8,
     textAlign: 'center',
   },
   priceText: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 36,
+    fontWeight: '900',
     color: '#10B981',
-    marginBottom: 8,
+    marginBottom: 24,
+  },
+  driverBox: {
+    backgroundColor: '#09090B',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    width: '100%',
+  },
+  driverLabel: {
+    fontSize: 12,
+    color: '#71717A',
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    marginBottom: 4,
   },
   driverText: {
     fontSize: 16,
-    color: '#94A3B8',
-    marginBottom: 24,
-    textAlign: 'center',
+    color: '#F4F4F5',
+    fontWeight: '600',
   },
   ratingSection: {
     alignItems: 'center',
     marginBottom: 32,
+    width: '100%',
   },
   ratingTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  ratingSubtitle: {
-    fontSize: 14,
-    color: '#94A3B8',
+    color: '#A1A1AA',
     marginBottom: 16,
-    textAlign: 'center',
   },
   starsContainer: {
     flexDirection: 'row',
+    justifyContent: 'center',
     gap: 8,
   },
   starButton: {
     padding: 4,
   },
+  starIcon: {
+    fontSize: 44,
+  },
   buttonContainer: {
     width: '100%',
-    gap: 12,
-  },
-  button: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  skipButton: {
-    backgroundColor: '#374151',
-  },
-  skipButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    gap: 16,
   },
   submitButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#F4F4F5',
+    borderRadius: 20,
+    paddingVertical: 18,
+    alignItems: 'center',
+    width: '100%',
   },
   disabledButton: {
-    backgroundColor: '#475569',
-    opacity: 0.5,
+    backgroundColor: '#27272A',
   },
   submitButtonText: {
-    color: '#fff',
+    color: '#000',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  skipButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  skipButtonText: {
+    color: '#71717A',
     fontSize: 16,
     fontWeight: '600',
   },

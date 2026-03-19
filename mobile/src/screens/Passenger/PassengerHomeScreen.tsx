@@ -29,6 +29,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<{fullName?: string, phone?: string} | null>(null);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
+  const [activeRideId, setActiveRideId] = useState<string | null>(null);
 
   // Адреса и Координаты
   const [fromAddress, setFromAddress] = useState('Определяем адрес...');
@@ -53,12 +54,32 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const menuBackdropOpacity = useRef(new Animated.Value(0)).current;
   const webViewRef = useRef<WebView>(null);
 
-  // 1. ИНИЦИАЛИЗАЦИЯ (Профиль + Геопозиция)
+  // ПРОВЕРКА АКТИВНОГО ЗАКАЗА
+  useEffect(() => {
+    const checkActiveRide = async () => {
+      try {
+        const res = await apiClient.get('/rides/my');
+        const active = res.data.find((r: any) => 
+          ['SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'ON_THE_WAY', 'IN_PROGRESS'].includes(r.status)
+        );
+        if (active) {
+          setActiveRideId(active.id);
+        } else {
+          setActiveRideId(null);
+        }
+      } catch (e) { console.log(e); }
+    };
+
+    checkActiveRide();
+    const unsubscribe = navigation.addListener('focus', () => {
+      checkActiveRide();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   useEffect(() => {
     const init = async () => {
-      // Initialize notifications
-      // await initializeNotifications();
-      
       try {
         const res = await apiClient.get('/users/me');
         setUserProfile({ fullName: res.data.passenger?.fullName, phone: res.data.phone });
@@ -73,7 +94,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       setUserLocation(coords);
       setFromCoord(coords);
       
-      // Сразу определяем реальный адрес вместо заглушки
       updateAddress(coords.lat, coords.lng, 'from');
       
       setTimeout(() => {
@@ -84,14 +104,12 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    // Fetch nearby drivers when in IDLE mode and we have user location
     if (screenState === 'IDLE' && userLocation) {
       fetchNearbyDrivers();
     }
   }, [screenState, userLocation]);
 
   useEffect(() => {
-    // Update driver markers on map when nearbyDrivers change
     if (webViewRef.current && nearbyDrivers.length > 0) {
       webViewRef.current.injectJavaScript(`window.updateDrivers(${JSON.stringify(nearbyDrivers)})`);
     }
@@ -99,16 +117,10 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const fetchNearbyDrivers = async () => {
     if (!userLocation) return;
-    
     try {
       const res = await apiClient.get('/drivers/nearby', {
-        params: {
-          lat: userLocation.lat,
-          lng: userLocation.lng,
-          radius: 5 // 5km radius
-        }
+        params: { lat: userLocation.lat, lng: userLocation.lng, radius: 5 }
       });
-      
       setNearbyDrivers(res.data || []);
     } catch (error) {
       console.log('Failed to fetch nearby drivers:', error);
@@ -116,60 +128,41 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   useEffect(() => {
-  let socket: any = null;
+    let socket: any = null;
 
-  const connectSocket = async () => {
-    const auth = await loadAuth();
-    if (auth?.token && screenState === 'SEARCHING') {
-      socket = createRidesSocket(auth.token);
+    const connectSocket = async () => {
+      const auth = await loadAuth();
+      if (auth?.token && screenState === 'SEARCHING') {
+        socket = createRidesSocket(auth.token);
 
-      // Слушаем обновление статуса заказа
-      socket.on('ride:updated', (updatedRide: any) => {
-        console.log('Статус заказа обновился:', updatedRide.status);
-        
-        if (updatedRide.status === 'DRIVER_ASSIGNED') {
-          // Send push notification
-          // sendLocalNotification(
-          //   'Водитель назначен',
-          //   'Ваш водитель найден и уже едет к вам',
-          //   { type: NOTIFICATION_TYPES.DRIVER_ASSIGNED, rideId: updatedRide.id }
-          // );
+        socket.on('ride:updated', (updatedRide: any) => {
+          if (updatedRide.status === 'DRIVER_ASSIGNED') {
+            socket.disconnect();
+            navigation.navigate('RideStatus', { rideId: updatedRide.id });
+          }
           
-          // УРА! Водитель найден. Переходим на экран статуса
-          socket.disconnect();
-          navigation.navigate('RideStatus', { rideId: updatedRide.id });
-        }
-        
-        if (updatedRide.status === 'ON_THE_WAY') {
-          sendLocalNotification(
-            'Водитель в пути',
-            'Ваш водитель едет к вам',
-            { type: NOTIFICATION_TYPES.DRIVER_ARRIVED, rideId: updatedRide.id }
-          );
-        }
-        
-        if (updatedRide.status === 'CANCELED') {
-          sendLocalNotification(
-            'Поездка отменена',
-            'Водитель не найден, попробуйте еще раз',
-            { type: 'RIDE_CANCELED', rideId: updatedRide.id }
-          );
+          if (updatedRide.status === 'ON_THE_WAY') {
+            sendLocalNotification('Водитель в пути', 'Ваш водитель едет к вам', { type: NOTIFICATION_TYPES.DRIVER_ARRIVED, rideId: updatedRide.id });
+          }
           
-          Alert.alert("Упс", "Водитель не найден, попробуйте еще раз");
-          changeState('IDLE');
-        }
-      });
+          if (updatedRide.status === 'CANCELED') {
+            sendLocalNotification('Поездка отменена', 'Водитель не найден, попробуйте еще раз', { type: 'RIDE_CANCELED', rideId: updatedRide.id });
+            Alert.alert("Упс", "Водитель не найден, попробуйте еще раз");
+            changeState('IDLE');
+          }
+        });
+      }
+    };
+
+    if (screenState === 'SEARCHING') {
+      connectSocket();
     }
-  };
 
-  if (screenState === 'SEARCHING') {
-    connectSocket();
-  }
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [screenState]);
 
-  return () => {
-    if (socket) socket.disconnect();
-  };
-}, [screenState]);
   const updateAddress = async (lat: number, lng: number, field: 'from' | 'to') => {
     try {
       let result = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
@@ -177,9 +170,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         let addr = result[0];
         let formatted = `${addr.street || ''} ${addr.name || ''}`.trim();
         
-        // Если геокодер вернул Plus Code (содержит плюсик) или пустоту
         if (!formatted || formatted.includes('+')) {
-          // Берем район, город или пишем дефолтный текст
           formatted = addr.district || addr.city || addr.subregion || "Точка на карте";
         }
 
@@ -194,17 +185,14 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     } catch (e) { console.log(e); }
   };
 
-  // 2. ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ЭКРАНОВ
   const changeState = (newState: ScreenState) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     
-    // Убираем шторку поиска, если мы не в режиме SEARCH
     Animated.timing(searchSheetAnim, { 
       toValue: newState === 'SEARCH' ? height * 0.1 : height, 
       duration: 300, useNativeDriver: true 
     }).start();
 
-    // Управляем шторкой подтверждения заказа
     if (newState === 'ORDER_SETUP') {
       orderSheetTranslateY.setValue(height);
       Animated.spring(orderSheetTranslateY, { toValue: 0, tension: 50, friction: 10, useNativeDriver: true }).start();
@@ -216,15 +204,13 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     Keyboard.dismiss();
   };
 
-  // 3. ГЕОКОДИРОВАНИЕ ПРИ ВВОДЕ С КЛАВИАТУРЫ
-  // 3. ГЕОКОДИРОВАНИЕ ПРИ ВВОДЕ С КЛАВИАТУРЫ
   const handleGeocodeAndProceed = async () => {
     if (!toAddress) { Alert.alert("Ошибка", "Введите адрес назначения"); return; }
     setLoading(true);
     try {
       const [f, t] = await Promise.all([
-        Location.geocodeAsync(fromAddress).catch(() => []), // Игнорируем ошибку
-        Location.geocodeAsync(toAddress).catch(() => [])    // Игнорируем ошибку
+        Location.geocodeAsync(fromAddress).catch(() => []),
+        Location.geocodeAsync(toAddress).catch(() => [])
       ]);
 
       if (f && f.length > 0) setFromCoord({ lat: f[0].latitude, lng: f[0].longitude });
@@ -233,7 +219,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       if (t && t.length > 0) setToCoord({ lat: t[0].latitude, lng: t[0].longitude });
       else setToCoord(null);
 
-      // ВАЖНО: Всегда переходим к заказу, даже если координаты null
       changeState('ORDER_SETUP');
     } catch (e) {
       changeState('ORDER_SETUP'); 
@@ -242,7 +227,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  // 4. СОЗДАНИЕ ЗАКАЗА И ПЕРЕХОД В ПОИСК
   const handleCreateRide = async () => {
     if (!toAddress) { Alert.alert("Ошибка", "Укажите адрес назначения"); return; }
     setLoading(true);
@@ -250,7 +234,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       const payload = {
         fromAddress, 
         toAddress,
-        fromLat: fromCoord?.lat || 0, // Бэкенд ждет число, поэтому шлем 0 если нет координат
+        fromLat: fromCoord?.lat || 0,
         fromLng: fromCoord?.lng || 0,
         toLat: toCoord?.lat || 0, 
         toLng: toCoord?.lng || 0,
@@ -263,8 +247,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         estimatedPrice: parseFloat(offeredPrice) || 0
       };
 
-      console.log('Отправка заказа:', payload);
-
       const res = await apiClient.post('/rides', payload);
 
       if (res.data?.id) {
@@ -275,12 +257,11 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       const serverMessage = e.response?.data?.message;
       const errorMessage = Array.isArray(serverMessage) ? serverMessage.join(', ') : serverMessage;
       Alert.alert("Ошибка сервера", errorMessage || "Не удалось создать заказ"); 
-      console.log('Full Error Data:', e.response?.data);
     } finally { 
       setLoading(false); 
     }
   };
-  // 5. ОБРАБОТКА ВЫБОРА АДРЕСА ИЗ AUTOCOMPLETE
+
   const handleAddressSelect = (field: 'from' | 'to', address: string, lat: number, lng: number) => {
     if (field === 'from') {
       setFromAddress(address);
@@ -289,7 +270,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       if (isStopSelectionMode) {
         setStops([...stops, { address, lat, lng }]);
         setIsStopSelectionMode(false);
-        changeState('ORDER_SETUP'); // Возвращаемся к заказу после добавления остановки
+        changeState('ORDER_SETUP');
         return;
       }
       setToAddress(address);
@@ -297,29 +278,14 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  // 6. ДОБАВЛЕНИЕ ОСТАНОВКИ
   const handleAddStop = () => {
     setIsStopSelectionMode(true);
     changeState('SEARCH');
   };
+
   const handleRemoveStop = (indexToRemove: number) => {
     setStops(stops.filter((_, index) => index !== indexToRemove));
   };
-
-  // 7. РЕДАКТИРОВАНИЕ КОММЕНТАРИЯ
-  const handleEditComment = () => {
-    Alert.prompt(
-      "Комментарий к заказу",
-      "Укажите детали для водителя (например: черный забор, подъезд 3)",
-      [
-        { text: "Отмена", style: "cancel" },
-        { text: "Сохранить", onPress: (text: string | undefined) => setComment(text || '') }
-      ],
-      "plain-text",
-      comment
-    );
-  };
-
 
   const handleShowDetails = () => {
     setShowOrderDetails(true);
@@ -341,7 +307,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* КАРТА */}
       <View style={styles.mapContainer}>
         <WebView 
           ref={webViewRef} 
@@ -352,12 +317,10 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         {screenState === 'MAP_PICK' && <View style={styles.centerPinContainer} pointerEvents="none"><View style={styles.ashenPin} /></View>}
       </View>
 
-      {/* БУРГЕР */}
       <TouchableOpacity style={styles.burgerBtn} onPress={() => toggleMenu(true)}>
         <Text style={{fontSize: 22, color: '#fff'}}>☰</Text>
       </TouchableOpacity>
 
-      {/* ГЛАВНЫЙ ЭКРАН (IDLE) */}
       {screenState === 'IDLE' && (
         <View style={styles.uiOverlay} pointerEvents="box-none">
           <View style={styles.ashenSearchCard}>
@@ -373,6 +336,18 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity style={styles.recenterBtn} onPress={() => userLocation && webViewRef.current?.injectJavaScript(`window.setUserLocation(${userLocation.lat}, ${userLocation.lng})`)}>
             <Text style={{fontSize: 22}}>🎯</Text>
           </TouchableOpacity>
+          
+          {/* ПЛАШКА АКТИВНОГО ЗАКАЗА */}
+          {activeRideId && (
+            <TouchableOpacity 
+              style={styles.activeRideBanner} 
+              onPress={() => navigation.navigate('RideStatus', { rideId: activeRideId })}
+            >
+              <View style={styles.dotGreen} />
+              <Text style={styles.activeRideText}>У вас есть активная поездка!</Text>
+              <Text style={styles.activeRideArrow}>›</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.bottomAshenBar}>
             {['Такси', 'Курьер', 'Еда'].map(s => (
@@ -385,8 +360,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       )}
 
-      {/* ШТОРКА ПОИСКА (SearchSheet) */}
-      
       <SearchSheet 
         anim={searchSheetAnim}
         fromAddress={fromAddress} setFromAddress={setFromAddress}
@@ -394,7 +367,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         isStopSelectionMode={isStopSelectionMode}
         onClose={() => {
           setIsStopSelectionMode(false);
-          // Если конечный адрес уже есть, возвращаемся к заказу, иначе на главный экран
           changeState(toAddress ? 'ORDER_SETUP' : 'IDLE'); 
         }}
         onMapPick={() => changeState('MAP_PICK')}
@@ -402,7 +374,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         onAddressSelect={handleAddressSelect}
       />
 
-      {/* ПОДТВЕРЖДЕНИЕ НА КАРТЕ */}
       {screenState === 'MAP_PICK' && (
         <View style={styles.confirmMapPick}>
           <TouchableOpacity style={styles.zincMainBtn} onPress={async () => { 
@@ -431,7 +402,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       )}
 
-      {/* ШТОРКА ПОДТВЕРЖДЕНИЯ (ConfirmationSheet) */}
       <ConfirmationSheet 
         translateY={orderSheetTranslateY}
         fromAddress={fromAddress} toAddress={toAddress}
@@ -447,7 +417,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         onRemoveStop={handleRemoveStop}
       />
 
-      {/* ШТОРКА ПОИСКА ВОДИТЕЛЯ (SearchingSheet) */}
       {screenState === 'SEARCHING' && (
         <SearchingSheet 
           onCancel={() => changeState('IDLE')} 
@@ -455,7 +424,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         />
       )}
 
-      {/* МОДАЛКА ДЕТАЛЕЙ ЗАКАЗА */}
       <OrderDetailsSheet
         visible={showOrderDetails}
         onClose={() => setShowOrderDetails(false)}
@@ -466,7 +434,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         price={offeredPrice}
       />
 
-      {/* БОКОВОЕ МЕНЮ */}
       {isMenuOpen && (
         <Animated.View style={[styles.menuBackdrop, { opacity: menuBackdropOpacity }]}>
           <Pressable style={{flex: 1}} onPress={() => toggleMenu(false)} />
@@ -505,6 +472,13 @@ const styles = StyleSheet.create({
   placeholderZinc: { color: '#71717A', fontSize: 16 },
   zincDivider: { height: 1, backgroundColor: '#27272A', marginVertical: 4, marginLeft: 28 },
   recenterBtn: { position: 'absolute', bottom: 160, right: 20, width: 50, height: 50, backgroundColor: '#18181B', borderRadius: 25, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
+  
+  // СТИЛИ ДЛЯ ПЛАШКИ АКТИВНОГО ЗАКАЗА
+  activeRideBanner: { position: 'absolute', bottom: 110, left: 20, right: 20, backgroundColor: '#10B981', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  dotGreen: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff', marginRight: 12 },
+  activeRideText: { color: '#fff', fontSize: 16, fontWeight: '700', flex: 1 },
+  activeRideArrow: { color: '#fff', fontSize: 24, fontWeight: '300', marginTop: -4 },
+
   bottomAshenBar: { position: 'absolute', bottom: 40, left: 20, right: 20, backgroundColor: '#18181B', borderRadius: 24, flexDirection: 'row', padding: 8, borderWidth: 1, borderColor: '#27272A', justifyContent: 'space-around' },
   serviceBtn: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 16 },
   serviceBtnActive: { backgroundColor: '#27272A' },

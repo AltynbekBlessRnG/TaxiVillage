@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, ScrollView, StatusBar } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -126,35 +126,54 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const mapHtml = useMemo(() => `
-    <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body{margin:0;padding:0;background:#0F172A}#map{height:100vh;width:100vw}.driver-dot{width:18px;height:18px;background:#3B82F6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 15px #3B82F6}.pin-green{width:16px;height:16px;background:#10B981;border:2px solid #fff;border-radius:50%}.pin-red{width:16px;height:16px;background:#EF4444;border:2px solid #fff;border-radius:50%}</style></head><body><div id="map"></div><script>var map=L.map('map',{zoomControl:false}).setView([43.2389, 76.8897], 13);L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);var driverMarker=null;var routeLine=null;window.initRide=function(fLat,fLng,tLat,tLng){L.marker([fLat,fLng],{icon:L.divIcon({className:'pin-green',iconSize:[16,16]})}).addTo(map);L.marker([tLat,tLng],{icon:L.divIcon({className:'pin-red',iconSize:[16,16]})}).addTo(map);routeLine=L.polyline([[fLat,fLng],[tLat,tLng]],{color:'#3B82F6',weight:4,dashArray:'10, 10'}).addTo(map);map.fitBounds(routeLine.getBounds(),{padding:[50,50]});};window.updateDriver=function(lat,lng){if(driverMarker)map.removeLayer(driverMarker);driverMarker=L.marker([lat,lng],{icon:L.divIcon({className:'driver-dot',iconSize:[18,18]})}).addTo(map);};</script></body></html>
+    <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body{margin:0;padding:0;background:#000}#map{height:100vh;width:100vw}.driver-dot{width:20px;height:20px;background:#F59E0B;border:3px solid #fff;border-radius:50%;box-shadow:0 0 15px #F59E0B}.pin-blue{width:14px;height:14px;background:#3B82F6;border:2px solid #fff;border-radius:50%}.pin-red{width:14px;height:14px;background:#EF4444;border:2px solid #fff;border-radius:50%}</style></head><body><div id="map"></div><script>var map=L.map('map',{zoomControl:false}).setView([43.2389, 76.8897], 13);L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);var driverMarker=null;var routeLine=null;window.initRide=function(fLat,fLng,tLat,tLng){L.marker([fLat,fLng],{icon:L.divIcon({className:'pin-blue',iconSize:[14,14]})}).addTo(map);L.marker([tLat,tLng],{icon:L.divIcon({className:'pin-red',iconSize:[14,14]})}).addTo(map);routeLine=L.polyline([[fLat,fLng],[tLat,tLng]],{color:'#3B82F6',weight:4,dashArray:'10, 10'}).addTo(map);map.fitBounds(routeLine.getBounds(),{padding:[50,50]});};window.updateDriver=function(lat,lng){if(driverMarker)map.removeLayer(driverMarker);driverMarker=L.marker([lat,lng],{icon:L.divIcon({className:'driver-dot',iconSize:[20,20]})}).addTo(map);};</script></body></html>
   `, []);
+
+  // Перевод статусов на русский
+  const getStatusText = (s: string) => {
+    switch(s) {
+      case 'DRIVER_ASSIGNED': return 'Ожидает подачи';
+      case 'ON_THE_WAY': return 'Ожидает клиента';
+      case 'IN_PROGRESS': return 'В пути';
+      default: return s;
+    }
+  };
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      
       <View style={styles.mapWrap}>
         <WebView ref={webViewRef} source={{ html: mapHtml }} style={StyleSheet.absoluteFillObject} scrollEnabled={false} />
       </View>
+
+      {/* Кнопка "Навигатор" или "Назад" */}
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.replace('DriverHome')}>
+        <Text style={styles.backBtnText}>← На главную</Text>
+      </TouchableOpacity>
 
       <View style={styles.bottomSheet}>
         <View style={styles.handleBar} />
         
         <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.headerRow}>
-            <Text style={styles.title}>Заказ: {estimatedPrice} ₸</Text>
-            <Text style={styles.statusBadge}>{status}</Text>
+            <Text style={styles.title}>{estimatedPrice} ₸</Text>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>{getStatusText(status)}</Text>
+            </View>
           </View>
 
           {/* ИНФОРМАЦИЯ О МАРШРУТЕ */}
           {rideDetails && (
             <View style={styles.routeCard}>
               <View style={styles.routePoint}>
-                <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
+                <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
                 <Text style={styles.routeText}>{rideDetails.fromAddress}</Text>
               </View>
               
               {rideDetails.stops?.map((stop, idx) => (
                 <View key={idx} style={styles.routePoint}>
-                  <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
+                  <View style={[styles.dot, { backgroundColor: '#F97316' }]} />
                   <Text style={styles.routeText}>Заезд: {stop.address}</Text>
                 </View>
               ))}
@@ -214,7 +233,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
               value={finalPrice} 
               onChangeText={setFinalPrice} 
               placeholder={`${estimatedPrice} ₸`} 
-              placeholderTextColor="#94A3B8" 
+              placeholderTextColor="#71717A" 
               keyboardType="numeric" 
               autoFocus 
             />
@@ -234,42 +253,50 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
+  container: { flex: 1, backgroundColor: '#000' },
   mapWrap: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
-  bottomSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#1E293B', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 34, borderWidth: 1, borderColor: '#334155', borderBottomWidth: 0, maxHeight: '50%' },
-  handleBar: { width: 40, height: 4, backgroundColor: '#475569', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  scrollContent: { flexGrow: 0 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 22, fontWeight: '800', color: '#10B981' },
-  statusBadge: { backgroundColor: '#334155', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, color: '#94A3B8', fontSize: 12, fontWeight: '700' },
   
-  routeCard: { backgroundColor: '#0F172A', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#334155' },
+  backBtn: { position: 'absolute', top: 50, left: 20, backgroundColor: '#18181B', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: '#27272A', zIndex: 10 },
+  backBtnText: { color: '#F4F4F5', fontSize: 14, fontWeight: '600' },
+
+  bottomSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#09090B', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingTop: 12, paddingBottom: 40, borderWidth: 1, borderColor: '#27272A', maxHeight: '60%' },
+  handleBar: { width: 40, height: 4, backgroundColor: '#27272A', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  scrollContent: { flexGrow: 0 },
+  
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  title: { fontSize: 28, fontWeight: '900', color: '#10B981' },
+  statusBadge: { backgroundColor: '#18181B', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#27272A' },
+  statusBadgeText: { color: '#A1A1AA', fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
+  
+  routeCard: { backgroundColor: '#18181B', borderRadius: 20, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#27272A' },
   routePoint: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  dot: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
-  routeText: { color: '#F8FAFC', fontSize: 15, flex: 1 },
-  commentBox: { marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#1E293B' },
-  commentLabel: { color: '#94A3B8', fontSize: 12, marginBottom: 4 },
-  commentText: { color: '#F59E0B', fontSize: 14, fontStyle: 'italic' },
+  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 15 },
+  routeText: { color: '#E4E4E7', fontSize: 15, flex: 1, fontWeight: '500' },
+  
+  commentBox: { marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#27272A' },
+  commentLabel: { color: '#71717A', fontSize: 12, marginBottom: 4, fontWeight: '600' },
+  commentText: { color: '#FCD34D', fontSize: 14, fontStyle: 'italic' },
 
   buttonGroup: { gap: 12 },
-  actionButton: { borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
-  actionButtonText: { color: '#F8FAFC', fontSize: 16, fontWeight: '700' },
+  actionButton: { borderRadius: 20, paddingVertical: 18, alignItems: 'center' },
+  actionButtonText: { color: '#000', fontSize: 18, fontWeight: '800' },
   onTheWayButton: { backgroundColor: '#F59E0B' },
   inProgressButton: { backgroundColor: '#3B82F6' },
   completeButton: { backgroundColor: '#10B981' },
-  completeButtonText: { color: '#F8FAFC', fontSize: 18, fontWeight: '700' },
-  cancelButton: { paddingVertical: 16, alignItems: 'center', borderRadius: 16, borderWidth: 1, borderColor: '#7F1D1D' },
-  cancelButtonText: { color: '#EF4444', fontSize: 16, fontWeight: '600' },
+  completeButtonText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  
+  cancelButton: { paddingVertical: 16, alignItems: 'center', borderRadius: 20, borderWidth: 1, borderColor: '#27272A', backgroundColor: '#1C1C1E' },
+  cancelButtonText: { color: '#EF4444', fontSize: 16, fontWeight: '700' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#1E293B', borderRadius: 24, padding: 32, alignItems: 'center', minWidth: 300, borderWidth: 1, borderColor: '#334155' },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#F8FAFC', marginBottom: 8 },
-  modalSubtitle: { fontSize: 14, color: '#94A3B8', marginBottom: 24, textAlign: 'center' },
-  priceInput: { backgroundColor: '#0F172A', borderWidth: 1, borderColor: '#334155', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center', minWidth: 150, marginBottom: 24 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#18181B', borderRadius: 24, padding: 24, width: '100%', borderWidth: 1, borderColor: '#27272A' },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: '#F4F4F5', marginBottom: 8, textAlign: 'center' },
+  modalSubtitle: { fontSize: 14, color: '#71717A', marginBottom: 24, textAlign: 'center' },
+  priceInput: { backgroundColor: '#09090B', borderWidth: 1, borderColor: '#27272A', borderRadius: 16, padding: 16, color: '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 24 },
   modalButtons: { flexDirection: 'row', gap: 12 },
-  modalButton: { borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24, alignItems: 'center', minWidth: 100 },
-  cancelModalButton: { backgroundColor: '#374151' },
-  cancelModalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  modalButton: { flex: 1, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
+  cancelModalButton: { backgroundColor: '#27272A' },
+  cancelModalButtonText: { color: '#F4F4F5', fontSize: 16, fontWeight: '700' },
   confirmButton: { backgroundColor: '#10B981' },
-  confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

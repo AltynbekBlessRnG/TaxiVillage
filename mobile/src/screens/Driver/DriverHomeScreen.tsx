@@ -70,8 +70,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       await apiClient.post(`/rides/${rideId}/accept`);
       setIncomingOffer(null); // Прячем шторку
       setCurrentRideId(rideId);
+      // АВТОМАТИЧЕСКИ ПЕРЕХОДИМ НА ЭКРАН ПОЕЗДКИ:
+      navigation.navigate('DriverRide', { rideId });
     } catch { Alert.alert('Ошибка', 'Не удалось принять заказ'); }
-  }, []);
+  }, [navigation]); // Не забудь добавить navigation в зависимости!
 
   const rejectRide = useCallback(async (rideId: string) => {
     try { await apiClient.post(`/rides/${rideId}/reject`); } catch {}
@@ -101,21 +103,15 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         
         socket.on('ride:offer', (ride: RideOffer) => {
           if (!isMounted) return;
-          const price = ride.estimatedPrice ? Math.round(ride.estimatedPrice) : '—';
-          let message = '';
-          if (ride.hasRoute === false) message += '⚠️ ТОЧКИ НЕТ НА КАРТЕ!\nОриентируйтесь строго по тексту адреса ниже:\n\n';
-          message += `От: ${ride.fromAddress}\nДо: ${ride.toAddress}`;
-          if (ride.stops?.length) {
-            message += '\n\nОстановки:';
-            ride.stops.forEach((s, i) => message += `\n${i + 1}. ${s.address}`);
-          }
-          if (ride.comment) message += `\n\nКомментарий: ${ride.comment}`;
-          message += `\n\nЦена: ${price} ₽`;
           
-          Alert.alert('Новый заказ', message, [
-            { text: 'Пропустить', onPress: () => rejectRide(ride.id) },
-            { text: 'Принять', onPress: () => acceptRide(ride.id) },
-          ]);
+          // Если водитель офлайн, отбиваем заказ
+          if (!isOnline) {
+            apiClient.post(`/rides/${ride.id}/reject`).catch(() => {});
+            return;
+          }
+          
+          // Просто передаем данные в стейт. Вся отрисовка теперь внутри RideOfferSheet!
+          setIncomingOffer(ride);
         });
 
         socket.on('ride:created', (ride: any) => { if (isMounted) setCurrentRideId(ride.id); });
