@@ -108,6 +108,5 @@ async function refreshAdminToken(
       }
     })();
   }
-
   return refreshPromise;
 }
