@@ -72,9 +72,9 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
           }, 1000);
         }
 
-        if (!auth?.token) return;
+        if (!auth?.accessToken) return;
 
-        socket = createRidesSocket(auth.token);
+        socket = createRidesSocket(auth.accessToken);
         socket.emit('join:ride', rideId);
         
         socket.on('ride:updated', (updatedRide: RideData) => {
@@ -217,7 +217,6 @@ const handleCancel = async () => {
         rideId={rideId}
         currentUserId={currentUserId}
         userType="PASSENGER"
-        receiverId={ride?.driver?.id || ''}
         receiverName={ride?.driver?.fullName || 'Водитель'}
       />
     </View>

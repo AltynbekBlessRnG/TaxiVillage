@@ -4,9 +4,9 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient, setAuthToken } from '../../api/client';
+import { apiClient, logout } from '../../api/client';
 import { createRidesSocket } from '../../api/socket';
-import { loadAuth, clearAuth } from '../../storage/authStorage';
+import { loadAuth } from '../../storage/authStorage';
 import { RideOfferSheet } from '../../components/Driver/RideOfferSheet';
 import { DriverSideMenu } from '../../components/Driver/DriverSideMenu';
 import { DriverStatusSheet } from '../../components/Driver/DriverStatusSheet';
@@ -60,8 +60,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     if (isOnline) {
       try { await apiClient.post('/drivers/status', { isOnline: false }); } catch {}
     }
-    await clearAuth();
-    setAuthToken(null);
+    await logout();
     navigation.replace('Login');
   };
 
@@ -94,12 +93,12 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     const init = async () => {
       try {
         const auth = await loadAuth();
-        if (!isMounted || !auth?.token) return;
+        if (!isMounted || !auth?.accessToken) return;
 
         const res = await apiClient.get('/drivers/current-ride');
         if (isMounted && res.data?.id) setCurrentRideId(res.data.id);
 
-        socket = createRidesSocket(auth.token);
+        socket = createRidesSocket(auth.accessToken);
         
         socket.on('ride:offer', (ride: RideOffer) => {
           if (!isMounted) return;

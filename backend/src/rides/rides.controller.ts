@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { RidesService } from './rides.service';
 import { Roles } from '../auth/roles.decorator';
@@ -49,14 +49,22 @@ class CreateRideDto {
 }
 
 class UpdateRideStatusDto {
-  @IsString()
-  status!: keyof typeof RideStatus;
+  @IsEnum(RideStatus)
+  status!: RideStatus;
 }
 
 class RateRideDto {
   @IsInt()
   @Type(() => Number)
   stars!: number;
+}
+
+class CompleteRideDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  finalPrice?: number;
 }
 
 @Controller('rides')
@@ -81,8 +89,12 @@ export class RidesController {
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
-  getById(@Param('id') id: string) {
-    return this.ridesService.getRideById(id);
+  getById(@Param('id') id: string, @Req() req: any) {
+    return this.ridesService.getRideByIdForUser(
+      req.user.userId,
+      req.user.role,
+      id,
+    );
   }
 
   @Post(':id/cancel')
@@ -99,8 +111,7 @@ export class RidesController {
   updateStatus(@Param('id') id: string, @Body() dto: UpdateRideStatusDto, @Req() req: any) {
     const userId: string = req.user.userId;
     const role: UserRole = req.user.role;
-    const status = RideStatus[dto.status];
-    return this.ridesService.updateRideStatus(userId, role, id, status);
+    return this.ridesService.updateRideStatus(userId, role, id, dto.status);
   }
 
   @Post(':id/accept')
@@ -114,17 +125,21 @@ export class RidesController {
   @Post(':id/reject')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.DRIVER)
-  reject(@Param('id') id: string) {
-    return this.ridesService.rejectRide(id);
+  reject(@Param('id') id: string, @Req() req: any) {
+    return this.ridesService.rejectRide(req.user.userId, id);
   }
 
   @Post(':id/complete')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles(UserRole.DRIVER)
-async complete(@Param('id') id: string, @Body() dto: { finalPrice?: number }, @Req() req: any) {
-  const userId: string = req.user.userId;
-  return this.ridesService.completeRide(userId, id, dto.finalPrice);
-}
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async complete(
+    @Param('id') id: string,
+    @Body() dto: CompleteRideDto,
+    @Req() req: any,
+  ) {
+    const userId: string = req.user.userId;
+    return this.ridesService.completeRide(userId, id, dto.finalPrice);
+  }
 
   @Post(':id/rate')
   @UseGuards(AuthGuard('jwt'), RolesGuard)

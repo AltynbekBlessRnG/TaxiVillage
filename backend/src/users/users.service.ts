@@ -57,6 +57,26 @@ export class UsersService {
   async findOne(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+        passenger: true,
+        driver: {
+          include: {
+            car: true,
+          },
+        },
+      },
+    });
+  }
+
+  findByPhone(phone: string) {
+    return this.prisma.user.findUnique({
+      where: { phone },
       include: {
         passenger: true,
         driver: true,
@@ -64,9 +84,29 @@ export class UsersService {
     });
   }
 
-  findByPhone(phone: string) {
-    return this.prisma.user.findUnique({ where: { phone } });
+  findAuthUserById(userId: string) {
+    return (this.prisma.user as any).findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        refreshTokenHash: true,
+      },
+    }) as Promise<
+      | {
+          id: string;
+          role: UserRole;
+          refreshTokenHash: string | null;
+        }
+      | null
+    >;
   }
-  
+
+  updateRefreshTokenHash(userId: string, refreshTokenHash: string | null) {
+    return (this.prisma.user as any).update({
+      where: { id: userId },
+      data: { refreshTokenHash },
+    });
+  }
 }
 

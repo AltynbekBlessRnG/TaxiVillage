@@ -21,7 +21,6 @@ interface ChatScreenProps {
   rideId: string;
   currentUserId: string;
   userType: 'PASSENGER' | 'DRIVER';
-  receiverId: string;
   receiverName: string;
 }
 
@@ -31,7 +30,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   rideId,
   currentUserId,
   userType,
-  receiverId,
   receiverName,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -91,7 +89,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     const receiverType = userType === 'PASSENGER' ? 'DRIVER' : 'PASSENGER';
     
-    chatSocketRef.current.sendMessage(inputText.trim(), receiverId, receiverType);
+    chatSocketRef.current.sendMessage(inputText.trim(), receiverType);
     setInputText('');
   };
 

@@ -9,6 +9,8 @@ export interface Message {
   receiverId: string;
   receiverType: 'PASSENGER' | 'DRIVER';
   createdAt: string;
+  senderName?: string;
+  receiverName?: string;
 }
 
 export class ChatSocket {
@@ -17,13 +19,13 @@ export class ChatSocket {
 
   async connect(rideId: string): Promise<void> {
     const auth = await loadAuth();
-    if (!auth?.token) {
+    if (!auth?.accessToken) {
       throw new Error('No auth token found');
     }
 
     this.rideId = rideId;
     this.socket = io('http://192.168.0.11:3000/chat', {
-      auth: { token: auth.token },
+      auth: { token: auth.accessToken },
     });
 
     return new Promise((resolve, reject) => {
@@ -48,14 +50,13 @@ export class ChatSocket {
     }
   }
 
-  sendMessage(content: string, receiverId: string, receiverType: 'PASSENGER' | 'DRIVER'): void {
+  sendMessage(content: string, receiverType: 'PASSENGER' | 'DRIVER'): void {
     if (!this.socket || !this.rideId) {
       throw new Error('Chat socket not connected');
     }
 
     this.socket.emit('send:message', {
       content,
-      receiverId,
       receiverType,
     });
   }

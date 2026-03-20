@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { AdminAuthSession } from '../auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 interface Props {
-  onLoggedIn(token: string): void;
+  onLoggedIn(session: AdminAuthSession): void;
 }
 
 export const LoginPage: React.FC<Props> = ({ onLoggedIn }) => {
@@ -22,12 +23,12 @@ export const LoginPage: React.FC<Props> = ({ onLoggedIn }) => {
         phone,
         password,
       });
-      const { accessToken, user } = response.data;
+      const { accessToken, refreshToken, user } = response.data;
       if (user.role !== 'ADMIN') {
         setError('Только пользователи с ролью ADMIN могут войти в админ‑панель.');
         return;
       }
-      onLoggedIn(accessToken);
+      onLoggedIn({ accessToken, refreshToken });
     } catch {
       setError('Ошибка входа. Проверьте данные.');
     } finally {

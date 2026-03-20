@@ -7,8 +7,8 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient } from '../../api/client';
-import { loadAuth, clearAuth } from '../../storage/authStorage';
+import { apiClient, logout } from '../../api/client';
+import { loadAuth } from '../../storage/authStorage';
 import { initializeNotifications, sendLocalNotification, NOTIFICATION_TYPES } from '../../utils/notifications';
 
 // Импортируем наши "забетонированные" компоненты
@@ -132,8 +132,8 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
 
     const connectSocket = async () => {
       const auth = await loadAuth();
-      if (auth?.token && screenState === 'SEARCHING') {
-        socket = createRidesSocket(auth.token);
+      if (auth?.accessToken && screenState === 'SEARCHING') {
+        socket = createRidesSocket(auth.accessToken);
 
         socket.on('ride:updated', (updatedRide: any) => {
           if (updatedRide.status === 'DRIVER_ASSIGNED') {
@@ -451,7 +451,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity style={styles.drawerItem} onPress={() => { toggleMenu(false); navigation.navigate('FavoriteAddresses'); }}>
             <Text style={styles.drawerText}>Мои адреса</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.drawerItem, {marginTop: 20}]} onPress={() => { toggleMenu(false); clearAuth(); navigation.replace('Login'); }}>
+          <TouchableOpacity style={[styles.drawerItem, {marginTop: 20}]} onPress={async () => { toggleMenu(false); await logout(); navigation.replace('Login'); }}>
             <Text style={[styles.drawerText, {color: '#EF4444'}]}>Выйти</Text>
           </TouchableOpacity>
         </ScrollView>

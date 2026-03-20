@@ -18,14 +18,19 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setError(null);
     try {
       const response = await apiClient.post('/auth/login', { phone, password });
-      const { accessToken, user } = response.data;
+      const { accessToken, refreshToken, user } = response.data;
       setAuthToken(accessToken);
-      await saveAuth(accessToken, user.role);
+      await saveAuth({
+        accessToken,
+        refreshToken,
+        role: user.role,
+        userId: user.id,
+      });
 
       if (user.role === 'DRIVER') {
         navigation.replace('DriverHome');
       } else {
-        navigation.replace('PassengerHome');
+        navigation.replace('PassengerHome', {});
       }
     } catch (e: any) {
       const errorMessage = e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';

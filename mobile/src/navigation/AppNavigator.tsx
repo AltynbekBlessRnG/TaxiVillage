@@ -38,7 +38,7 @@ export const AppNavigator: React.FC = () => {
     loadAuth().then((auth) => {
       if (!mounted) return;
       if (auth) {
-        setAuthToken(auth.token);
+        setAuthToken(auth.accessToken);
         setInitialRoute(auth.role === 'DRIVER' ? 'DriverHome' : 'PassengerHome');
       }
       setIsLoading(false);

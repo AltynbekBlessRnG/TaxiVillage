@@ -25,13 +25,18 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         fullName,
         role,
       });
-      const { accessToken, user } = response.data;
+      const { accessToken, refreshToken, user } = response.data;
       setAuthToken(accessToken);
-      await saveAuth(accessToken, user.role);
+      await saveAuth({
+        accessToken,
+        refreshToken,
+        role: user.role,
+        userId: user.id,
+      });
       if (user.role === 'DRIVER') {
         navigation.replace('DriverHome');
       } else {
-        navigation.replace('PassengerHome');
+        navigation.replace('PassengerHome', {});
       }
     } catch (e: any) {
       let errorMessage = e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';

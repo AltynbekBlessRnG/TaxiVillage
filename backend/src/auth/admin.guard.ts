@@ -16,6 +16,9 @@ export class AdminGuard implements CanActivate {
 
     try {
       const payload = await this.jwtService.verifyAsync(token);
+      if (payload.tokenType !== 'access') {
+        throw new ForbiddenException('Access denied - invalid token type');
+      }
       
       if (payload.role !== 'ADMIN') {
         throw new ForbiddenException('Access denied - admin role required');

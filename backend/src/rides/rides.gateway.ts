@@ -6,9 +6,10 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { ForbiddenException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from '../auth/auth.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface RidePayload {
   id: string;
@@ -32,7 +33,10 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly logger = new Logger(RidesGateway.name);
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async handleConnection(client: import('socket.io').Socket) {
     const token = client.handshake.auth?.token;
@@ -43,6 +47,9 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
+      if (payload.tokenType !== 'access') {
+        throw new ForbiddenException('Invalid token type');
+      }
       const userId = payload.sub;
       const room = `user:${userId}`;
       await client.join(room);
@@ -60,6 +67,21 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('join:ride')
   async handleJoinRide(client: import('socket.io').Socket, rideId: string) {
+    const ride = await this.prisma.ride.findUnique({
+      where: { id: rideId },
+      include: {
+        passenger: true,
+        driver: true,
+      },
+    });
+    const userId = (client as any).userId;
+    const isParticipant =
+      !!ride &&
+      (ride.passenger?.userId === userId || ride.driver?.userId === userId);
+    if (!isParticipant) {
+      client.emit('error', { message: 'Access denied to ride room' });
+      return;
+    }
     const room = `ride:${rideId}`;
     await client.join(room);
     this.logger.log(`Client ${client.id} joined room ${room}`);

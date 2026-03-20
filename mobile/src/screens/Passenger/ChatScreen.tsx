@@ -13,29 +13,14 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
-import { createChatSocket } from '../../api/socket';
+import { createChatSocket, Message as ChatSocketMessage } from '../../api/chatSocket';
 import { loadAuth } from '../../storage/authStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatScreen'>;
 
-interface Message {
-  id: string;
-  content: string;
-  senderId: string;
-  senderType: 'PASSENGER' | 'DRIVER';
-  receiverId: string;
-  receiverType: 'PASSENGER' | 'DRIVER';
-  createdAt: string;
-  sender?: {
-    user?: {
-      fullName?: string;
-    };
-  };
-  receiver?: {
-    user?: {
-      fullName?: string;
-    };
-  };
+interface Message extends ChatSocketMessage {
+  senderName?: string;
+  receiverName?: string;
 }
 
 export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -53,7 +38,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
     const initChat = async () => {
       try {
         const auth = await loadAuth();
-        if (!auth?.token) return;
+        if (!auth?.accessToken) return;
 
         currentUserId.current = auth.userId || '';
 
@@ -61,24 +46,22 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         const rideResponse = await apiClient.get(`/rides/${rideId}`);
         setRide(rideResponse.data);
         
-        const socket = createChatSocket(auth.token);
+        const socket = createChatSocket();
         socketRef.current = socket;
 
-        // Join ride room
-        socket.emit('join:ride', { rideId });
+        await socket.connect(rideId);
 
-        // Listen for messages
-        socket.on('message:sent', (message: Message) => {
+        socket.onMessage((message: Message) => {
           setMessages(prev => [...prev, message]);
         });
 
-        socket.on('error', (error: any) => {
+        socket.onError((error: any) => {
           console.error('Chat error:', error);
           Alert.alert('Ошибка', error.message || 'Произошла ошибка');
         });
 
         // Load initial messages
-        const response = await apiClient.get(`/chat/messages/${rideId}`);
+        const response = await apiClient.get<Message[]>(`/chat/messages/${rideId}`);
         setMessages(response.data);
 
         // Mark messages as read
@@ -105,30 +88,19 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
     setLoading(true);
     try {
       const auth = await loadAuth();
-      if (!auth?.token) return;
+      if (!auth?.accessToken) return;
 
       // Determine receiver based on user role
-      let receiverId: string;
       let receiverType: 'PASSENGER' | 'DRIVER';
 
       if (auth.role === 'DRIVER') {
-        // Driver sending to passenger
-        receiverId = ride?.passenger?.id || '';
         receiverType = 'PASSENGER';
       } else {
-        // Passenger sending to driver
-        receiverId = ride?.driver?.id || '';
         receiverType = 'DRIVER';
-      }
-
-      if (!receiverId) {
-        Alert.alert('Ошибка', 'Получатель не найден');
-        return;
       }
 
       const response = await apiClient.post(`/chat/send/${rideId}`, {
         content: newMessage.trim(),
-        receiverId,
         receiverType,
       });
 
@@ -148,8 +120,8 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwnMessage = item.senderId === currentUserId.current;
-    const senderName = item.sender?.user?.fullName || 'Водитель';
-    const receiverName = item.receiver?.user?.fullName || 'Пассажир';
+    const senderName = item.senderName || 'Водитель';
+    const receiverName = item.receiverName || 'Пассажир';
 
     return (
       <View style={[styles.messageContainer, isOwnMessage && styles.ownMessage]}>

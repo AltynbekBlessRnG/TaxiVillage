@@ -1,14 +1,38 @@
 import React, { useState } from 'react';
 import { LoginPage } from './LoginPage';
 import { DashboardPage } from './DashboardPage';
+import {
+  AdminAuthSession,
+  clearAdminAuth,
+  loadAdminAuth,
+  saveAdminAuth,
+} from '../auth';
 
 export const App: React.FC = () => {
-  const [token, setToken] = useState<string | null>(null);
+  const [session, setSession] = useState<AdminAuthSession | null>(() =>
+    loadAdminAuth(),
+  );
 
-  if (!token) {
-    return <LoginPage onLoggedIn={setToken} />;
+  const handleLoggedIn = (nextSession: AdminAuthSession) => {
+    saveAdminAuth(nextSession);
+    setSession(nextSession);
+  };
+
+  const handleLogout = () => {
+    clearAdminAuth();
+    setSession(null);
+  };
+
+  if (!session) {
+    return <LoginPage onLoggedIn={handleLoggedIn} />;
   }
 
-  return <DashboardPage token={token} onLogout={() => setToken(null)} />;
+  return (
+    <DashboardPage
+      session={session}
+      onSessionChange={setSession}
+      onLogout={handleLogout}
+    />
+  );
 };
 

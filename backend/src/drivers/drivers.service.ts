@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentType, DriverStatus, RideStatus } from '@prisma/client';
 import { RidesGateway } from '../rides/rides.gateway';
@@ -19,7 +19,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 @Injectable()
-export class DriversService {
+export class DriversService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DriversService.name);
   
   constructor(
@@ -173,6 +173,7 @@ export class DriversService {
           where: { userId },
           data: { lat, lng },
         });
+        this.ridesGateway.emitDriverMoved(currentRide.id, lat, lng);
       }
     }
 
@@ -261,13 +262,15 @@ export class DriversService {
   }
 
   async getNearbyDrivers(lat: number, lng: number, radius: number) {
-    // Find all online, approved drivers with valid locations
+    const latDelta = radius / 111;
+    const lngDelta = radius / (111 * Math.max(Math.cos((lat * Math.PI) / 180), 0.1));
+
     const drivers = await this.prisma.driverProfile.findMany({
       where: {
         status: 'APPROVED',
         isOnline: true,
-        lat: { not: null },
-        lng: { not: null },
+        lat: { not: null, gte: lat - latDelta, lte: lat + latDelta },
+        lng: { not: null, gte: lng - lngDelta, lte: lng + lngDelta },
       },
       select: {
         id: true,

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { AdminAuthSession, clearAdminAuth, createAdminClient, saveAdminAuth } from '../auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 interface Props {
-  token: string;
+  session: AdminAuthSession;
+  onSessionChange(session: AdminAuthSession | null): void;
   onLogout(): void;
 }
 
@@ -71,7 +72,11 @@ const DOCUMENT_LABELS: Record<string, string> = {
   OTHER: 'Другое',
 };
 
-export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
+export const DashboardPage: React.FC<Props> = ({
+  session,
+  onSessionChange,
+  onLogout,
+}) => {
   const [tab, setTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -94,11 +99,18 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
 
   const client = React.useMemo(
     () =>
-      axios.create({
-        baseURL: API_URL,
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-    [token],
+      createAdminClient(
+        () => session,
+        (nextSession) => {
+          if (nextSession) {
+            saveAdminAuth(nextSession);
+          } else {
+            clearAdminAuth();
+          }
+          onSessionChange(nextSession);
+        },
+      ),
+    [onSessionChange, session],
   );
 
   const loadDrivers = React.useCallback(async () => {
@@ -168,6 +180,16 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
     }
   };
 
+  const handleLogoutClick = async () => {
+    try {
+      await client.post('/auth/logout');
+    } catch {
+      // Ignore logout failures and clear the local session anyway.
+    } finally {
+      onLogout();
+    }
+  };
+
   return (
     <div className="app-root">
       <aside className="sidebar">
@@ -179,7 +201,7 @@ export const DashboardPage: React.FC<Props> = ({ token, onLogout }) => {
           <button className={tab === 'rides' ? 'active' : ''} onClick={() => setTab('rides')}>📍 Поездки</button>
           <button className={tab === 'tariffs' ? 'active' : ''} onClick={() => setTab('tariffs')}>💰 Тарифы</button>
         </div>
-        <button className="button" style={{ marginTop: 'auto' }} onClick={onLogout}>Выйти</button>
+        <button className="button" style={{ marginTop: 'auto' }} onClick={handleLogoutClick}>Выйти</button>
       </aside>
 
       <main className="content">

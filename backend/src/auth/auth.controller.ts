@@ -1,7 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { IsEmail, IsEnum, IsOptional, IsPhoneNumber, IsString, MinLength } from 'class-validator';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { IsEmail, IsIn, IsOptional, IsPhoneNumber, IsString, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
 import { UserRole } from '@prisma/client';
+import { AuthGuard } from '@nestjs/passport';
+
+type PublicRegisterRole = 'PASSENGER' | 'DRIVER';
 
 class RegisterDto {
   @IsPhoneNumber()
@@ -15,8 +18,8 @@ class RegisterDto {
   @MinLength(6)
   password!: string;
 
-  @IsEnum(UserRole)
-  role!: UserRole;
+  @IsIn([UserRole.PASSENGER, UserRole.DRIVER])
+  role!: PublicRegisterRole;
 
   @IsOptional()
   @IsString()
@@ -53,6 +56,13 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto.refreshToken);
+  }
+
+  @Post('logout')
+  @UseGuards(AuthGuard('jwt'))
+  async logout(@Req() req: any) {
+    await this.authService.revokeRefreshToken(req.user.userId);
+    return { success: true };
   }
 }
 

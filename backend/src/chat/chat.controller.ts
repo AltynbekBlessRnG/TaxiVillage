@@ -1,7 +1,19 @@
 import { Controller, Get, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ChatService } from './chat.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { MessageSender } from '@prisma/client';
+
+class SendMessageDto {
+  @IsString()
+  @MaxLength(500)
+  content!: string;
+
+  @IsOptional()
+  @IsEnum(MessageSender)
+  receiverType?: MessageSender;
+}
 
 @Controller('chat')
 export class ChatController {
@@ -17,10 +29,13 @@ export class ChatController {
 
   @Post('send/:rideId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  async sendMessage(@Body() data: any, @Req() req: any) {
+  async sendMessage(@Body() data: SendMessageDto, @Req() req: any) {
     const userId: string = req.user.userId;
     const rideId: string = req.params.rideId;
-    return this.chatService.sendMessage(userId, rideId, data);
+    return this.chatService.sendMessage(userId, rideId, {
+      content: data.content,
+      receiverType: data.receiverType ?? MessageSender.DRIVER,
+    });
   }
 
   @Post('mark-read/:rideId')

@@ -11,7 +11,7 @@ import { Logger } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from '../auth/auth.service';
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
   namespace: '/chat',
@@ -21,7 +21,7 @@ import { Socket } from 'socket.io';
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server!: Socket;
+  server!: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
 
@@ -40,6 +40,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
+      if (payload.tokenType !== 'access') {
+        throw new Error('Invalid token type');
+      }
       const userId = payload.sub;
       (client as any).userId = userId;
       this.logger.log(`Chat client connected: ${client.id} (user: ${userId})`);
@@ -59,6 +62,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { rideId: string },
   ) {
     const userId = (client as any).userId;
+    await this.chatService.assertRideParticipant(userId, data.rideId);
     client.join(`ride:${data.rideId}`);
     (client as any).rideId = data.rideId;
     this.logger.log(`User ${userId} joined chat for ride ${data.rideId}`);
@@ -67,7 +71,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('send:message')
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { content: string; receiverId: string; receiverType: string },
+    @MessageBody() data: { content: string; receiverType?: string },
   ) {
     try {
       const userId = (client as any).userId;
@@ -80,7 +84,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       
       const message = await this.chatService.sendMessage(userId, rideId, {
         content: data.content,
-        receiverId: data.receiverId,
         receiverType: data.receiverType as any,
       });
 
