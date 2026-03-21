@@ -10,7 +10,11 @@ export function createRidesSocket(token: string): Socket {
   return io(`${WS_BASE}/rides`, {
     path: '/socket.io',
     auth: { token },
-    transports: ['websocket'],
+    transports: ['polling', 'websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    timeout: 10000,
   });
 }
 
@@ -18,6 +22,10 @@ export function createChatSocket(token: string): Socket {
   return io(`${WS_BASE}/chat`, {
     path: '/socket.io',
     auth: { token },
-    transports: ['websocket'],
+    transports: ['polling', 'websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    timeout: 10000,
   });
 }

@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  Image,
+  View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -29,7 +28,6 @@ interface Document {
   type: 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'TAXI_LICENSE' | 'OTHER';
   url: string;
   approved: boolean;
-  uploadedAt: string;
 }
 
 interface DriverProfileData {
@@ -43,7 +41,7 @@ interface DriverProfileData {
 
 const DOCUMENT_TYPES = {
   DRIVER_LICENSE: 'Водительское удостоверение',
-  CAR_REGISTRATION: 'СТС (Свидетельство о регистрации)',
+  CAR_REGISTRATION: 'СТС',
   TAXI_LICENSE: 'Лицензия на такси',
   OTHER: 'Другой документ',
 };
@@ -69,14 +67,13 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       const data = res.data;
       setProfile(data);
 
-      // Pre-fill car info if exists
       if (data.car) {
         setCarMake(data.car.make || '');
         setCarModel(data.car.model || '');
         setCarColor(data.car.color || '');
         setCarPlate(data.car.plateNumber || '');
       }
-    } catch (e) {
+    } catch {
       Alert.alert('Ошибка', 'Не удалось загрузить профиль');
     } finally {
       setLoading(false);
@@ -109,30 +106,26 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'APPROVED':
-        return <Text>✅ Одобрен</Text>;
+        return 'Одобрен';
       case 'PENDING':
-        return <Text>⏳ На рассмотрении</Text>;
+        return 'На рассмотрении';
       case 'REJECTED':
-        return <Text>❌ Отклонён</Text>;
+        return 'Отклонён';
       default:
-        return <Text>{status}</Text>;
+        return status;
     }
   };
 
-  const getDocumentStatus = (doc: Document) => {
-    return doc.approved ? <Text>✅ Одобрено</Text> : <Text>⏳ Ожидает проверки</Text>;
-  };
+  const getDocumentStatus = (doc: Document) => (doc.approved ? 'Одобрено' : 'Ожидает проверки');
 
   const pickAndUploadDocument = async (docType: 'DRIVER_LICENSE' | 'CAR_REGISTRATION') => {
     try {
-      // Request permissions
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permissionResult.status !== 'granted') {
         Alert.alert('Ошибка', 'Нужен доступ к галерее для загрузки документов');
         return;
       }
 
-      // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -142,8 +135,6 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 
       if (!result.canceled && result.assets[0]) {
         setUploadingDoc(docType);
-        
-        // Create FormData
         const formData = new FormData();
         formData.append('type', docType);
         formData.append('file', {
@@ -152,23 +143,19 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
           name: `${docType}_${Date.now()}.jpg`,
         } as any);
 
-        // Upload to backend
         try {
-          const response = await apiClient.post('/drivers/documents', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
+          await apiClient.post('/drivers/documents', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
           });
-          
           Alert.alert('Успешно', 'Документ отправлен на проверку');
-          loadProfile(); // Reload profile to show new document
+          loadProfile();
         } catch (error: any) {
           Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить документ');
         } finally {
           setUploadingDoc(null);
         }
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Ошибка', 'Не удалось выбрать изображение');
       setUploadingDoc(null);
     }
@@ -176,99 +163,69 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#F4F4F5" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Profile Header */}
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>👤 Профиль водителя</Text>
-        <Text style={styles.statusBadge}>{getStatusText(profile?.status || 'PENDING')}</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>← Назад</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Профиль водителя</Text>
+        <View style={styles.statusBadge}>
+          <Text style={styles.statusBadgeText}>{getStatusText(profile?.status || 'PENDING')}</Text>
+        </View>
       </View>
 
-      {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{Number(profile?.balance || 0).toFixed(0)} ₸</Text>
           <Text style={styles.statLabel}>Баланс</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>⭐ {profile?.rating?.toFixed(1) || '5.0'}</Text>
+          <Text style={styles.statValue}>{profile?.rating?.toFixed(1) || '5.0'} ★</Text>
           <Text style={styles.statLabel}>Рейтинг</Text>
         </View>
       </View>
 
-      {/* Car Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}><Text>🚗 Мой автомобиль</Text></Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Марка (например: Toyota)"
-          placeholderTextColor="#64748B"
-          value={carMake}
-          onChangeText={setCarMake}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Модель (например: Camry)"
-          placeholderTextColor="#64748B"
-          value={carModel}
-          onChangeText={setCarModel}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Цвет (например: Чёрный)"
-          placeholderTextColor="#64748B"
-          value={carColor}
-          onChangeText={setCarColor}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Номер (например: А 123 БС 01)"
-          placeholderTextColor="#64748B"
-          value={carPlate}
-          onChangeText={setCarPlate}
-          autoCapitalize="characters"
-        />
-
-        <TouchableOpacity style={styles.button} onPress={saveCar} disabled={saving}>
-          <Text style={styles.buttonText}>{saving ? 'Сохранение...' : 'Сохранить автомобиль'}</Text>
+        <Text style={styles.sectionTitle}>Мой автомобиль</Text>
+        <TextInput style={styles.input} placeholder="Марка" placeholderTextColor="#71717A" value={carMake} onChangeText={setCarMake} />
+        <TextInput style={styles.input} placeholder="Модель" placeholderTextColor="#71717A" value={carModel} onChangeText={setCarModel} />
+        <TextInput style={styles.input} placeholder="Цвет" placeholderTextColor="#71717A" value={carColor} onChangeText={setCarColor} />
+        <TextInput style={styles.input} placeholder="Номер" placeholderTextColor="#71717A" value={carPlate} onChangeText={setCarPlate} autoCapitalize="characters" />
+        <TouchableOpacity style={styles.primaryButton} onPress={saveCar} disabled={saving}>
+          <Text style={styles.primaryButtonText}>{saving ? 'Сохранение...' : 'Сохранить автомобиль'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Documents Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}><Text>📄 Документы</Text></Text>
-
-        {/* Upload Buttons */}
+        <Text style={styles.sectionTitle}>Документы</Text>
         <View style={styles.uploadButtonsContainer}>
           <TouchableOpacity
-            style={[styles.uploadButton, uploadingDoc === 'DRIVER_LICENSE' && styles.uploadButtonDisabled]}
+            style={[styles.secondaryButton, uploadingDoc === 'DRIVER_LICENSE' && styles.secondaryButtonDisabled]}
             onPress={() => pickAndUploadDocument('DRIVER_LICENSE')}
             disabled={uploadingDoc !== null}
           >
-            <Text style={styles.uploadButtonText}>
-              {uploadingDoc === 'DRIVER_LICENSE' ? 'Загрузка...' : '📷 Водительское удостоверение'}
+            <Text style={styles.secondaryButtonText}>
+              {uploadingDoc === 'DRIVER_LICENSE' ? 'Загрузка...' : 'Водительское удостоверение'}
             </Text>
           </TouchableOpacity>
-
           <TouchableOpacity
-            style={[styles.uploadButton, uploadingDoc === 'CAR_REGISTRATION' && styles.uploadButtonDisabled]}
+            style={[styles.secondaryButton, uploadingDoc === 'CAR_REGISTRATION' && styles.secondaryButtonDisabled]}
             onPress={() => pickAndUploadDocument('CAR_REGISTRATION')}
             disabled={uploadingDoc !== null}
           >
-            <Text style={styles.uploadButtonText}>
-              {uploadingDoc === 'CAR_REGISTRATION' ? 'Загрузка...' : '📷 СТС'}
+            <Text style={styles.secondaryButtonText}>
+              {uploadingDoc === 'CAR_REGISTRATION' ? 'Загрузка...' : 'СТС'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Existing Documents */}
         {profile?.documents && profile.documents.length > 0 ? (
           profile.documents.map((doc) => (
             <View key={doc.id} style={styles.documentCard}>
@@ -281,208 +238,66 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
         )}
 
         <View style={styles.documentNote}>
-          <Text style={styles.noteText}>
-            📸 Выберите качественные фотографии документов. Файлы будут проверены администратором.
-          </Text>
+          <Text style={styles.noteText}>Выберите качественные фотографии документов. Их проверит администратор.</Text>
         </View>
       </View>
 
-      {/* Requirements Checklist */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}><Text>✅ Чек-лист для выхода на линию</Text></Text>
-
+        <Text style={styles.sectionTitle}>Чек-лист для выхода на линию</Text>
         <View style={styles.checklist}>
           <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}><Text>{profile?.status === 'APPROVED' ? '✅' : '❌'}</Text></Text>
+            <Text style={styles.checkIcon}>{profile?.status === 'APPROVED' ? '✓' : '•'}</Text>
             <Text style={styles.checkText}>Аккаунт одобрен администратором</Text>
           </View>
-
           <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}><Text>{profile?.car?.make && profile?.car?.model ? '✅' : '❌'}</Text></Text>
+            <Text style={styles.checkIcon}>{profile?.car?.make && profile?.car?.model ? '✓' : '•'}</Text>
             <Text style={styles.checkText}>Информация об автомобиле заполнена</Text>
           </View>
-
           <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}><Text>{profile?.documents?.some((d) => d.type === 'DRIVER_LICENSE' && d.approved) ? '✅' : '❌'}</Text></Text>
+            <Text style={styles.checkIcon}>{profile?.documents?.some((d) => d.type === 'DRIVER_LICENSE' && d.approved) ? '✓' : '•'}</Text>
             <Text style={styles.checkText}>Водительское удостоверение одобрено</Text>
           </View>
-
           <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}><Text>{profile?.documents?.some((d) => d.type === 'CAR_REGISTRATION' && d.approved) ? '✅' : '❌'}</Text></Text>
+            <Text style={styles.checkIcon}>{profile?.documents?.some((d) => d.type === 'CAR_REGISTRATION' && d.approved) ? '✓' : '•'}</Text>
             <Text style={styles.checkText}>СТС одобрено</Text>
           </View>
         </View>
       </View>
-
-      <View style={styles.bottomSpace} />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  header: {
-    padding: 20,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    marginBottom: 8,
-  },
-  statusBadge: {
-    fontSize: 14,
-    color: '#94A3B8',
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1E293B',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#3B82F6',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  section: {
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#F8FAFC',
-    marginBottom: 16,
-  },
-  input: {
-    backgroundColor: '#0F172A',
-    color: '#F8FAFC',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  button: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  uploadButtonsContainer: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  uploadButton: {
-    backgroundColor: '#374151',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#4B5563',
-  },
-  uploadButtonDisabled: {
-    backgroundColor: '#1F2937',
-    borderColor: '#374151',
-    opacity: 0.6,
-  },
-  uploadButtonText: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  documentCard: {
-    backgroundColor: '#0F172A',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  documentType: {
-    fontSize: 14,
-    color: '#F8FAFC',
-    marginBottom: 4,
-  },
-  documentStatus: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#94A3B8',
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
-  documentNote: {
-    backgroundColor: '#0F172A',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  noteText: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 18,
-  },
-  checklist: {
-    gap: 12,
-  },
-  checkItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  checkIcon: {
-    fontSize: 20,
-  },
-  checkText: {
-    fontSize: 14,
-    color: '#F8FAFC',
-    flex: 1,
-  },
-  bottomSpace: {
-    height: 40,
-  },
+  container: { flex: 1, backgroundColor: '#09090B' },
+  content: { paddingBottom: 40 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#09090B' },
+  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, gap: 14 },
+  backButton: { alignSelf: 'flex-start', backgroundColor: '#18181B', borderWidth: 1, borderColor: '#27272A', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: '#F4F4F5' },
+  statusBadge: { alignSelf: 'flex-start', backgroundColor: '#18181B', borderWidth: 1, borderColor: '#27272A', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14 },
+  statusBadgeText: { color: '#A1A1AA', fontSize: 13, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 12, marginBottom: 16 },
+  statCard: { flex: 1, backgroundColor: '#18181B', padding: 18, borderRadius: 18, alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
+  statValue: { fontSize: 22, fontWeight: '800', color: '#F4F4F5', marginBottom: 4 },
+  statLabel: { fontSize: 12, color: '#71717A', textTransform: 'uppercase' },
+  section: { padding: 16, marginHorizontal: 16, marginBottom: 16, backgroundColor: '#18181B', borderRadius: 18, borderWidth: 1, borderColor: '#27272A' },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#F4F4F5', marginBottom: 16 },
+  input: { backgroundColor: '#09090B', color: '#F4F4F5', paddingHorizontal: 16, paddingVertical: 15, borderRadius: 16, marginBottom: 12, fontSize: 16, borderWidth: 1, borderColor: '#27272A' },
+  primaryButton: { backgroundColor: '#F4F4F5', borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
+  primaryButtonText: { color: '#000000', fontSize: 16, fontWeight: '800' },
+  uploadButtonsContainer: { gap: 12, marginBottom: 16 },
+  secondaryButton: { backgroundColor: '#09090B', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
+  secondaryButtonDisabled: { opacity: 0.6 },
+  secondaryButtonText: { color: '#F4F4F5', fontSize: 14, fontWeight: '700' },
+  documentCard: { backgroundColor: '#09090B', padding: 14, borderRadius: 14, marginBottom: 8, borderWidth: 1, borderColor: '#27272A' },
+  documentType: { fontSize: 14, color: '#F4F4F5', marginBottom: 4, fontWeight: '600' },
+  documentStatus: { fontSize: 12, color: '#A1A1AA' },
+  emptyText: { fontSize: 14, color: '#71717A', textAlign: 'center', paddingVertical: 16 },
+  documentNote: { backgroundColor: '#09090B', padding: 12, borderRadius: 14, marginTop: 12, borderWidth: 1, borderColor: '#27272A' },
+  noteText: { fontSize: 12, color: '#71717A', lineHeight: 18 },
+  checklist: { gap: 12 },
+  checkItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  checkIcon: { fontSize: 18, color: '#F4F4F5', width: 18 },
+  checkText: { fontSize: 14, color: '#F4F4F5', flex: 1 },
 });

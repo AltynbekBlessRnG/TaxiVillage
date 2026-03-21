@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -8,11 +9,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline, UserLocationChangeEvent } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, UserLocationChangeEvent } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
+import { darkMinimalMapStyle } from '../../utils/mapStyle';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverRide'>;
 
@@ -188,6 +190,9 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         initialRegion={initialRegion}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        mapType="standard"
+        customMapStyle={darkMinimalMapStyle}
         onUserLocationChange={handleUserLocationChange}
         showsUserLocation
       >

@@ -3,33 +3,42 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   Animated, Dimensions, FlatList, ActivityIndicator 
 } from 'react-native';
+import {
+  formatGooglePredictionAddress,
+  getGooglePlaceDetails,
+  searchGooglePlaces,
+} from '../../utils/googleMaps';
 
 const { height } = Dimensions.get('window');
 
-interface OSMFeature {
-  place_id: number;
-  lat: string;
-  lon: string;
-  display_name: string;
+interface GooglePlacePrediction {
+  place_id: string;
+  description: string;
+  structured_formatting?: {
+    main_text?: string;
+    secondary_text?: string;
+  };
 }
 
 interface Props {
   anim: Animated.Value;
+  mode: 'route' | 'stop';
   fromAddress: string;
   setFromAddress: (t: string) => void;
   toAddress: string;
   setToAddress: (t: string) => void;
   isStopSelectionMode: boolean; // <-- НОВЫЙ ПРОПС
+  userLocation?: { lat: number; lng: number } | null;
   onClose: () => void;
-  onMapPick: () => void;
+  onMapPick: (field: 'from' | 'to' | 'stop') => void;
   onSubmit: () => void;
   onAddressSelect: (field: 'from' | 'to', address: string, lat: number, lng: number) => void;
 }
 
 export const SearchSheet: React.FC<Props> = ({ 
-  anim, fromAddress, setFromAddress, toAddress, setToAddress, isStopSelectionMode, onClose, onMapPick, onSubmit, onAddressSelect 
+  anim, mode, fromAddress, setFromAddress, toAddress, setToAddress, isStopSelectionMode, userLocation, onClose, onMapPick, onSubmit, onAddressSelect 
 }) => {
-  const [searchResults, setSearchResults] = useState<OSMFeature[]>([]);
+  const [searchResults, setSearchResults] = useState<GooglePlacePrediction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeField, setActiveField] = useState<'from' | 'to' | null>(null);
@@ -39,15 +48,14 @@ export const SearchSheet: React.FC<Props> = ({
 
   const toInputRef = useRef<TextInput>(null);
 
-  // Если включился режим добавления остановки — очищаем поле и сразу открываем клавиатуру
   useEffect(() => {
-    if (isStopSelectionMode) {
+    if (mode === 'stop') {
       setStopAddress('');
       setSearchQuery('');
       setActiveField('to');
       setTimeout(() => toInputRef.current?.focus(), 300);
     }
-  }, [isStopSelectionMode]);
+  }, [mode]);
 
   const fetchSearchResults = useCallback(async (query: string) => {
     if (!query || query.length < 3) {
@@ -56,18 +64,14 @@ export const SearchSheet: React.FC<Props> = ({
     }
     setLoading(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&accept-language=ru`,
-        { headers: { 'User-Agent': 'TaxiVillageApp/1.0' } }
-      );
-      const data = await response.json();
-      setSearchResults(data || []);
+      const data = await searchGooglePlaces(query, userLocation);
+      setSearchResults(data);
     } catch (error) {
       setSearchResults([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userLocation]);
 
   const debouncedFetchSearchResults = useCallback(
     (query: string) => {
@@ -81,25 +85,30 @@ export const SearchSheet: React.FC<Props> = ({
     return debouncedFetchSearchResults(searchQuery);
   }, [searchQuery, debouncedFetchSearchResults]);
 
-  const handleAddressSelect = (feature: OSMFeature, field: 'from' | 'to') => {
-    const parts = feature.display_name.split(', ');
-    const shortAddress = parts.slice(0, 2).join(', ');
-    const lat = parseFloat(feature.lat);
-    const lng = parseFloat(feature.lon);
-    
-    onAddressSelect(field, shortAddress, lat, lng);
-    setSearchResults([]);
-    setSearchQuery('');
-    setActiveField(null);
-    
-    if (field === 'to' && !isStopSelectionMode) {
-      setTimeout(onSubmit, 100);
-    } else if (field === 'from') {
-      if (!toAddress.trim()) {
-        setTimeout(() => toInputRef.current?.focus(), 100);
-      } else {
+  const handleAddressSelect = async (feature: GooglePlacePrediction, field: 'from' | 'to') => {
+    setLoading(true);
+    try {
+      const location = await getGooglePlaceDetails(feature.place_id);
+      const shortAddress = formatGooglePredictionAddress(feature);
+
+      onAddressSelect(field, shortAddress, location.lat, location.lng);
+      setSearchResults([]);
+      setSearchQuery('');
+      setActiveField(null);
+
+      if (field === 'to' && !isStopSelectionMode) {
         setTimeout(onSubmit, 100);
+      } else if (field === 'from') {
+        if (!toAddress.trim()) {
+          setTimeout(() => toInputRef.current?.focus(), 100);
+        } else {
+          setTimeout(onSubmit, 100);
+        }
       }
+    } catch (error) {
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -133,13 +142,12 @@ export const SearchSheet: React.FC<Props> = ({
     }
   };
 
-  const renderSuggestionItem = ({ item }: { item: OSMFeature }) => {
-    const parts = item.display_name.split(', ');
-    const mainText = parts[0];
-    const subText = parts.slice(1, 3).join(', ');
+  const renderSuggestionItem = ({ item }: { item: GooglePlacePrediction }) => {
+    const mainText = item.structured_formatting?.main_text || item.description;
+    const subText = item.structured_formatting?.secondary_text || '';
 
     return (
-      <TouchableOpacity style={styles.suggestionItem} onPress={() => handleAddressSelect(item, activeField!)}>
+      <TouchableOpacity style={styles.suggestionItem} onPress={() => void handleAddressSelect(item, activeField!)}>
         <Text style={styles.suggestionText}>{mainText}</Text>
         {subText ? <Text style={styles.suggestionSubText}>{subText}</Text> : null}
       </TouchableOpacity>
@@ -150,40 +158,48 @@ export const SearchSheet: React.FC<Props> = ({
     <Animated.View style={[styles.zincSearchSheet, { transform: [{ translateY: anim }] }]}>
       <View style={styles.sheetHeader}>
         <TouchableOpacity onPress={onClose}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
-        <Text style={styles.sheetTitle}>{isStopSelectionMode ? 'Добавить заезд' : 'Маршрут'}</Text>
+        <Text style={styles.sheetTitle}>{mode === 'stop' ? 'Добавить заезд' : 'Маршрут'}</Text>
         <View style={{ width: 20 }} />
       </View>
       
       <View style={styles.zincInputContainer}>
-        <TextInput 
-          style={styles.darkInputField} 
-          value={fromAddress} 
-          onChangeText={handleFromChange}
-          onFocus={() => { setActiveField('from'); setSearchQuery(fromAddress); }}
-          placeholder="Откуда?"
-          placeholderTextColor="#52525B"
-          returnKeyType={toAddress.trim() ? "done" : "next"}
-          onSubmitEditing={handleFromSubmit}
-          blurOnSubmit={false}
-          editable={!isStopSelectionMode} // Блокируем поле "Откуда", если ищем остановку
-        />
+        {mode === 'route' && (
+          <>
+            <View style={styles.inputRow}>
+              <TextInput 
+                style={[styles.darkInputField, styles.inputFieldFlex]} 
+                value={fromAddress} 
+                onChangeText={handleFromChange}
+                onFocus={() => { setActiveField('from'); setSearchQuery(fromAddress); }}
+                placeholder="Откуда?"
+                placeholderTextColor="#52525B"
+                returnKeyType={toAddress.trim() ? "done" : "next"}
+                onSubmitEditing={handleFromSubmit}
+                blurOnSubmit={false}
+              />
+              <TouchableOpacity style={styles.mapPickButton} onPress={() => onMapPick('from')}>
+                <Text style={styles.mapPickButtonText}>Карта</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.zincDivider} />
+          </>
+        )}
         
-        <View style={styles.zincDivider} />
-        
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={styles.inputRow}>
           <TextInput 
             ref={toInputRef}
-            style={{ flex: 1, height: 50, color: '#fff', fontSize: 16 }} 
-            placeholder={isStopSelectionMode ? "Адрес заезда..." : "Куда?"} 
+            style={[styles.darkInputField, styles.inputFieldFlex]} 
+            placeholder={mode === 'stop' ? "Адрес заезда..." : "Куда?"} 
             placeholderTextColor="#52525B" 
-            value={isStopSelectionMode ? stopAddress : toAddress} 
+            value={mode === 'stop' ? stopAddress : toAddress} 
             onChangeText={handleToChange}
-            onFocus={() => { setActiveField('to'); setSearchQuery(isStopSelectionMode ? stopAddress : toAddress); }}
+            onFocus={() => { setActiveField('to'); setSearchQuery(mode === 'stop' ? stopAddress : toAddress); }}
             returnKeyType="done"
             onSubmitEditing={handleToSubmit}
           />
-          <TouchableOpacity onPress={onMapPick}>
-            <Text style={{ color: '#3B82F6', fontWeight: '700', padding: 10 }}>Карта</Text>
+          <TouchableOpacity style={styles.mapPickButton} onPress={() => onMapPick(mode === 'stop' ? 'stop' : 'to')}>
+            <Text style={styles.mapPickButtonText}>Карта</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -199,7 +215,7 @@ export const SearchSheet: React.FC<Props> = ({
             <FlatList
               data={searchResults}
               renderItem={renderSuggestionItem}
-              keyExtractor={(item) => item.place_id.toString()}
+              keyExtractor={(item) => item.place_id}
               style={styles.suggestionsList}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -220,7 +236,19 @@ const styles = StyleSheet.create({
   sheetTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
   closeBtn: { color: '#71717A', fontSize: 24 },
   zincInputContainer: { backgroundColor: '#18181B', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#27272A' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  inputFieldFlex: { flex: 1 },
   darkInputField: { height: 50, color: '#fff', fontSize: 16 },
+  mapPickButton: {
+    minWidth: 74,
+    height: 38,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  mapPickButtonText: { color: '#09090B', fontSize: 13, fontWeight: '800' },
   zincDivider: { height: 1, backgroundColor: '#27272A', marginVertical: 4 },
   suggestionsContainer: { backgroundColor: '#18181B', borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: '#27272A', maxHeight: 250 },
   suggestionsList: { paddingHorizontal: 12 },

@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
   Keyboard,
   LayoutAnimation,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -13,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -30,6 +32,8 @@ import { SearchingSheet } from '../../components/Passenger/SearchingSheet';
 import { OrderDetailsSheet } from '../../components/Passenger/OrderDetailsSheet';
 import { createRidesSocket } from '../../api/socket';
 import { buildRegion, buildRouteCoordinates, toMapPoint } from '../../utils/map';
+import { geocodeAddressWithGoogle, reverseGeocodeWithGoogle } from '../../utils/googleMaps';
+import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 
 const { width, height } = Dimensions.get('window');
@@ -37,6 +41,7 @@ const { width, height } = Dimensions.get('window');
 type Props = NativeStackScreenProps<RootStackParamList, 'PassengerHome'>;
 type ScreenState = 'IDLE' | 'SEARCH' | 'MAP_PICK' | 'ORDER_SETUP' | 'SEARCHING';
 type SocketState = 'connected' | 'reconnecting' | 'disconnected';
+type SearchMode = 'route' | 'stop';
 
 interface RideSocketPayload {
   id: string;
@@ -48,6 +53,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [activeService, setActiveService] = useState('Такси');
   const [loading, setLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<{ fullName?: string; phone?: string } | null>(null);
+  const [profileReady, setProfileReady] = useState(false);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
   const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [fromAddress, setFromAddress] = useState('Определяем адрес...');
@@ -63,6 +69,8 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapPickTarget, setMapPickTarget] = useState<'from' | 'to' | 'stop'>('to');
+  const [searchMode, setSearchMode] = useState<SearchMode>('route');
   const [socketState, setSocketState] = useState<SocketState>('disconnected');
 
   const searchSheetAnim = useRef(new Animated.Value(height)).current;
@@ -115,6 +123,9 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         });
       } catch {
         // Ignore profile bootstrap errors on home screen.
+        setUserProfile({ fullName: 'Пользователь', phone: '' });
+      } finally {
+        setProfileReady(true);
       }
 
       const permission = await Location.requestForegroundPermissionsAsync();
@@ -249,19 +260,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const updateAddress = async (lat: number, lng: number, field: 'from' | 'to') => {
     try {
-      const result = await Location.reverseGeocodeAsync({
-        latitude: lat,
-        longitude: lng,
-      });
-      if (result.length === 0) {
-        return;
-      }
-
-      const addr = result[0];
-      let formatted = `${addr.street || ''} ${addr.name || ''}`.trim();
-      if (!formatted || formatted.includes('+')) {
-        formatted = addr.district || addr.city || addr.subregion || 'Точка на карте';
-      }
+      const formatted = await reverseGeocodeWithGoogle(lat, lng);
 
       if (field === 'from') {
         setFromAddress(formatted);
@@ -310,18 +309,25 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    if (fromCoord && toCoord) {
+      changeState('ORDER_SETUP');
+      return;
+    }
+
     setLoading(true);
     try {
       const [f, t] = await Promise.all([
-        Location.geocodeAsync(fromAddress).catch(() => []),
-        Location.geocodeAsync(toAddress).catch(() => []),
+        fromCoord ? Promise.resolve(null) : geocodeAddressWithGoogle(fromAddress, userLocation).catch(() => null),
+        toCoord ? Promise.resolve(null) : geocodeAddressWithGoogle(toAddress, userLocation).catch(() => null),
       ]);
 
-      if (f.length > 0) {
-        setFromCoord({ lat: f[0].latitude, lng: f[0].longitude });
+      if (f) {
+        setFromAddress(f.address);
+        setFromCoord({ lat: f.lat, lng: f.lng });
       }
-      if (t.length > 0) {
-        setToCoord({ lat: t[0].latitude, lng: t[0].longitude });
+      if (t) {
+        setToAddress(t.address);
+        setToCoord({ lat: t.lat, lng: t.lng });
       }
       changeState('ORDER_SETUP');
     } finally {
@@ -373,19 +379,22 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleAddressSelect = (field: 'from' | 'to', address: string, lat: number, lng: number) => {
     if (field === 'from') {
       setFromAddress(address);
-      setFromCoord({ lat, lng });
+      setFromCoord(lat || lng ? { lat, lng } : null);
       return;
     }
 
-    if (isStopSelectionMode) {
+    if (searchMode === 'stop') {
+      if (!(lat || lng)) {
+        return;
+      }
       setStops((current) => [...current, { address, lat, lng }]);
-      setIsStopSelectionMode(false);
+      setSearchMode('route');
       changeState('ORDER_SETUP');
       return;
     }
 
     setToAddress(address);
-    setToCoord({ lat, lng });
+    setToCoord(lat || lng ? { lat, lng } : null);
   };
 
   const toggleMenu = (show: boolean) => {
@@ -440,6 +449,14 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     },
   );
 
+  if (!profileReady || !userProfile) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#F4F4F5" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -449,6 +466,9 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
           ref={mapRef}
           style={StyleSheet.absoluteFillObject}
           initialRegion={initialRegion}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          mapType="standard"
+          customMapStyle={darkMinimalMapStyle}
           showsUserLocation={false}
           onRegionChangeComplete={(region) => {
             if (screenState === 'MAP_PICK') {
@@ -551,17 +571,21 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
 
       <SearchSheet
         anim={searchSheetAnim}
+        mode={searchMode}
         fromAddress={fromAddress}
         setFromAddress={setFromAddress}
         toAddress={toAddress}
         setToAddress={setToAddress}
         isStopSelectionMode={isStopSelectionMode}
+        userLocation={userLocation}
         onClose={() => {
           setIsStopSelectionMode(false);
+          setSearchMode('route');
           changeState(toAddress ? 'ORDER_SETUP' : 'IDLE');
         }}
-        onMapPick={() => {
-          setMapCenter(userLocation);
+        onMapPick={(field) => {
+          setMapPickTarget(field);
+          setMapCenter(field === 'from' ? (fromCoord ?? userLocation) : (toCoord ?? userLocation));
           changeState('MAP_PICK');
         }}
         onSubmit={handleGeocodeAndProceed}
@@ -574,25 +598,32 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.zincMainBtn}
             onPress={async () => {
               if (mapCenter) {
-                const result = await Location.reverseGeocodeAsync({
-                  latitude: mapCenter.lat,
-                  longitude: mapCenter.lng,
-                }).catch(() => []);
-                const addr = result[0];
-                const addrStr =
-                  `${addr?.street || ''} ${addr?.name || ''}`.trim() || 'Точка на карте';
+                const addrStr = await reverseGeocodeWithGoogle(mapCenter.lat, mapCenter.lng).catch(
+                  () => 'Точка на карте',
+                );
 
-                if (isStopSelectionMode) {
+                if (mapPickTarget === 'stop') {
                   setStops((current) => [
                     ...current,
                     { address: addrStr, lat: mapCenter.lat, lng: mapCenter.lng },
                   ]);
                   setIsStopSelectionMode(false);
+                  setSearchMode('route');
+                } else if (mapPickTarget === 'from') {
+                  setFromAddress(addrStr);
+                  setFromCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
                 } else {
                   setToAddress(addrStr);
                   setToCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
                 }
               }
+              if (mapPickTarget === 'from' && !toAddress) {
+                setSearchMode('route');
+                changeState('SEARCH');
+                return;
+              }
+
+              setSearchMode('route');
               changeState('ORDER_SETUP');
             }}
           >
@@ -615,9 +646,16 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
         setComment={setComment}
         stops={stops}
         onAddStop={() => {
+          if (!toAddress || !toCoord) {
+            Alert.alert('Сначала укажите адрес', 'Сначала выберите, куда едем, а потом добавляйте заезд.');
+            return;
+          }
+
           setIsStopSelectionMode(true);
-          changeState('MAP_PICK');
+          setSearchMode('stop');
+          changeState('SEARCH');
         }}
+        isAddStopDisabled={!toAddress || !toCoord}
         onRemoveStop={(indexToRemove: number) =>
           setStops((current) => current.filter((_, index) => index !== indexToRemove))
         }
@@ -687,6 +725,12 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#09090B',
+  },
   mapContainer: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
   uiOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
   burgerBtn: {

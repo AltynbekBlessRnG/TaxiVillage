@@ -268,7 +268,7 @@ export class RidesService implements OnModuleDestroy {
       throw new BadRequestException('Cannot cancel ride in current status');
     }
 
-    await this.clearOfferState(rideId);
+    const clearedOfferState = this.clearOfferState(rideId);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.ride.update({
@@ -285,6 +285,7 @@ export class RidesService implements OnModuleDestroy {
 
     const rideWithUsers = await this.loadRideRecord(rideId);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
+    await this.notifyOfferedDriverAboutCancellation(clearedOfferState, rideWithUsers);
     await this.sendPassengerRideNotification(rideWithUsers);
     return updated;
   }
@@ -353,7 +354,7 @@ export class RidesService implements OnModuleDestroy {
       return tx.ride.findUnique({ where: { id: rideId } });
     });
 
-    await this.clearOfferState(rideId);
+    this.clearOfferState(rideId);
 
     const rideWithUsers = await this.loadRideRecord(rideId);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
@@ -387,7 +388,7 @@ export class RidesService implements OnModuleDestroy {
     nextExcluded.add(driver.id);
     const nextAttempt = offerState.attempt + 1;
 
-    await this.clearOfferState(rideId);
+    this.clearOfferState(rideId);
 
     const rideWithUsers = await this.loadRideRecord(rideId);
     await this.findAndOfferRideToDriver(rideWithUsers, nextAttempt, nextExcluded);
@@ -596,7 +597,7 @@ export class RidesService implements OnModuleDestroy {
       freshRide.status !== RideStatus.SEARCHING_DRIVER ||
       freshRide.driverId
     ) {
-      await this.clearOfferState(rideWithUsers.id);
+      this.clearOfferState(rideWithUsers.id);
       return;
     }
 
@@ -689,7 +690,7 @@ export class RidesService implements OnModuleDestroy {
     }, this.OFFER_TIMEOUT);
 
     if (driverId) {
-      void this.clearOfferState(rideWithUsers.id);
+      this.clearOfferState(rideWithUsers.id);
       this.rideOfferStates.set(rideWithUsers.id, {
         driverId,
         attempt,
@@ -718,7 +719,7 @@ export class RidesService implements OnModuleDestroy {
         data: { status: RideStatus.CANCELED },
       });
 
-      await this.clearOfferState(rideId);
+      const clearedOfferState = this.clearOfferState(rideId);
 
       if (result.count > 0) {
         await this.prisma.rideStatusHistory.create({
@@ -728,18 +729,40 @@ export class RidesService implements OnModuleDestroy {
 
       const rideWithUsers = await this.loadRideRecord(rideId);
       this.ridesGateway.emitRideUpdated(rideWithUsers as any);
+      await this.notifyOfferedDriverAboutCancellation(clearedOfferState, rideWithUsers);
       await this.sendPassengerRideNotification(rideWithUsers);
     } catch (error) {
       this.logger.error(`Failed to cancel ride ${rideId}:`, error as any);
     }
   }
 
-  private async clearOfferState(rideId: string) {
+  private clearOfferState(rideId: string) {
     const offerState = this.rideOfferStates.get(rideId);
     if (offerState) {
       clearTimeout(offerState.timeout);
       this.rideOfferStates.delete(rideId);
     }
+    return offerState;
+  }
+
+  private async notifyOfferedDriverAboutCancellation(
+    offerState: OfferState | undefined,
+    ride: RideRecord,
+  ) {
+    if (!offerState?.driverId) {
+      return;
+    }
+
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { id: offerState.driverId },
+      select: { userId: true },
+    });
+
+    if (!driver?.userId) {
+      return;
+    }
+
+    this.ridesGateway.emitRideUpdatedToUser(driver.userId, ride as any);
   }
 
   private async ensureDefaultTariffId(): Promise<string> {

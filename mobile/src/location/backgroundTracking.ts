@@ -2,9 +2,7 @@ import axios from 'axios';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { loadAuth, updateAuthTokens } from '../storage/authStorage';
-import { setAuthToken } from '../api/client';
-
-const BASE_URL = 'http://192.168.0.11:3000/api';
+import { apiClient, BASE_URL } from '../api/instance';
 
 export const LOCATION_TRACKING_TASK = 'LOCATION_TRACKING_TASK';
 
@@ -27,8 +25,8 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
   }
 
   try {
-    await axios.patch(
-      `${BASE_URL}/drivers/location`,
+    await apiClient.patch(
+      '/drivers/location',
       {
         lat: latestLocation.coords.latitude,
         lng: latestLocation.coords.longitude,
@@ -53,10 +51,10 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
         refreshToken: string;
       };
       await updateAuthTokens({ accessToken, refreshToken });
-      setAuthToken(accessToken);
+      apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
 
-      await axios.patch(
-        `${BASE_URL}/drivers/location`,
+      await apiClient.patch(
+        '/drivers/location',
         {
           lat: latestLocation.coords.latitude,
           lng: latestLocation.coords.longitude,

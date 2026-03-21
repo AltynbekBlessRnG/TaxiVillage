@@ -68,13 +68,13 @@ export const AppNavigator: React.FC = () => {
   component={PassengerHomeScreen} 
   options={{ headerShown: false }} 
 />
-      <Stack.Screen name="FavoriteAddresses" component={FavoriteAddressesScreen} options={{ title: 'Избранные адреса' }} />
+      <Stack.Screen name="FavoriteAddresses" component={FavoriteAddressesScreen} options={{ headerShown: false }} />
       <Stack.Screen name="RideStatus" component={RideStatusScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ title: 'Чат' }} />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }} />
       <Stack.Screen name="DriverHome" component={DriverHomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="DriverProfile" component={DriverProfileScreen} options={{ title: 'Профиль' }} />
+      <Stack.Screen name="DriverProfile" component={DriverProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="DriverRide" component={DriverRideScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="RideHistory" component={RideHistoryScreen} options={{ title: 'История поездок' }} />
+      <Stack.Screen name="RideHistory" component={RideHistoryScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 };

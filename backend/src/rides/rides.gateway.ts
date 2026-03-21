@@ -113,6 +113,11 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  emitRideUpdatedToUser(userId: string, ride: RidePayload) {
+    const room = `user:${userId}`;
+    this.server.to(room).emit('ride:updated', ride);
+  }
+
   emitDriverMoved(rideId: string, lat: number, lng: number) {
     const room = `ride:${rideId}`;
     this.server.to(room).emit('driver:moved', { rideId, lat, lng });

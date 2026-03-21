@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Alert,
   Modal,
-  TextInput,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
-import { loadAuth } from '../../storage/authStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FavoriteAddresses'>;
 
@@ -22,8 +21,6 @@ interface FavoriteAddress {
   address: string;
   lat: number;
   lng: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 const PRESET_NAMES = ['Дом', 'Работа', 'Спортзал', 'Университет', 'Магазин'];
@@ -32,12 +29,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
   const [addresses, setAddresses] = useState<FavoriteAddress[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState<FavoriteAddress | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    lat: 0,
-    lng: 0,
-  });
+  const [formData, setFormData] = useState({ name: '', address: '', lat: 0, lng: 0 });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -48,8 +40,8 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const response = await apiClient.get('/favorite-addresses');
       setAddresses(response.data);
-    } catch (error) {
-      console.error('Failed to load favorite addresses:', error);
+    } catch {
+      setAddresses([]);
     }
   };
 
@@ -66,7 +58,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         await apiClient.post('/favorite-addresses', formData);
       }
-      
+
       setShowModal(false);
       setEditingAddress(null);
       setFormData({ name: '', address: '', lat: 0, lng: 0 });
@@ -90,29 +82,24 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleDelete = (address: FavoriteAddress) => {
-    Alert.alert(
-      'Удаление адреса',
-      `Удалить адрес "${address.name}"?`,
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiClient.delete(`/favorite-addresses/${address.id}`);
-              loadAddresses();
-            } catch (error) {
-              Alert.alert('Ошибка', 'Не удалось удалить адрес');
-            }
-          },
+    Alert.alert('Удаление адреса', `Удалить адрес "${address.name}"?`, [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/favorite-addresses/${address.id}`);
+            loadAddresses();
+          } catch {
+            Alert.alert('Ошибка', 'Не удалось удалить адрес');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleSelectAddress = (address: FavoriteAddress) => {
-    // Navigate back to home with selected address
     navigation.navigate('PassengerHome', {
       selectedAddress: {
         address: address.address,
@@ -130,45 +117,35 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Избранные адреса</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>← Назад</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Мои адреса</Text>
         <TouchableOpacity style={styles.addButton} onPress={openModal}>
           <Text style={styles.addButtonText}>+ Добавить</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Address List */}
-      <ScrollView style={styles.list}>
+      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {addresses.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>У вас нет избранных адресов</Text>
-            <Text style={styles.emptySubtext}>Добавьте адреса для быстрого заказа</Text>
+            <Text style={styles.emptySubtext}>Добавьте точки для быстрого заказа.</Text>
           </View>
         ) : (
           addresses.map((address) => (
             <View key={address.id} style={styles.addressCard}>
-              <TouchableOpacity
-                style={styles.addressContent}
-                onPress={() => handleSelectAddress(address)}
-              >
-                <View style={styles.addressInfo}>
-                  <Text style={styles.addressName}>{address.name}</Text>
-                  <Text style={styles.addressText}>{address.address}</Text>
-                </View>
+              <TouchableOpacity style={styles.addressContent} onPress={() => handleSelectAddress(address)}>
+                <Text style={styles.addressName}>{address.name}</Text>
+                <Text style={styles.addressText}>{address.address}</Text>
               </TouchableOpacity>
               <View style={styles.addressActions}>
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={() => handleEdit(address)}
-                >
-                  <Text style={styles.editButtonText}>✏️</Text>
+                <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(address)}>
+                  <Text style={styles.iconButtonText}>✏️</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDelete(address)}
-                >
-                  <Text style={styles.deleteButtonText}>🗑️</Text>
+                <TouchableOpacity style={[styles.iconButton, styles.deleteButton]} onPress={() => handleDelete(address)}>
+                  <Text style={styles.iconButtonText}>🗑️</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -176,61 +153,41 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* Add/Edit Modal */}
-      <Modal
-        visible={showModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowModal(false)}
-      >
+      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingAddress ? 'Редактировать адрес' : 'Добавить адрес'}
-            </Text>
-
-            {/* Preset Names */}
-            <View style={styles.presetContainer}>
-              <Text style={styles.presetLabel}>Быстрый выбор:</Text>
-              <View style={styles.presetButtons}>
-                {PRESET_NAMES.map((preset) => (
-                  <TouchableOpacity
-                    key={preset}
-                    style={[
-                      styles.presetButton,
-                      formData.name === preset && styles.presetButtonActive,
-                    ]}
-                    onPress={() => setFormData({ ...formData, name: preset })}
-                  >
-                    <Text style={[
-                      styles.presetButtonText,
-                      formData.name === preset && styles.presetButtonTextActive
-                    ]}>{preset}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <Text style={styles.modalTitle}>{editingAddress ? 'Редактировать адрес' : 'Добавить адрес'}</Text>
+            <Text style={styles.presetLabel}>Быстрый выбор</Text>
+            <View style={styles.presetButtons}>
+              {PRESET_NAMES.map((preset) => (
+                <TouchableOpacity
+                  key={preset}
+                  style={[styles.presetButton, formData.name === preset && styles.presetButtonActive]}
+                  onPress={() => setFormData({ ...formData, name: preset })}
+                >
+                  <Text style={[styles.presetButtonText, formData.name === preset && styles.presetButtonTextActive]}>{preset}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             <TextInput
               style={styles.input}
-              placeholder="Название (Дом, Работа и т.д.)"
+              placeholder="Название"
+              placeholderTextColor="#71717A"
               value={formData.name}
               onChangeText={(text) => setFormData({ ...formData, name: text })}
             />
-
             <TextInput
-              style={styles.input}
+              style={[styles.input, styles.multilineInput]}
               placeholder="Адрес"
+              placeholderTextColor="#71717A"
               value={formData.address}
               onChangeText={(text) => setFormData({ ...formData, address: text })}
               multiline
             />
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelModalButton}
-                onPress={() => setShowModal(false)}
-              >
+              <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowModal(false)}>
                 <Text style={styles.cancelModalButtonText}>Отмена</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -238,9 +195,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={handleSave}
                 disabled={loading}
               >
-                <Text style={styles.saveModalButtonText}>
-                  {loading ? 'Сохранение...' : 'Сохранить'}
-                </Text>
+                <Text style={styles.saveModalButtonText}>{loading ? 'Сохранение...' : 'Сохранить'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -251,10 +206,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
+  container: { flex: 1, backgroundColor: '#09090B' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -262,198 +214,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: '#1E293B',
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#F8FAFC',
+  backButton: {
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  addButton: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  addButtonText: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  list: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  empty: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 100,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#F8FAFC',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#94A3B8',
-    textAlign: 'center',
-  },
+  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
+  title: { fontSize: 24, fontWeight: '800', color: '#F4F4F5' },
+  addButton: { backgroundColor: '#F4F4F5', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14 },
+  addButtonText: { color: '#000000', fontSize: 14, fontWeight: '800' },
+  list: { flex: 1 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 28 },
+  empty: { marginTop: 100, alignItems: 'center' },
+  emptyText: { fontSize: 18, fontWeight: '700', color: '#F4F4F5', marginBottom: 8 },
+  emptySubtext: { fontSize: 14, color: '#71717A', textAlign: 'center' },
   addressCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
+    backgroundColor: '#18181B',
+    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  addressContent: {
-    flex: 1,
-  },
-  addressInfo: {
-    flex: 1,
-  },
-  addressName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#F8FAFC',
-    marginBottom: 4,
-  },
-  addressText: {
-    fontSize: 14,
-    color: '#94A3B8',
-  },
-  addressActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  editButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#334155',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  editButtonText: {
-    fontSize: 16,
-  },
-  deleteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#7F1D1D',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteButtonText: {
-    fontSize: 16,
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  addressContent: { flex: 1, paddingRight: 12 },
+  addressName: { fontSize: 16, fontWeight: '700', color: '#F4F4F5', marginBottom: 6 },
+  addressText: { fontSize: 14, color: '#A1A1AA', lineHeight: 20 },
+  addressActions: { flexDirection: 'row', gap: 8 },
+  iconButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#27272A', justifyContent: 'center', alignItems: 'center' },
+  deleteButton: { backgroundColor: '#3F1D1D' },
+  iconButtonText: { fontSize: 15 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#18181B',
     padding: 24,
     borderRadius: 24,
-    width: '90%',
-    maxWidth: 400,
+    width: '100%',
+    maxWidth: 420,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  presetContainer: {
-    marginBottom: 20,
-  },
-  presetLabel: {
-    fontSize: 14,
-    color: '#94A3B8',
-    marginBottom: 8,
-  },
-  presetButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  presetButton: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#475569',
-  },
-  presetButtonActive: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
-  },
-  presetButtonText: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: '#F4F4F5', marginBottom: 18, textAlign: 'center' },
+  presetLabel: { color: '#71717A', fontSize: 13, marginBottom: 10, textTransform: 'uppercase' },
+  presetButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  presetButton: { backgroundColor: '#09090B', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#27272A' },
+  presetButtonActive: { backgroundColor: '#27272A' },
+  presetButtonText: { fontSize: 12, color: '#A1A1AA', fontWeight: '600' },
+  presetButtonTextActive: { color: '#F4F4F5' },
   input: {
-    backgroundColor: '#0F172A',
-    color: '#F8FAFC',
-    borderRadius: 12,
+    backgroundColor: '#09090B',
+    color: '#F4F4F5',
+    borderRadius: 16,
     padding: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 16,
-    textAlignVertical: 'top',
+    borderColor: '#27272A',
+    marginBottom: 14,
   },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
-  cancelModalButton: {
-    flex: 1,
-    backgroundColor: '#334155',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  cancelModalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  saveModalButton: {
-    flex: 1,
-    backgroundColor: '#3B82F6',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  saveModalButtonDisabled: {
-    backgroundColor: '#475569',
-  },
-  presetButtonTextActive: {
-  color: '#F8FAFC',
-  fontWeight: '600',
-},
-  saveModalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#F8FAFC',
-  },
+  multilineInput: { minHeight: 90, textAlignVertical: 'top' },
+  modalButtons: { flexDirection: 'row', gap: 12, marginTop: 10 },
+  cancelModalButton: { flex: 1, backgroundColor: '#27272A', paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  cancelModalButtonText: { fontSize: 16, fontWeight: '700', color: '#A1A1AA' },
+  saveModalButton: { flex: 1, backgroundColor: '#F4F4F5', paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  saveModalButtonDisabled: { opacity: 0.6 },
+  saveModalButtonText: { fontSize: 16, fontWeight: '800', color: '#000000' },
 });

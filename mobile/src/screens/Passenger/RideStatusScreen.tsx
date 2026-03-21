@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
@@ -15,6 +16,7 @@ import { createRidesSocket } from '../../api/socket';
 import { RideCompletionModal } from '../../components/RideCompletionModal';
 import { loadAuth } from '../../storage/authStorage';
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
+import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { sendLocalNotification } from '../../utils/notifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideStatus'>;
@@ -210,7 +212,14 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      <MapView ref={mapRef} style={StyleSheet.absoluteFillObject} initialRegion={initialRegion}>
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={initialRegion}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        mapType="standard"
+        customMapStyle={darkMinimalMapStyle}
+      >
         {ride?.fromLat && ride?.fromLng && (
           <Marker
             coordinate={{ latitude: ride.fromLat, longitude: ride.fromLng }}

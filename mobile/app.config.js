@@ -8,6 +8,9 @@ export default {
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "taxivillage",
+    "extra": {
+      "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
+    },
     "ios": {
       "bundleIdentifier": "com.taxivillage.app",
       "infoPlist": {
@@ -19,7 +22,7 @@ export default {
       "package": "com.taxivillage.app",
       "config": {
         "googleMaps": {
-          "apiKey": process.env.GOOGLE_MAPS_API_KEY 
+          "apiKey": process.env.GOOGLE_MAPS_API_KEY
         }
       },
       "permissions": [

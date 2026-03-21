@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Platform,
   StatusBar,
   StyleSheet,
   Switch,
@@ -11,6 +13,7 @@ import {
 import MapView, {
   Marker,
   Polyline,
+  PROVIDER_GOOGLE,
   UserLocationChangeEvent,
 } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -27,6 +30,7 @@ import {
   stopDriverBackgroundTracking,
 } from '../../location/backgroundTracking';
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
+import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
@@ -50,6 +54,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [isOnline, setIsOnline] = useState(false);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [profileReady, setProfileReady] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [incomingOffer, setIncomingOffer] = useState<RideOffer | null>(null);
@@ -58,7 +63,11 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
-    apiClient.get('/drivers/profile').then((res) => setProfile(res.data)).catch(() => {});
+    apiClient
+      .get('/drivers/profile')
+      .then((res: any) => setProfile(res.data))
+      .catch(() => setProfile({}))
+      .finally(() => setProfileReady(true));
   }, []);
 
   const ensureBackgroundPermissions = useCallback(async () => {
@@ -225,7 +234,16 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             return;
           }
 
-          if (ride.status === 'COMPLETED' || ride.status === 'CANCELED') {
+          if (ride.status === 'CANCELED') {
+            if (incomingOffer?.id === ride.id) {
+              setIncomingOffer(null);
+              Alert.alert('Заказ отменен', 'Пассажир отменил заказ');
+            }
+            setCurrentRideId(null);
+            return;
+          }
+
+          if (ride.status === 'COMPLETED') {
             setCurrentRideId(null);
             setIncomingOffer(null);
             return;
@@ -246,7 +264,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       mounted = false;
       socket?.disconnect();
     };
-  }, [isOnline]);
+  }, [incomingOffer?.id, isOnline]);
 
   const routeCoordinates = useMemo(
     () =>
@@ -302,6 +320,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     });
   }, []);
 
+  if (!profileReady || !profile) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#F4F4F5" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -310,6 +336,9 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         initialRegion={mapRegion}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        mapType="standard"
+        customMapStyle={darkMinimalMapStyle}
         onUserLocationChange={handleUserLocationChange}
         showsUserLocation
         followsUserLocation={false}
@@ -400,6 +429,12 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#09090B',
+  },
   burgerBtn: {
     position: 'absolute',
     top: 50,

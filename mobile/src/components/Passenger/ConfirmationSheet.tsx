@@ -18,12 +18,13 @@ interface Props {
   setComment: (t: string) => void;
   stops: Array<{ address: string; lat: number; lng: number }>;
   onAddStop: () => void;
+  isAddStopDisabled?: boolean;
   // Добавляем пропс для удаления остановки
   onRemoveStop?: (index: number) => void; 
 }
 
 export const ConfirmationSheet: React.FC<Props> = ({
-  translateY, fromAddress, toAddress, price, setPrice, onOrder, onEditAddress, onSwipeDown, loading, comment, setComment, stops, onAddStop, onRemoveStop
+  translateY, fromAddress, toAddress, price, setPrice, onOrder, onEditAddress, onSwipeDown, loading, comment, setComment, stops, onAddStop, isAddStopDisabled, onRemoveStop
 }) => {
   // Стейты для модалки комментария
   const [isCommentModalVisible, setCommentModalVisible] = useState(false);
@@ -95,7 +96,11 @@ export const ConfirmationSheet: React.FC<Props> = ({
               
               {/* Плюсик исчезает, если остановок уже 3 */}
               {stops.length < 3 && (
-                <TouchableOpacity style={styles.expoActionBtn} onPress={onAddStop}>
+                <TouchableOpacity
+                  style={[styles.expoActionBtn, isAddStopDisabled && styles.expoActionBtnDisabled]}
+                  onPress={onAddStop}
+                  disabled={isAddStopDisabled}
+                >
                   <Text style={styles.expoActionText}>+</Text>
                 </TouchableOpacity>
               )}
@@ -163,6 +168,7 @@ const styles = StyleSheet.create({
   commentText: { color: '#71717A', fontSize: 12, marginTop: 4 },
   stopsText: { color: '#71717A', fontSize: 12, marginTop: 4 },
   expoActionBtn: { backgroundColor: '#1C1C1E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginLeft: 10 },
+  expoActionBtnDisabled: { opacity: 0.4 },
   expoActionText: { color: '#A1A1AA', fontSize: 12, fontWeight: '600' },
   zincDivider: { height: 1, backgroundColor: '#27272A', marginHorizontal: 10 },
   priceRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#18181B', height: 64, borderRadius: 20, marginTop: 20, paddingHorizontal: 20, borderWidth: 1, borderColor: '#27272A' },

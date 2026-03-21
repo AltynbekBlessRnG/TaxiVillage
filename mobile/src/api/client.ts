@@ -5,16 +5,9 @@ import {
   updateAuthTokens,
 } from '../storage/authStorage';
 import { stopDriverBackgroundTracking } from '../location/backgroundTracking';
+import { apiClient, BASE_URL } from './instance';
 
-const BASE_URL = 'http://192.168.0.11:3000/api';
-
-export const apiClient = axios.create({
-  baseURL: BASE_URL,
-  timeout: 10000,
-  headers: {
-    'ngrok-skip-browser-warning': 'true',
-  },
-});
+export { apiClient };
 
 let refreshPromise: Promise<string | null> | null = null;
 
