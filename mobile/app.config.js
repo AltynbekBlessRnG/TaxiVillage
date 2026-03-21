@@ -1,4 +1,6 @@
-{
+import 'dotenv/config';
+
+export default {
   "expo": {
     "name": "TaxiVillage",
     "slug": "taxivillage",
@@ -17,7 +19,7 @@
       "package": "com.taxivillage.app",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyDwsRsx3HSk0TFFGuwDlrd2EYCgy2IYSdw"
+          "apiKey": process.env.GOOGLE_MAPS_API_KEY 
         }
       },
       "permissions": [
@@ -40,17 +42,7 @@
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#3B82F6",
-          "sounds": [
-            "./assets/sounds/notification.wav"
-          ]
-        }
       ]
     ]
   }
-}
+};
