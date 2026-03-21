@@ -13,6 +13,7 @@ import { RideHistoryScreen } from '../screens/RideHistoryScreen';
 import { ChatScreen } from '../screens/Passenger/ChatScreen';
 import { loadAuth } from '../storage/authStorage';
 import { setAuthToken } from '../api/client';
+import { registerPushToken } from '../utils/notifications';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -40,6 +41,7 @@ export const AppNavigator: React.FC = () => {
       if (auth) {
         setAuthToken(auth.accessToken);
         setInitialRoute(auth.role === 'DRIVER' ? 'DriverHome' : 'PassengerHome');
+        registerPushToken().catch(() => null);
       }
       setIsLoading(false);
     });

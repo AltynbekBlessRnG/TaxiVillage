@@ -4,6 +4,7 @@ import {
   loadAuth,
   updateAuthTokens,
 } from '../storage/authStorage';
+import { stopDriverBackgroundTracking } from '../location/backgroundTracking';
 
 const BASE_URL = 'http://192.168.0.11:3000/api';
 
@@ -78,6 +79,7 @@ export async function logout(): Promise<void> {
   } catch {
     // Ignore logout failures and clear the local session anyway.
   } finally {
+    await stopDriverBackgroundTracking().catch(() => {});
     await clearAuth();
     setAuthToken(null);
   }

@@ -162,7 +162,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
         where: {
           driverId: driver.id,
           status: {
-            in: [RideStatus.ON_THE_WAY, RideStatus.IN_PROGRESS],
+            in: [RideStatus.ON_THE_WAY, RideStatus.DRIVER_ARRIVED, RideStatus.IN_PROGRESS],
           },
         },
       });
@@ -195,6 +195,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
           in: [
             RideStatus.DRIVER_ASSIGNED,
             RideStatus.ON_THE_WAY,
+            RideStatus.DRIVER_ARRIVED,
             RideStatus.IN_PROGRESS,
           ],
         },

@@ -108,5 +108,12 @@ export class UsersService {
       data: { refreshTokenHash },
     });
   }
+
+  updatePushToken(userId: string, pushToken: string | null) {
+    return (this.prisma.user as any).update({
+      where: { id: userId },
+      data: { pushToken },
+    });
+  }
 }
 

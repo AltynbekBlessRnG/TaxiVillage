@@ -20,6 +20,7 @@
     "expo-location": "~55.1.2",
     "expo-notifications": "~55.0.12",
     "expo-status-bar": "~55.0.4",
+    "expo-task-manager": "~14.0.8",
     "graphql": "^16.13.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",

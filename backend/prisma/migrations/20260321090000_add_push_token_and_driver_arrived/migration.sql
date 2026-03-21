@@ -1,0 +1,5 @@
+ALTER TABLE "User"
+ADD COLUMN "pushToken" TEXT;
+
+ALTER TYPE "RideStatus"
+ADD VALUE 'DRIVER_ARRIVED';

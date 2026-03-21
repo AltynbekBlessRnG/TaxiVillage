@@ -17,6 +17,7 @@ model User {
   email     String?  @unique
   password  String
   refreshTokenHash String?
+  pushToken String?
 
   /// passenger | driver | admin
   role      UserRole
@@ -185,6 +186,7 @@ enum RideStatus {
   SEARCHING_DRIVER
   DRIVER_ASSIGNED
   ON_THE_WAY
+  DRIVER_ARRIVED
   IN_PROGRESS
   COMPLETED
   CANCELED

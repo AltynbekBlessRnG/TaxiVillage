@@ -10,6 +10,7 @@ import {
 import { Prisma, RideStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RidesGateway } from './rides.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 function haversineDistance(
   lat1: number,
@@ -50,6 +51,7 @@ export class RidesService implements OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ridesGateway: RidesGateway,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   onModuleDestroy() {
@@ -283,6 +285,7 @@ export class RidesService implements OnModuleDestroy {
 
     const rideWithUsers = await this.loadRideRecord(rideId);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
+    await this.sendPassengerRideNotification(rideWithUsers);
     return updated;
   }
 
@@ -354,6 +357,7 @@ export class RidesService implements OnModuleDestroy {
 
     const rideWithUsers = await this.loadRideRecord(rideId);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
+    await this.sendPassengerRideNotification(rideWithUsers);
 
     return updated;
   }
@@ -552,6 +556,7 @@ export class RidesService implements OnModuleDestroy {
 
     const rideWithUsers = await this.loadRideRecord(rideId);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
+    await this.sendPassengerRideNotification(rideWithUsers);
 
     return updated;
   }
@@ -563,7 +568,8 @@ export class RidesService implements OnModuleDestroy {
         RideStatus.ON_THE_WAY,
         RideStatus.CANCELED,
       ],
-      [RideStatus.ON_THE_WAY]: [RideStatus.IN_PROGRESS, RideStatus.CANCELED],
+      [RideStatus.ON_THE_WAY]: [RideStatus.DRIVER_ARRIVED, RideStatus.CANCELED],
+      [RideStatus.DRIVER_ARRIVED]: [RideStatus.IN_PROGRESS, RideStatus.CANCELED],
       [RideStatus.IN_PROGRESS]: [RideStatus.COMPLETED],
       [RideStatus.COMPLETED]: [],
       [RideStatus.CANCELED]: [],
@@ -722,6 +728,7 @@ export class RidesService implements OnModuleDestroy {
 
       const rideWithUsers = await this.loadRideRecord(rideId);
       this.ridesGateway.emitRideUpdated(rideWithUsers as any);
+      await this.sendPassengerRideNotification(rideWithUsers);
     } catch (error) {
       this.logger.error(`Failed to cancel ride ${rideId}:`, error as any);
     }
@@ -813,6 +820,34 @@ export class RidesService implements OnModuleDestroy {
         orderBy: { createdAt: 'asc' as const },
       },
     } satisfies Prisma.RideInclude;
+  }
+
+  private async sendPassengerRideNotification(ride: RideRecord) {
+    const pushToken = ride.passenger?.user?.pushToken;
+
+    if (ride.status === RideStatus.DRIVER_ASSIGNED) {
+      await this.notificationsService.sendPush(pushToken, {
+        title: 'Водитель найден',
+        body: 'Водитель принял ваш заказ.',
+        data: { rideId: ride.id, status: ride.status },
+      });
+    }
+
+    if (ride.status === RideStatus.DRIVER_ARRIVED) {
+      await this.notificationsService.sendPush(pushToken, {
+        title: 'Водитель приехал',
+        body: 'Водитель ожидает вас в точке подачи.',
+        data: { rideId: ride.id, status: ride.status },
+      });
+    }
+
+    if (ride.status === RideStatus.CANCELED) {
+      await this.notificationsService.sendPush(pushToken, {
+        title: 'Поездка отменена',
+        body: 'Заказ был отменен. Попробуйте снова.',
+        data: { rideId: ride.id, status: ride.status },
+      });
+    }
   }
 
   private async findEligibleDrivers(

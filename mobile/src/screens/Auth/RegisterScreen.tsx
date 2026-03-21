@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
 import { saveAuth } from '../../storage/authStorage';
+import { registerPushToken } from '../../utils/notifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
@@ -33,6 +34,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         role: user.role,
         userId: user.id,
       });
+      await registerPushToken().catch(() => null);
       if (user.role === 'DRIVER') {
         navigation.replace('DriverHome');
       } else {
