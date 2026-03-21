@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
@@ -13,6 +22,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<'phone' | 'password' | null>(null);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -35,107 +45,146 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         navigation.replace('PassengerHome', {});
       }
     } catch (e: any) {
-      const errorMessage = e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';
+      const errorMessage =
+        e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';
       setError(`Ошибка: ${errorMessage}`);
-      console.log('Login error:', e);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>TaxiVillage</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Телефон"
-        keyboardType="phone-pad"
-        value={phone}
-        onChangeText={setPhone}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Пароль"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      {error && <Text style={styles.error}>{error}</Text>}
-      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? 'Вход...' : 'Войти'}</Text>
-      </TouchableOpacity>
-      <View style={styles.linkRow}>
-        <Text style={styles.linkText}>Нет аккаунта?</Text>
-        <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
-          Зарегистрироваться
-        </Text>
-      </View>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Pressable style={styles.content} onPress={() => setFocusedField(null)}>
+        <View style={styles.hero}>
+          <Text style={styles.eyebrow}>TaxiVillage</Text>
+          <Text style={styles.title}>Вход в аккаунт</Text>
+          <Text style={styles.subtitle}>Продолжайте работу в приложении без лишнего шума.</Text>
+        </View>
+
+        <View style={styles.formCard}>
+          <TextInput
+            style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
+            placeholder="Телефон"
+            placeholderTextColor="#71717A"
+            keyboardType="phone-pad"
+            autoCapitalize="none"
+            value={phone}
+            onChangeText={setPhone}
+            onFocus={() => setFocusedField('phone')}
+            onBlur={() => setFocusedField((current) => (current === 'phone' ? null : current))}
+          />
+          <TextInput
+            style={[styles.input, focusedField === 'password' && styles.inputFocused]}
+            placeholder="Пароль"
+            placeholderTextColor="#71717A"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            onFocus={() => setFocusedField('password')}
+            onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
+          />
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+            <Text style={styles.buttonText}>{loading ? 'Вход...' : 'Войти'}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.linkRow}>
+            <Text style={styles.linkText}>Нет аккаунта?</Text>
+            <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
+              Зарегистрироваться
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#09090B',
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#0F172A',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  hero: {
+    marginBottom: 28,
+  },
+  eyebrow: {
+    color: '#F4F4F5',
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 32,
-    textAlign: 'center',
-    color: '#3B82F6',
-    textShadowColor: '#3B82F6',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    color: '#F4F4F5',
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: '#71717A',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  formCard: {
+    backgroundColor: '#09090B',
   },
   input: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 16,
-    color: '#F8FAFC',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 14,
+    color: '#F4F4F5',
     fontSize: 16,
   },
   inputFocused: {
     borderColor: '#3B82F6',
   },
   error: {
-    color: '#ef4444',
-    marginBottom: 12,
-    textAlign: 'center',
+    color: '#EF4444',
+    marginBottom: 14,
+    fontSize: 14,
   },
   button: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 18,
+    paddingVertical: 18,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   buttonText: {
-    color: '#F8FAFC',
+    color: '#000000',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '800',
   },
   linkRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
-    gap: 8,
+    marginTop: 22,
+    gap: 6,
   },
   linkText: {
-    color: '#94A3B8',
+    color: '#71717A',
+    fontSize: 15,
   },
   link: {
-    marginLeft: 4,
-    color: '#3B82F6',
+    color: '#A1A1AA',
+    fontSize: 15,
     fontWeight: '600',
   },
 });
-

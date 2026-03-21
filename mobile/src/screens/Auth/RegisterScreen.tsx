@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
@@ -7,6 +17,7 @@ import { saveAuth } from '../../storage/authStorage';
 import { registerPushToken } from '../../utils/notifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
+type FieldName = 'fullName' | 'phone' | 'password' | null;
 
 export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [phone, setPhone] = useState('');
@@ -15,6 +26,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [role, setRole] = useState<'PASSENGER' | 'DRIVER'>('PASSENGER');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<FieldName>(null);
 
   const handleRegister = async () => {
     setLoading(true);
@@ -35,166 +47,225 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         userId: user.id,
       });
       await registerPushToken().catch(() => null);
+
       if (user.role === 'DRIVER') {
         navigation.replace('DriverHome');
       } else {
         navigation.replace('PassengerHome', {});
       }
     } catch (e: any) {
-      let errorMessage = e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';
-      
-      // Обработка специфичных ошибок
+      let errorMessage =
+        e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';
+
       if (e?.response?.status === 500 && errorMessage.includes('Unique constraint')) {
-        errorMessage = 'Пользователь с таким номером телефона уже существует. Попробуйте войти.';
+        errorMessage =
+          'Пользователь с таким номером телефона уже существует. Попробуйте войти.';
       }
-      
+
       setError(`Ошибка: ${errorMessage}`);
-      console.log('Register error:', e);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Создать аккаунт</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="ФИО"
-        placeholderTextColor="#64748B"
-        value={fullName}
-        onChangeText={setFullName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Телефон"
-        placeholderTextColor="#64748B"
-        keyboardType="phone-pad"
-        value={phone}
-        onChangeText={setPhone}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Пароль"
-        placeholderTextColor="#64748B"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-
-      <View style={styles.roleRow}>
-        <Text style={styles.roleLabel}>Роль:</Text>
-        <TouchableOpacity
-          style={[styles.roleOption, role === 'PASSENGER' && styles.roleOptionActive]}
-          onPress={() => setRole('PASSENGER')}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Pressable style={styles.flex} onPress={() => setFocusedField(null)}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.roleText, role === 'PASSENGER' && styles.roleTextActive]}>
-            Пассажир
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.roleOption, role === 'DRIVER' && styles.roleOptionActive]}
-          onPress={() => setRole('DRIVER')}
-        >
-          <Text style={[styles.roleText, role === 'DRIVER' && styles.roleTextActive]}>
-            Водитель
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.hero}>
+            <Text style={styles.eyebrow}>TaxiVillage</Text>
+            <Text style={styles.title}>Создать аккаунт</Text>
+            <Text style={styles.subtitle}>
+              Быстрая регистрация в строгом интерфейсе без лишних отвлекающих деталей.
+            </Text>
+          </View>
 
-      {error && <Text style={styles.error}>{error}</Text>}
-      
-      <TouchableOpacity 
-        style={styles.button} 
-        onPress={handleRegister}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? 'Создание...' : 'Создать аккаунт'}
-        </Text>
-      </TouchableOpacity>
-    </View>
+          <View style={styles.formCard}>
+            <View style={styles.segmentedControl}>
+              <TouchableOpacity
+                style={[styles.segmentButton, role === 'PASSENGER' && styles.segmentButtonActive]}
+                onPress={() => setRole('PASSENGER')}
+              >
+                <Text style={[styles.segmentText, role === 'PASSENGER' && styles.segmentTextActive]}>
+                  Пассажир
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentButton, role === 'DRIVER' && styles.segmentButtonActive]}
+                onPress={() => setRole('DRIVER')}
+              >
+                <Text style={[styles.segmentText, role === 'DRIVER' && styles.segmentTextActive]}>
+                  Водитель
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={[styles.input, focusedField === 'fullName' && styles.inputFocused]}
+              placeholder="ФИО"
+              placeholderTextColor="#71717A"
+              value={fullName}
+              onChangeText={setFullName}
+              onFocus={() => setFocusedField('fullName')}
+              onBlur={() => setFocusedField((current) => (current === 'fullName' ? null : current))}
+            />
+            <TextInput
+              style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
+              placeholder="Телефон"
+              placeholderTextColor="#71717A"
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+              onFocus={() => setFocusedField('phone')}
+              onBlur={() => setFocusedField((current) => (current === 'phone' ? null : current))}
+            />
+            <TextInput
+              style={[styles.input, focusedField === 'password' && styles.inputFocused]}
+              placeholder="Пароль"
+              placeholderTextColor="#71717A"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
+            />
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
+              <Text style={styles.buttonText}>
+                {loading ? 'Создание...' : 'Создать аккаунт'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.linkRow}>
+              <Text style={styles.linkText}>Уже есть аккаунт?</Text>
+              <Text style={styles.link} onPress={() => navigation.navigate('Login')}>
+                Войти
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </Pressable>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#09090B',
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#0F172A',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  hero: {
+    marginBottom: 28,
+  },
+  eyebrow: {
+    color: '#F4F4F5',
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 28,
+    color: '#F4F4F5',
+    fontSize: 26,
     fontWeight: '700',
-    marginBottom: 24,
-    textAlign: 'center',
-    color: '#3B82F6',
-    textShadowColor: 'rgba(59, 130, 246, 0.5)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: '#71717A',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  formCard: {
+    backgroundColor: '#09090B',
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 6,
+    marginBottom: 18,
+  },
+  segmentButton: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  segmentButtonActive: {
+    backgroundColor: '#27272A',
+  },
+  segmentText: {
+    color: '#71717A',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  segmentTextActive: {
+    color: '#F4F4F5',
   },
   input: {
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
-    backgroundColor: '#0F172A',
-    color: '#F8FAFC',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 14,
+    color: '#F4F4F5',
     fontSize: 16,
   },
-  roleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    marginTop: 4,
-  },
-  roleLabel: {
-    marginRight: 12,
-    color: '#94A3B8',
-    fontSize: 14,
-  },
-  roleOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginRight: 8,
-    backgroundColor: '#0F172A',
-  },
-  roleOptionActive: {
-    backgroundColor: '#3B82F6',
+  inputFocused: {
     borderColor: '#3B82F6',
-  },
-  roleText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  roleTextActive: {
-    color: '#F8FAFC',
-    fontWeight: '600',
   },
   error: {
     color: '#EF4444',
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 14,
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 16,
-    paddingVertical: 16,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 18,
+    paddingVertical: 18,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   buttonText: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#000000',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 22,
+    gap: 6,
+  },
+  linkText: {
+    color: '#71717A',
+    fontSize: 15,
+  },
+  link: {
+    color: '#A1A1AA',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
-
