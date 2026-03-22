@@ -7,8 +7,10 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiClient } from '../api/client';
+import { loadAuth } from '../storage/authStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideHistory'>;
 
@@ -35,20 +37,44 @@ const statusLabels: Record<string, string> = {
 export const RideHistoryScreen: React.FC<Props> = ({ navigation }) => {
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<'PASSENGER' | 'DRIVER'>('PASSENGER');
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await apiClient.get('/rides/my');
-        setRides(res.data);
-      } catch {
-        setRides([]);
-      } finally {
-        setLoading(false);
+    loadAuth().then((auth) => {
+      if (auth?.role === 'DRIVER') {
+        setRole('DRIVER');
       }
-    };
-    load();
+    });
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
+
+      const load = async () => {
+        try {
+          setLoading(true);
+          const res = await apiClient.get('/rides/my');
+          if (active) {
+            setRides(res.data);
+          }
+        } catch {
+          if (active) {
+            setRides([]);
+          }
+        } finally {
+          if (active) {
+            setLoading(false);
+          }
+        }
+      };
+
+      load().catch(() => {});
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const formatDate = (value: string) => {
     const date = new Date(value);
@@ -62,16 +88,29 @@ export const RideHistoryScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderItem = ({ item }: { item: Ride }) => {
     const price = item.finalPrice ?? item.estimatedPrice;
-    const priceStr = price != null ? `${Math.round(Number(price))} ₽` : '';
+    const priceStr = price != null ? `${Math.round(Number(price))} ₸` : '';
+    const isActiveRide = ['SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'ON_THE_WAY', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(item.status);
+
     return (
-      <View style={styles.item}>
+      <TouchableOpacity
+        style={styles.item}
+        activeOpacity={isActiveRide ? 0.85 : 1}
+        onPress={() => {
+          if (!isActiveRide) {
+            return;
+          }
+
+          navigation.navigate(role === 'DRIVER' ? 'DriverRide' : 'RideStatus', { rideId: item.id });
+        }}
+      >
         <Text style={styles.route}>{item.fromAddress} → {item.toAddress}</Text>
         <View style={styles.row}>
           <Text style={styles.status}>{statusLabels[item.status] ?? item.status}</Text>
           {priceStr ? <Text style={styles.price}>{priceStr}</Text> : null}
         </View>
         <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
-      </View>
+        {isActiveRide ? <Text style={styles.openRideHint}>Открыть активную поездку</Text> : null}
+      </TouchableOpacity>
     );
   };
 
@@ -139,5 +178,6 @@ const styles = StyleSheet.create({
   status: { fontSize: 14, color: '#A1A1AA' },
   price: { fontSize: 16, fontWeight: '800', color: '#F4F4F5' },
   date: { fontSize: 12, color: '#71717A' },
+  openRideHint: { marginTop: 10, fontSize: 12, color: '#60A5FA', fontWeight: '600' },
   empty: { textAlign: 'center', marginTop: 40, color: '#71717A', fontSize: 15 },
 });

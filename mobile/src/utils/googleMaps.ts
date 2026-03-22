@@ -57,6 +57,10 @@ function cleanAddressPart(value?: string) {
     .replace(/\b\d{6}\b/g, '')
     .replace(/,\s*Казахстан\b/gi, '')
     .replace(/\bКазахстан\b/gi, '')
+    .replace(/,\s*Алматы\b/gi, '')
+    .replace(/\bАлматы\b/gi, '')
+    .replace(/,\s*Almaty\b/gi, '')
+    .replace(/\bAlmaty\b/gi, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+,/g, ',')
     .trim()
@@ -202,7 +206,7 @@ export async function reverseGeocodeWithGoogle(lat: number, lng: number) {
     ) ??
     data.results[0];
 
-  return cleanAddressPart(preferredResult.formatted_address) || 'Точка на карте';
+  return shortenAddress(preferredResult.formatted_address) || 'Точка на карте';
 }
 
 export async function geocodeAddressWithGoogle(

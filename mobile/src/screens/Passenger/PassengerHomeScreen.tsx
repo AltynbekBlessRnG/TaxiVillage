@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -48,7 +48,18 @@ interface RideSocketPayload {
   status: string;
 }
 
-export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
+const ACTIVE_RIDE_STATUSES = [
+  'SEARCHING_DRIVER',
+  'DRIVER_ASSIGNED',
+  'ON_THE_WAY',
+  'DRIVER_ARRIVED',
+  'IN_PROGRESS',
+] as const;
+
+const hasValidCoordinates = (coords?: { lat: number; lng: number } | null) =>
+  !!coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng) && !(coords.lat === 0 && coords.lng === 0);
+
+export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [screenState, setScreenState] = useState<ScreenState>('IDLE');
   const [activeService, setActiveService] = useState('Такси');
   const [loading, setLoading] = useState(false);
@@ -95,23 +106,33 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     initializeNotifications().catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const checkActiveRide = async () => {
-      try {
-        const res = await apiClient.get('/rides/my');
-        const active = res.data.find((r: any) =>
-          ['SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'ON_THE_WAY', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(r.status),
-        );
-        setActiveRideId(active?.id ?? null);
-      } catch (error) {
-        console.log(error);
-      }
-    };
+  const refreshActiveRide = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/rides/my');
+      const active = res.data.find((ride: any) => ACTIVE_RIDE_STATUSES.includes(ride.status));
+      setActiveRideId(active?.id ?? null);
+      setCurrentRideId((prev) => {
+        if (!prev) {
+          return active?.id ?? null;
+        }
 
-    checkActiveRide();
-    const unsubscribe = navigation.addListener('focus', checkActiveRide);
+        return active?.id === prev ? prev : active?.id ?? null;
+      });
+      return active ?? null;
+    } catch (error) {
+      console.log(error);
+      setActiveRideId(null);
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshActiveRide().catch(() => {});
+    const unsubscribe = navigation.addListener('focus', () => {
+      refreshActiveRide().catch(() => {});
+    });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, refreshActiveRide]);
 
   useEffect(() => {
     const init = async () => {
@@ -163,6 +184,34 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       fetchNearbyDrivers();
     }
   }, [screenState, userLocation]);
+
+  useEffect(() => {
+    const selectedAddress = route.params?.selectedAddress;
+    if (!selectedAddress || !hasValidCoordinates(selectedAddress)) {
+      return;
+    }
+
+    setToAddress(selectedAddress.address);
+    setToCoord({ lat: selectedAddress.lat, lng: selectedAddress.lng });
+    setSearchMode('route');
+    setIsStopSelectionMode(false);
+    changeState('ORDER_SETUP');
+
+    const latitude = fromCoord?.lat ?? userLocation?.lat ?? selectedAddress.lat;
+    const longitude = fromCoord?.lng ?? userLocation?.lng ?? selectedAddress.lng;
+    mapRef.current?.animateToRegion(
+      buildRegion(
+        [
+          { latitude, longitude },
+          { latitude: selectedAddress.lat, longitude: selectedAddress.lng },
+        ],
+        { latitude: selectedAddress.lat, longitude: selectedAddress.lng },
+      ),
+      350,
+    );
+
+    navigation.setParams({ selectedAddress: undefined });
+  }, [fromCoord?.lat, fromCoord?.lng, navigation, route.params?.selectedAddress, userLocation?.lat, userLocation?.lng]);
 
   useEffect(() => {
     let socket: ReturnType<typeof createRidesSocket> | null = null;
@@ -229,6 +278,8 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
             Alert.alert('Упс', 'Водитель не найден, попробуйте еще раз');
             setCurrentRideId(null);
             setActiveRideId(null);
+            setShowOrderDetails(false);
+            await refreshActiveRide();
             changeState('IDLE');
           }
         }
@@ -241,7 +292,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       mounted = false;
       socket?.disconnect();
     };
-  }, [activeRideId, currentRideId, navigation]);
+  }, [activeRideId, currentRideId, navigation, refreshActiveRide]);
 
   const fetchNearbyDrivers = async () => {
     if (!userLocation) {
@@ -317,8 +368,12 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     try {
       const [f, t] = await Promise.all([
-        fromCoord ? Promise.resolve(null) : geocodeAddressWithGoogle(fromAddress, userLocation).catch(() => null),
-        toCoord ? Promise.resolve(null) : geocodeAddressWithGoogle(toAddress, userLocation).catch(() => null),
+        hasValidCoordinates(fromCoord)
+          ? Promise.resolve(null)
+          : geocodeAddressWithGoogle(fromAddress, userLocation).catch(() => null),
+        hasValidCoordinates(toCoord)
+          ? Promise.resolve(null)
+          : geocodeAddressWithGoogle(toAddress, userLocation).catch(() => null),
       ]);
 
       if (f) {
@@ -341,20 +396,30 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    if (!hasValidCoordinates(fromCoord) || !hasValidCoordinates(toCoord)) {
+      Alert.alert('Нужны координаты', 'Выберите адрес из подсказок Google или укажите точку на карте.');
+      return;
+    }
+
+    if (stops.some((stop) => !hasValidCoordinates(stop))) {
+      Alert.alert('Нужны координаты', 'Один из заездов не содержит корректную точку. Выберите его заново.');
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
         fromAddress,
         toAddress,
-        fromLat: fromCoord?.lat || 0,
-        fromLng: fromCoord?.lng || 0,
-        toLat: toCoord?.lat || 0,
-        toLng: toCoord?.lng || 0,
+        fromLat: fromCoord!.lat,
+        fromLng: fromCoord!.lng,
+        toLat: toCoord!.lat,
+        toLng: toCoord!.lng,
         comment,
         stops: stops.map((stop) => ({
           address: stop.address,
-          lat: stop.lat || 0,
-          lng: stop.lng || 0,
+          lat: stop.lat,
+          lng: stop.lng,
         })),
         estimatedPrice: parseFloat(offeredPrice) || 0,
       };
@@ -376,15 +441,48 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const handleCancelSearchingRide = async () => {
+    const rideIdToCancel = currentRideId ?? activeRideId;
+    if (!rideIdToCancel) {
+      changeState('IDLE');
+      return;
+    }
+
+    Alert.alert('Отменить поездку?', 'Мы прекратим поиск водителя для этого заказа.', [
+      { text: 'Нет', style: 'cancel' },
+      {
+        text: 'Да',
+        style: 'destructive',
+        onPress: async () => {
+          setLoading(true);
+          try {
+            await apiClient.post(`/rides/${rideIdToCancel}/cancel`);
+            setCurrentRideId(null);
+            setActiveRideId(null);
+            setShowOrderDetails(false);
+            await refreshActiveRide();
+            changeState('IDLE');
+          } catch (e: any) {
+            const message = e.response?.data?.message || 'Не удалось отменить заказ';
+            Alert.alert('Ошибка', message);
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]);
+  };
+
   const handleAddressSelect = (field: 'from' | 'to', address: string, lat: number, lng: number) => {
     if (field === 'from') {
       setFromAddress(address);
-      setFromCoord(lat || lng ? { lat, lng } : null);
+      setFromCoord(hasValidCoordinates({ lat, lng }) ? { lat, lng } : null);
       return;
     }
 
     if (searchMode === 'stop') {
-      if (!(lat || lng)) {
+      if (!hasValidCoordinates({ lat, lng })) {
+        Alert.alert('Нужны координаты', 'Выберите адрес из подсказок Google или укажите точку на карте.');
         return;
       }
       setStops((current) => [...current, { address, lat, lng }]);
@@ -394,7 +492,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     setToAddress(address);
-    setToCoord(lat || lng ? { lat, lng } : null);
+    setToCoord(hasValidCoordinates({ lat, lng }) ? { lat, lng } : null);
   };
 
   const toggleMenu = (show: boolean) => {
@@ -655,7 +753,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
           setSearchMode('stop');
           changeState('SEARCH');
         }}
-        isAddStopDisabled={!toAddress || !toCoord}
+        isAddStopDisabled={!hasValidCoordinates(toCoord)}
         onRemoveStop={(indexToRemove: number) =>
           setStops((current) => current.filter((_, index) => index !== indexToRemove))
         }
@@ -663,7 +761,9 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation }) => {
 
       {screenState === 'SEARCHING' && (
         <SearchingSheet
-          onCancel={() => changeState('IDLE')}
+          onCancel={() => {
+            void handleCancelSearchingRide();
+          }}
           onShowDetails={() => setShowOrderDetails(true)}
         />
       )}

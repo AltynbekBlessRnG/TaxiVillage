@@ -8,6 +8,10 @@ interface CreateFavoriteAddressDto {
   lng: number;
 }
 
+function hasValidCoordinates(lat?: number, lng?: number) {
+  return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+}
+
 @Injectable()
 export class FavoriteAddressesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -34,6 +38,10 @@ export class FavoriteAddressesService {
 
     if (!passenger) {
       throw new NotFoundException('Passenger profile not found');
+    }
+
+    if (!hasValidCoordinates(data.lat, data.lng)) {
+      throw new BadRequestException('Favorite address must contain valid coordinates');
     }
 
     // Check if address with same name already exists
@@ -77,6 +85,13 @@ export class FavoriteAddressesService {
 
     if (!address) {
       throw new NotFoundException('Favorite address not found');
+    }
+
+    if (
+      ('lat' in data || 'lng' in data) &&
+      !hasValidCoordinates(data.lat ?? address.lat, data.lng ?? address.lng)
+    ) {
+      throw new BadRequestException('Favorite address must contain valid coordinates');
     }
 
     // Check if new name conflicts with existing addresses

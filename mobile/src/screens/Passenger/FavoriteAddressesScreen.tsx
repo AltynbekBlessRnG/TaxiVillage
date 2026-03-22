@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  FlatList,
   Modal,
   ScrollView,
   StyleSheet,
@@ -12,6 +14,11 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import {
+  formatGooglePredictionAddress,
+  getGooglePlaceDetails,
+  searchGooglePlaces,
+} from '../../utils/googleMaps';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FavoriteAddresses'>;
 
@@ -23,7 +30,19 @@ interface FavoriteAddress {
   lng: number;
 }
 
+interface GooglePlacePrediction {
+  place_id: string;
+  description: string;
+  structured_formatting?: {
+    main_text?: string;
+    secondary_text?: string;
+  };
+}
+
 const PRESET_NAMES = ['Дом', 'Работа', 'Спортзал', 'Университет', 'Магазин'];
+
+const hasValidCoordinates = (lat: number, lng: number) =>
+  Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
 
 export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
   const [addresses, setAddresses] = useState<FavoriteAddress[]>([]);
@@ -31,23 +50,66 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
   const [editingAddress, setEditingAddress] = useState<FavoriteAddress | null>(null);
   const [formData, setFormData] = useState({ name: '', address: '', lat: 0, lng: 0 });
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<GooglePlacePrediction[]>([]);
 
-  useEffect(() => {
-    loadAddresses();
-  }, []);
-
-  const loadAddresses = async () => {
+  const loadAddresses = useCallback(async () => {
     try {
       const response = await apiClient.get('/favorite-addresses');
       setAddresses(response.data);
     } catch {
       setAddresses([]);
     }
+  }, []);
+
+  useEffect(() => {
+    loadAddresses().catch(() => {});
+  }, [loadAddresses]);
+
+  useEffect(() => {
+    if (!showModal) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    const query = formData.address.trim();
+    if (query.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const results = await searchGooglePlaces(query);
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.address, showModal]);
+
+  const resetModal = () => {
+    setShowModal(false);
+    setEditingAddress(null);
+    setFormData({ name: '', address: '', lat: 0, lng: 0 });
+    setSearchResults([]);
+    setSearchLoading(false);
   };
 
   const handleSave = async () => {
     if (!formData.name.trim() || !formData.address.trim()) {
-      Alert.alert('Ошибка', 'Заполните все поля');
+      Alert.alert('Ошибка', 'Заполните название и адрес');
+      return;
+    }
+
+    if (!hasValidCoordinates(formData.lat, formData.lng)) {
+      Alert.alert('Нужна точка', 'Выберите адрес из подсказок Google. Сохранять адрес без координат нельзя.');
       return;
     }
 
@@ -59,10 +121,8 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
         await apiClient.post('/favorite-addresses', formData);
       }
 
-      setShowModal(false);
-      setEditingAddress(null);
-      setFormData({ name: '', address: '', lat: 0, lng: 0 });
-      loadAddresses();
+      resetModal();
+      await loadAddresses();
     } catch (error: any) {
       Alert.alert('Ошибка', error.response?.data?.message || 'Не удалось сохранить адрес');
     } finally {
@@ -90,7 +150,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
         onPress: async () => {
           try {
             await apiClient.delete(`/favorite-addresses/${address.id}`);
-            loadAddresses();
+            await loadAddresses();
           } catch {
             Alert.alert('Ошибка', 'Не удалось удалить адрес');
           }
@@ -113,6 +173,33 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
     setEditingAddress(null);
     setFormData({ name: '', address: '', lat: 0, lng: 0 });
     setShowModal(true);
+  };
+
+  const handleAddressInputChange = (text: string) => {
+    setFormData((current) => ({
+      ...current,
+      address: text,
+      lat: 0,
+      lng: 0,
+    }));
+  };
+
+  const handleSuggestionPress = async (prediction: GooglePlacePrediction) => {
+    setSearchLoading(true);
+    try {
+      const location = await getGooglePlaceDetails(prediction.place_id);
+      setFormData((current) => ({
+        ...current,
+        address: formatGooglePredictionAddress(prediction),
+        lat: location.lat,
+        lng: location.lng,
+      }));
+      setSearchResults([]);
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось получить координаты адреса');
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
   return (
@@ -153,7 +240,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </ScrollView>
 
-      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
+      <Modal visible={showModal} transparent animationType="fade" onRequestClose={resetModal}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{editingAddress ? 'Редактировать адрес' : 'Добавить адрес'}</Text>
@@ -163,7 +250,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                   key={preset}
                   style={[styles.presetButton, formData.name === preset && styles.presetButtonActive]}
-                  onPress={() => setFormData({ ...formData, name: preset })}
+                  onPress={() => setFormData((current) => ({ ...current, name: preset }))}
                 >
                   <Text style={[styles.presetButtonText, formData.name === preset && styles.presetButtonTextActive]}>{preset}</Text>
                 </TouchableOpacity>
@@ -175,19 +262,52 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
               placeholder="Название"
               placeholderTextColor="#71717A"
               value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
+              onChangeText={(text) => setFormData((current) => ({ ...current, name: text }))}
             />
             <TextInput
-              style={[styles.input, styles.multilineInput]}
-              placeholder="Адрес"
+              style={styles.input}
+              placeholder="Найдите адрес через Google"
               placeholderTextColor="#71717A"
               value={formData.address}
-              onChangeText={(text) => setFormData({ ...formData, address: text })}
-              multiline
+              onChangeText={handleAddressInputChange}
             />
 
+            <View style={styles.coordinateHint}>
+              <Text style={styles.coordinateHintText}>
+                {hasValidCoordinates(formData.lat, formData.lng)
+                  ? 'Точка выбрана. Адрес можно сохранять.'
+                  : 'Сначала выберите адрес из подсказок ниже.'}
+              </Text>
+            </View>
+
+            {searchLoading ? (
+              <View style={styles.searchLoading}>
+                <ActivityIndicator color="#F4F4F5" size="small" />
+                <Text style={styles.searchLoadingText}>Ищем адрес...</Text>
+              </View>
+            ) : null}
+
+            {searchResults.length > 0 ? (
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item.place_id}
+                style={styles.suggestionsList}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.suggestionItem} onPress={() => void handleSuggestionPress(item)}>
+                    <Text style={styles.suggestionTitle}>
+                      {item.structured_formatting?.main_text || item.description}
+                    </Text>
+                    {item.structured_formatting?.secondary_text ? (
+                      <Text style={styles.suggestionSubtitle}>{item.structured_formatting.secondary_text}</Text>
+                    ) : null}
+                  </TouchableOpacity>
+                )}
+              />
+            ) : null}
+
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowModal(false)}>
+              <TouchableOpacity style={styles.cancelModalButton} onPress={resetModal}>
                 <Text style={styles.cancelModalButtonText}>Отмена</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -259,6 +379,7 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     borderWidth: 1,
     borderColor: '#27272A',
+    maxHeight: '85%',
   },
   modalTitle: { fontSize: 20, fontWeight: '800', color: '#F4F4F5', marginBottom: 18, textAlign: 'center' },
   presetLabel: { color: '#71717A', fontSize: 13, marginBottom: 10, textTransform: 'uppercase' },
@@ -275,9 +396,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#27272A',
+    marginBottom: 12,
+  },
+  coordinateHint: {
+    backgroundColor: '#09090B',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginBottom: 12,
+  },
+  coordinateHintText: { color: '#A1A1AA', fontSize: 13, lineHeight: 18 },
+  searchLoading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12 },
+  searchLoadingText: { color: '#A1A1AA', marginLeft: 8, fontSize: 13 },
+  suggestionsList: {
+    maxHeight: 220,
+    backgroundColor: '#09090B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
     marginBottom: 14,
   },
-  multilineInput: { minHeight: 90, textAlignVertical: 'top' },
+  suggestionItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272A',
+  },
+  suggestionTitle: { color: '#F4F4F5', fontSize: 15, fontWeight: '600' },
+  suggestionSubtitle: { color: '#71717A', fontSize: 12, marginTop: 4 },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 10 },
   cancelModalButton: { flex: 1, backgroundColor: '#27272A', paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
   cancelModalButtonText: { fontSize: 16, fontWeight: '700', color: '#A1A1AA' },

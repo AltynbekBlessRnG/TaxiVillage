@@ -56,6 +56,19 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [carPlate, setCarPlate] = useState('');
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
 
+  const approvedDocuments = profile?.documents?.filter((doc) => doc.approved) ?? [];
+  const hasApprovedLicense = approvedDocuments.some((doc) => doc.type === 'DRIVER_LICENSE');
+  const hasApprovedRegistration = approvedDocuments.some((doc) => doc.type === 'CAR_REGISTRATION');
+  const hasCarInfo = !!(profile?.car?.make && profile?.car?.model && profile?.car?.color && profile?.car?.plateNumber);
+
+  const nextSteps = [
+    profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
+    profile?.status === 'REJECTED' ? 'Проверьте документы и данные автомобиля, затем загрузите их заново.' : null,
+    !hasCarInfo ? 'Заполните марку, модель, цвет и номер автомобиля.' : null,
+    !hasApprovedLicense ? 'Загрузите водительское удостоверение и дождитесь проверки.' : null,
+    !hasApprovedRegistration ? 'Загрузите СТС и дождитесь проверки.' : null,
+  ].filter(Boolean) as string[];
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -192,6 +205,25 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
+      {profile ? (
+        <View style={[styles.section, styles.statusSection, profile.status === 'APPROVED' ? styles.readySection : styles.warningSection]}>
+          <Text style={styles.sectionTitle}>Статус выхода на линию</Text>
+          <Text style={styles.statusSummary}>
+            {profile.status === 'APPROVED' && hasCarInfo && hasApprovedLicense && hasApprovedRegistration
+              ? 'Все готово. Можно выходить на линию.'
+              : profile.status === 'REJECTED'
+                ? 'Профиль отклонен. Исправьте данные и загрузите документы заново.'
+                : 'Профиль еще не готов к выходу на линию. Ниже видно, чего не хватает.'}
+          </Text>
+          {nextSteps.map((step) => (
+            <View key={step} style={styles.nextStepRow}>
+              <Text style={styles.nextStepBullet}>•</Text>
+              <Text style={styles.nextStepText}>{step}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Мой автомобиль</Text>
         <TextInput style={styles.input} placeholder="Марка" placeholderTextColor="#71717A" value={carMake} onChangeText={setCarMake} />
@@ -250,15 +282,15 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.checkText}>Аккаунт одобрен администратором</Text>
           </View>
           <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{profile?.car?.make && profile?.car?.model ? '✓' : '•'}</Text>
+            <Text style={styles.checkIcon}>{hasCarInfo ? '✓' : '•'}</Text>
             <Text style={styles.checkText}>Информация об автомобиле заполнена</Text>
           </View>
           <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{profile?.documents?.some((d) => d.type === 'DRIVER_LICENSE' && d.approved) ? '✓' : '•'}</Text>
+            <Text style={styles.checkIcon}>{hasApprovedLicense ? '✓' : '•'}</Text>
             <Text style={styles.checkText}>Водительское удостоверение одобрено</Text>
           </View>
           <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{profile?.documents?.some((d) => d.type === 'CAR_REGISTRATION' && d.approved) ? '✓' : '•'}</Text>
+            <Text style={styles.checkIcon}>{hasApprovedRegistration ? '✓' : '•'}</Text>
             <Text style={styles.checkText}>СТС одобрено</Text>
           </View>
         </View>
@@ -282,7 +314,14 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 22, fontWeight: '800', color: '#F4F4F5', marginBottom: 4 },
   statLabel: { fontSize: 12, color: '#71717A', textTransform: 'uppercase' },
   section: { padding: 16, marginHorizontal: 16, marginBottom: 16, backgroundColor: '#18181B', borderRadius: 18, borderWidth: 1, borderColor: '#27272A' },
+  statusSection: { marginTop: 0 },
+  readySection: { borderColor: '#14532D', backgroundColor: '#0F1C14' },
+  warningSection: { borderColor: '#3F3F46' },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#F4F4F5', marginBottom: 16 },
+  statusSummary: { fontSize: 14, color: '#E4E4E7', lineHeight: 20, marginBottom: 10 },
+  nextStepRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 6 },
+  nextStepBullet: { color: '#A1A1AA', fontSize: 16, marginRight: 8, lineHeight: 20 },
+  nextStepText: { flex: 1, color: '#A1A1AA', fontSize: 13, lineHeight: 20 },
   input: { backgroundColor: '#09090B', color: '#F4F4F5', paddingHorizontal: 16, paddingVertical: 15, borderRadius: 16, marginBottom: 12, fontSize: 16, borderWidth: 1, borderColor: '#27272A' },
   primaryButton: { backgroundColor: '#F4F4F5', borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
   primaryButtonText: { color: '#000000', fontSize: 16, fontWeight: '800' },

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
+  Alert,
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   Animated, Dimensions, FlatList, ActivityIndicator 
 } from 'react-native';
@@ -135,11 +136,11 @@ export const SearchSheet: React.FC<Props> = ({
   // Если клиент ввел текст остановки и нажал "Готово" на клавиатуре (без выбора из списка)
   const handleToSubmit = () => {
     if (isStopSelectionMode && stopAddress.trim()) {
-      onAddressSelect('to', stopAddress, 0, 0);
-      setStopAddress('');
-    } else {
-      onSubmit();
+      Alert.alert('Выберите адрес', 'Выберите адрес из подсказок Google или укажите точку на карте.');
+      return;
     }
+
+    onSubmit();
   };
 
   const renderSuggestionItem = ({ item }: { item: GooglePlacePrediction }) => {

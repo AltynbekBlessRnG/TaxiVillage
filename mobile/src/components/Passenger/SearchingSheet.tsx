@@ -79,9 +79,6 @@ export const SearchingSheet: React.FC<Props> = ({ onCancel, onShowDetails }) => 
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.extraOrderBtn}>
-          <Text style={styles.extraOrderText}>Ещё заказ</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -108,7 +105,4 @@ const styles = StyleSheet.create({
   circleBtn: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#1C1C1E', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
   btnIcon: { color: '#fff', fontSize: 20 },
   btnLabel: { color: '#71717A', fontSize: 12, textAlign: 'center', marginTop: 8, fontWeight: '500' },
-
-  extraOrderBtn: { backgroundColor: '#1C1C1E', height: 54, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
-  extraOrderText: { color: '#fff', fontSize: 16, fontWeight: '700' }
 });

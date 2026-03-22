@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -23,6 +23,20 @@ interface Message extends ChatSocketMessage {
   receiverName?: string;
 }
 
+const mergeMessages = (current: Message[], incoming: Message[]) => {
+  const merged = [...current];
+
+  for (const message of incoming) {
+    if (!merged.some((existing) => existing.id === message.id)) {
+      merged.push(message);
+    }
+  }
+
+  return merged.sort(
+    (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+  );
+};
+
 export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const { rideId } = route.params;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -31,6 +45,12 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const flatListRef = useRef<FlatList>(null);
   const socketRef = useRef<any>(null);
   const currentUserId = useRef<string>('');
+
+  const scrollToBottom = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
 
   useEffect(() => {
     const initChat = async () => {
@@ -44,7 +64,8 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         await socket.connect(rideId);
 
         socket.onMessage((message: Message) => {
-          setMessages((prev) => [...prev, message]);
+          setMessages((prev) => mergeMessages(prev, [message]));
+          scrollToBottom();
         });
 
         socket.onError((error: any) => {
@@ -52,7 +73,8 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         });
 
         const response = await apiClient.get<Message[]>(`/chat/messages/${rideId}`);
-        setMessages(response.data);
+        setMessages(mergeMessages([], response.data));
+        scrollToBottom(false);
         await apiClient.post(`/chat/mark-read/${rideId}`);
       } catch {
         Alert.alert('Ошибка', 'Не удалось загрузить чат');
@@ -66,7 +88,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         socketRef.current = null;
       }
     };
-  }, [rideId]);
+  }, [rideId, scrollToBottom]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || loading) return;
@@ -77,11 +99,15 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
       if (!auth?.accessToken) return;
 
       const receiverType = auth.role === 'DRIVER' ? 'PASSENGER' : 'DRIVER';
-      await apiClient.post(`/chat/send/${rideId}`, {
+      const response = await apiClient.post<Message>(`/chat/send/${rideId}`, {
         content: newMessage.trim(),
         receiverType,
       });
+      if (response.data) {
+        setMessages((prev) => mergeMessages(prev, [response.data]));
+      }
       setNewMessage('');
+      scrollToBottom();
     } catch {
       Alert.alert('Ошибка', 'Не удалось отправить сообщение');
     } finally {
@@ -126,7 +152,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         keyExtractor={(item) => item.id}
         style={styles.messagesList}
         contentContainerStyle={styles.messagesContainer}
-        inverted
+        onContentSizeChange={() => scrollToBottom(false)}
       />
 
       <View style={styles.inputContainer}>
