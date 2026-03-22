@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 import { UserRole } from '@prisma/client';
 import { AuthGuard } from '@nestjs/passport';
 
-type PublicRegisterRole = 'PASSENGER' | 'DRIVER';
+type PublicRegisterRole = 'PASSENGER' | 'DRIVER' | 'COURIER' | 'MERCHANT';
 
 class RegisterDto {
   @IsPhoneNumber()
@@ -18,7 +18,7 @@ class RegisterDto {
   @MinLength(6)
   password!: string;
 
-  @IsIn([UserRole.PASSENGER, UserRole.DRIVER])
+  @IsIn([UserRole.PASSENGER, UserRole.DRIVER, UserRole.COURIER, UserRole.MERCHANT])
   role!: PublicRegisterRole;
 
   @IsOptional()

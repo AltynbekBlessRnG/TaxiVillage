@@ -35,6 +35,7 @@ import { buildRegion, buildRouteCoordinates, toMapPoint } from '../../utils/map'
 import { geocodeAddressWithGoogle, reverseGeocodeWithGoogle } from '../../utils/googleMaps';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
+import { resolveRideRoute } from '../../utils/rideRoute';
 
 const { width, height } = Dimensions.get('window');
 
@@ -83,6 +84,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [mapPickTarget, setMapPickTarget] = useState<'from' | 'to' | 'stop'>('to');
   const [searchMode, setSearchMode] = useState<SearchMode>('route');
   const [socketState, setSocketState] = useState<SocketState>('disconnected');
+  const [displayRoute, setDisplayRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
 
   const searchSheetAnim = useRef(new Animated.Value(height)).current;
   const orderSheetTranslateY = useRef(new Animated.Value(height)).current;
@@ -101,6 +103,26 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
       }),
     [fromCoord, stops, toCoord],
   );
+
+  useEffect(() => {
+    if (!hasValidCoordinates(fromCoord) || !hasValidCoordinates(toCoord)) {
+      setDisplayRoute(routeCoordinates);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      resolveRideRoute({
+        status: 'SEARCHING_DRIVER',
+        fromCoord,
+        toCoord,
+        stops,
+      })
+        .then((result) => setDisplayRoute(result.coordinates.length > 0 ? result.coordinates : routeCoordinates))
+        .catch(() => setDisplayRoute(routeCoordinates));
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [fromCoord, routeCoordinates, stops, toCoord]);
 
   useEffect(() => {
     initializeNotifications().catch(() => {});
@@ -257,8 +279,9 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         }
 
         if (updatedRide.id === currentRideId || updatedRide.id === activeRideId) {
-          if (updatedRide.status === 'DRIVER_ASSIGNED') {
+          if (updatedRide.status === 'DRIVER_ASSIGNED' || updatedRide.status === 'ON_THE_WAY') {
             setCurrentRideId(updatedRide.id);
+            setActiveRideId(updatedRide.id);
             navigation.navigate('RideStatus', { rideId: updatedRide.id });
             return;
           }
@@ -534,7 +557,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const mapPoints = [
-    ...routeCoordinates,
+    ...(displayRoute.length > 0 ? displayRoute : routeCoordinates),
     ...nearbyDrivers.map((driver) => ({ latitude: driver.lat, longitude: driver.lng })),
     ...(userLocation ? [{ latitude: userLocation.lat, longitude: userLocation.lng }] : []),
   ];
@@ -592,9 +615,9 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
             />
           ))}
 
-          {routeCoordinates.length >= 2 && (
+          {(displayRoute.length > 0 ? displayRoute : routeCoordinates).length >= 2 && (
             <Polyline
-              coordinates={routeCoordinates}
+              coordinates={displayRoute.length > 0 ? displayRoute : routeCoordinates}
               strokeColor="#3B82F6"
               strokeWidth={4}
               lineDashPattern={screenState === 'SEARCHING' ? [8, 6] : undefined}
@@ -649,14 +672,29 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
 
           <View style={styles.bottomAshenBar}>
-            {['Такси', 'Курьер', 'Еда'].map((service) => (
+            {['Такси', 'Курьер', 'Еда', 'Межгород'].map((service) => (
               <TouchableOpacity
                 key={service}
                 style={[styles.serviceBtn, activeService === service && styles.serviceBtnActive]}
-                onPress={() => setActiveService(service)}
+                onPress={() => {
+                  setActiveService(service);
+                  if (service === 'Курьер') {
+                    navigation.navigate('CourierHome');
+                  } else if (service === 'Еда') {
+                    navigation.navigate('FoodHome');
+                  } else if (service === 'Межгород') {
+                    navigation.navigate('IntercityHome');
+                  }
+                }}
               >
                 <Text style={{ fontSize: 20 }}>
-                  {service === 'Такси' ? '🚕' : service === 'Курьер' ? '📦' : '🍕'}
+                  {service === 'Такси'
+                    ? '🚕'
+                    : service === 'Курьер'
+                    ? '📦'
+                    : service === 'Еда'
+                    ? '🍕'
+                    : '🛣️'}
                 </Text>
                 <Text style={[styles.serviceLabel, activeService === service && { color: '#fff' }]}>
                   {service}

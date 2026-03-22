@@ -23,7 +23,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'PASSENGER' | 'DRIVER'>('PASSENGER');
+  const [role, setRole] = useState<'PASSENGER' | 'DRIVER' | 'COURIER' | 'MERCHANT'>('PASSENGER');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<FieldName>(null);
@@ -48,8 +48,14 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       });
       await registerPushToken().catch(() => null);
 
-      if (user.role === 'DRIVER') {
+      if (user.role === 'DRIVER' || user.role === 'DRIVER_TAXI') {
         navigation.replace('DriverHome');
+      } else if (user.role === 'COURIER') {
+        navigation.replace('CourierWorkerHome');
+      } else if (user.role === 'MERCHANT') {
+        navigation.replace('MerchantDashboard');
+      } else if (user.role === 'DRIVER_INTERCITY') {
+        navigation.replace('IntercityDriverHome');
       } else {
         navigation.replace('PassengerHome', {});
       }
@@ -103,6 +109,22 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               >
                 <Text style={[styles.segmentText, role === 'DRIVER' && styles.segmentTextActive]}>
                   Водитель
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentButton, role === 'COURIER' && styles.segmentButtonActive]}
+                onPress={() => setRole('COURIER')}
+              >
+                <Text style={[styles.segmentText, role === 'COURIER' && styles.segmentTextActive]}>
+                  Курьер
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentButton, role === 'MERCHANT' && styles.segmentButtonActive]}
+                onPress={() => setRole('MERCHANT')}
+              >
+                <Text style={[styles.segmentText, role === 'MERCHANT' && styles.segmentTextActive]}>
+                  Заведение
                 </Text>
               </TouchableOpacity>
             </View>
@@ -198,15 +220,17 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: '#18181B',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#27272A',
     padding: 6,
+    gap: 6,
     marginBottom: 18,
   },
   segmentButton: {
-    flex: 1,
+    width: '48%',
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',

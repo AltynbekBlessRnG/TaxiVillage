@@ -1,8 +1,7 @@
-import axios from 'axios';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { loadAuth, updateAuthTokens } from '../storage/authStorage';
-import { apiClient, BASE_URL } from '../api/instance';
+import { loadAuth } from '../storage/authStorage';
+import { sendDriverLocationUpdate } from './driverLiveTracking';
 
 export const LOCATION_TRACKING_TASK = 'LOCATION_TRACKING_TASK';
 
@@ -25,49 +24,15 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
   }
 
   try {
-    await apiClient.patch(
-      '/drivers/location',
+    await sendDriverLocationUpdate(
       {
         lat: latestLocation.coords.latitude,
         lng: latestLocation.coords.longitude,
       },
-      {
-        headers: {
-          Authorization: `Bearer ${auth.accessToken}`,
-        },
-      },
+      { force: true },
     );
-  } catch (error: any) {
-    if (error?.response?.status !== 401) {
-      return;
-    }
-
-    try {
-      const refreshResponse = await axios.post(`${BASE_URL}/auth/refresh`, {
-        refreshToken: auth.refreshToken,
-      });
-      const { accessToken, refreshToken } = refreshResponse.data as {
-        accessToken: string;
-        refreshToken: string;
-      };
-      await updateAuthTokens({ accessToken, refreshToken });
-      apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-
-      await apiClient.patch(
-        '/drivers/location',
-        {
-          lat: latestLocation.coords.latitude,
-          lng: latestLocation.coords.longitude,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-    } catch (refreshError) {
-      console.log('Background location refresh failed', refreshError);
-    }
+  } catch (error) {
+    console.log('Background location update failed', error);
   }
 });
 

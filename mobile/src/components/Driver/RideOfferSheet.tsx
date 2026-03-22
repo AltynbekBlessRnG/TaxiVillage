@@ -51,7 +51,7 @@ export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject }) =
         <View style={styles.routeBox}>
           <View style={styles.routePoint}>
             <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
-            <Text style={styles.addressText} numberOfLines={2}>{offer.fromAddress}</Text>
+            <Text style={styles.addressText} numberOfLines={1}>{offer.fromAddress}</Text>
           </View>
           
           {offer.stops?.map((stop, idx) => (
@@ -63,7 +63,7 @@ export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject }) =
 
           <View style={styles.routePoint}>
             <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-            <Text style={styles.addressText} numberOfLines={2}>{offer.toAddress}</Text>
+            <Text style={styles.addressText} numberOfLines={1}>{offer.toAddress}</Text>
           </View>
         </View>
 
@@ -93,28 +93,29 @@ const styles = StyleSheet.create({
   // Монолитная панель
   workspace: { 
     backgroundColor: '#121212', 
-    padding: 24, 
-    paddingBottom: 40, 
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 24,
     borderTopLeftRadius: 24, 
     borderTopRightRadius: 24, 
     borderTopWidth: 1, 
     borderColor: '#27272A' 
   },
   
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  newOrderText: { color: '#F4F4F5', fontSize: 20, fontWeight: '800' },
-  priceText: { color: '#3B82F6', fontSize: 28, fontWeight: '900' },
-  warningBox: { backgroundColor: '#1C1C1E', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#F59E0B', marginBottom: 15 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  newOrderText: { color: '#F4F4F5', fontSize: 17, fontWeight: '800' },
+  priceText: { color: '#3B82F6', fontSize: 24, fontWeight: '900' },
+  warningBox: { backgroundColor: '#1C1C1E', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#F59E0B', marginBottom: 12 },
   warningText: { color: '#F59E0B', fontSize: 13, fontWeight: '600', textAlign: 'center' },
-  routeBox: { backgroundColor: '#18181B', padding: 16, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#27272A' },
-  routePoint: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
+  routeBox: { backgroundColor: '#18181B', padding: 14, borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: '#27272A' },
+  routePoint: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 15 },
-  addressText: { color: '#E4E4E7', fontSize: 15, flex: 1, fontWeight: '500' },
-  commentBox: { marginBottom: 20, paddingHorizontal: 5 },
-  commentText: { color: '#71717A', fontSize: 14, fontStyle: 'italic' },
+  addressText: { color: '#E4E4E7', fontSize: 14, flex: 1, fontWeight: '500' },
+  commentBox: { marginBottom: 14, paddingHorizontal: 2 },
+  commentText: { color: '#71717A', fontSize: 13, fontStyle: 'italic' },
   buttonsRow: { flexDirection: 'row', gap: 12 },
-  rejectBtn: { flex: 1, backgroundColor: '#1C1C1E', paddingVertical: 18, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
+  rejectBtn: { flex: 1, backgroundColor: '#1C1C1E', paddingVertical: 15, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
   rejectBtnText: { color: '#A1A1AA', fontSize: 16, fontWeight: '700' },
-  acceptBtn: { flex: 2, backgroundColor: '#F4F4F5', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+  acceptBtn: { flex: 2, backgroundColor: '#F4F4F5', paddingVertical: 15, borderRadius: 16, alignItems: 'center' },
   acceptBtnText: { color: '#000', fontSize: 18, fontWeight: '900' },
 });

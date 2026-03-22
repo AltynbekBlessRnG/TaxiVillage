@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '@prisma/client';
 
-type PublicRegisterRole = 'PASSENGER' | 'DRIVER';
+type PublicRegisterRole = 'PASSENGER' | 'DRIVER' | 'COURIER' | 'MERCHANT';
 
 export interface JwtPayload {
   sub: string;

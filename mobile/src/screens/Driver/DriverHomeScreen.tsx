@@ -18,8 +18,9 @@ import MapView, {
 } from 'react-native-maps';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useIsFocused } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient, logout } from '../../api/client';
+import { apiClient, logout, setAuthToken } from '../../api/client';
 import { createRidesSocket } from '../../api/socket';
 import { loadAuth } from '../../storage/authStorage';
 import { RideOfferSheet } from '../../components/Driver/RideOfferSheet';
@@ -29,6 +30,10 @@ import {
   startDriverBackgroundTracking,
   stopDriverBackgroundTracking,
 } from '../../location/backgroundTracking';
+import {
+  resetDriverLocationTrackingState,
+  sendDriverLocationUpdate,
+} from '../../location/driverLiveTracking';
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
@@ -51,6 +56,7 @@ interface RideOffer {
 }
 
 export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
+  const isFocused = useIsFocused();
   const [isOnline, setIsOnline] = useState(false);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -65,10 +71,27 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     apiClient
       .get('/drivers/profile')
-      .then((res: any) => setProfile(res.data))
+      .then((res: any) => {
+        setProfile(res.data);
+        setIsOnline(Boolean(res.data?.isOnline));
+      })
       .catch(() => setProfile({}))
       .finally(() => setProfileReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+
+    apiClient
+      .get('/drivers/profile')
+      .then((res: any) => {
+        setProfile(res.data);
+        setIsOnline(Boolean(res.data?.isOnline));
+      })
+      .catch(() => {});
+  }, [isFocused]);
 
   const ensureBackgroundPermissions = useCallback(async () => {
     const foreground = await Location.requestForegroundPermissionsAsync();
@@ -99,6 +122,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         }
 
         try {
+          const auth = await loadAuth();
+          if (auth?.accessToken) {
+            setAuthToken(auth.accessToken);
+          }
           await apiClient.post('/drivers/status', { isOnline: true });
           await startDriverBackgroundTracking();
           const [profileRes, currentPosition] = await Promise.all([
@@ -113,6 +140,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
           setProfile(profileRes.data);
           setLocation(nextLocation);
+          await sendDriverLocationUpdate(nextLocation, { force: true });
           mapRef.current?.animateToRegion(
             {
               latitude: nextLocation.lat,
@@ -125,6 +153,9 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           setIsOnline(true);
         } catch (e: any) {
           let errorMessage = e?.response?.data?.message || 'Не удалось выйти на линию';
+          if (e?.response?.status === 401) {
+            errorMessage = 'Сессия устарела. Попробуйте открыть приложение заново или войти еще раз.';
+          }
           if (errorMessage.includes('не одобрен')) errorMessage = '⏳ Ваш аккаунт ожидает подтверждения.';
           else if (errorMessage.includes('автомобиле')) errorMessage = '🚗 Заполните информацию об авто в профиле.';
           else if (errorMessage.includes('удостоверения')) errorMessage = '📄 Загрузите фото прав в профиле.';
@@ -138,6 +169,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
       setIsOnline(false);
       setIncomingOffer(null);
+      resetDriverLocationTrackingState();
       try {
         await Promise.allSettled([
           apiClient.post('/drivers/status', { isOnline: false }),
@@ -152,6 +184,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleLogout = useCallback(async () => {
     if (isOnline) {
+      resetDriverLocationTrackingState();
       await Promise.allSettled([
         apiClient.post('/drivers/status', { isOnline: false }),
         stopDriverBackgroundTracking(),
@@ -246,6 +279,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           if (ride.status === 'COMPLETED') {
             setCurrentRideId(null);
             setIncomingOffer(null);
+            setIsOnline(true);
             return;
           }
 
@@ -314,11 +348,16 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    setLocation({
+    const nextLocation = {
       lat: coordinate.latitude,
       lng: coordinate.longitude,
-    });
-  }, []);
+    };
+
+    setLocation(nextLocation);
+    if (isOnline && isFocused) {
+      sendDriverLocationUpdate(nextLocation).catch(() => {});
+    }
+  }, [isFocused, isOnline]);
 
   if (!profileReady || !profile) {
     return (

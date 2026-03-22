@@ -11,6 +11,10 @@ import { TariffsModule } from './tariffs/tariffs.module';
 import { FavoriteAddressesModule } from './favorite-addresses/favorite-addresses.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { CourierOrdersModule } from './courier-orders/courier-orders.module';
+import { CouriersModule } from './couriers/couriers.module';
+import { MerchantsModule } from './merchants/merchants.module';
+import { FoodOrdersModule } from './food-orders/food-orders.module';
 
 @Module({
   imports: [
@@ -28,6 +32,10 @@ import { NotificationsModule } from './notifications/notifications.module';
     FavoriteAddressesModule,
     ChatModule,
     NotificationsModule,
+    CourierOrdersModule,
+    CouriersModule,
+    MerchantsModule,
+    FoodOrdersModule,
     // GraphQLModule мы временно убрали, чтобы сервер запустился
   ],
 })

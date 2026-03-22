@@ -39,8 +39,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       });
       await registerPushToken().catch(() => null);
 
-      if (user.role === 'DRIVER') {
+      if (user.role === 'DRIVER' || user.role === 'DRIVER_TAXI') {
         navigation.replace('DriverHome');
+      } else if (user.role === 'COURIER') {
+        navigation.replace('CourierWorkerHome');
+      } else if (user.role === 'MERCHANT') {
+        navigation.replace('MerchantDashboard');
+      } else if (user.role === 'DRIVER_INTERCITY') {
+        navigation.replace('IntercityDriverHome');
       } else {
         navigation.replace('PassengerHome', {});
       }

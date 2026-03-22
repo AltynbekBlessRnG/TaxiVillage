@@ -263,7 +263,9 @@ export class RidesService implements OnModuleDestroy {
     }
     if (
       ride.status !== RideStatus.SEARCHING_DRIVER &&
-      ride.status !== RideStatus.DRIVER_ASSIGNED
+      ride.status !== RideStatus.DRIVER_ASSIGNED &&
+      ride.status !== RideStatus.ON_THE_WAY &&
+      ride.status !== RideStatus.DRIVER_ARRIVED
     ) {
       throw new BadRequestException('Cannot cancel ride in current status');
     }
@@ -336,7 +338,7 @@ export class RidesService implements OnModuleDestroy {
         },
         data: {
           driverId: driver.id,
-          status: RideStatus.DRIVER_ASSIGNED,
+          status: RideStatus.ON_THE_WAY,
         },
       });
 
@@ -347,7 +349,7 @@ export class RidesService implements OnModuleDestroy {
       await tx.rideStatusHistory.create({
         data: {
           rideId,
-          status: RideStatus.DRIVER_ASSIGNED,
+          status: RideStatus.ON_THE_WAY,
         },
       });
 
@@ -564,7 +566,10 @@ export class RidesService implements OnModuleDestroy {
 
   private assertAllowedTransition(from: RideStatus, to: RideStatus) {
     const allowedTransitions: Record<RideStatus, RideStatus[]> = {
-      [RideStatus.SEARCHING_DRIVER]: [],
+      [RideStatus.SEARCHING_DRIVER]: [
+        RideStatus.ON_THE_WAY,
+        RideStatus.CANCELED,
+      ],
       [RideStatus.DRIVER_ASSIGNED]: [
         RideStatus.ON_THE_WAY,
         RideStatus.CANCELED,
@@ -848,10 +853,13 @@ export class RidesService implements OnModuleDestroy {
   private async sendPassengerRideNotification(ride: RideRecord) {
     const pushToken = ride.passenger?.user?.pushToken;
 
-    if (ride.status === RideStatus.DRIVER_ASSIGNED) {
+    if (
+      ride.status === RideStatus.DRIVER_ASSIGNED ||
+      ride.status === RideStatus.ON_THE_WAY
+    ) {
       await this.notificationsService.sendPush(pushToken, {
-        title: 'Водитель найден',
-        body: 'Водитель принял ваш заказ.',
+        title: 'Водитель выехал к вам',
+        body: 'Водитель принял заказ и уже едет к точке подачи.',
         data: { rideId: ride.id, status: ride.status },
       });
     }

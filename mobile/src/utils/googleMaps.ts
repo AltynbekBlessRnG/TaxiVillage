@@ -48,6 +48,24 @@ interface GoogleGeocodeResponse {
   error_message?: string;
 }
 
+interface GoogleDirectionsResponse {
+  routes?: Array<{
+    overview_polyline?: {
+      points?: string;
+    };
+    legs?: Array<{
+      duration?: {
+        value?: number;
+      };
+      distance?: {
+        value?: number;
+      };
+    }>;
+  }>;
+  status: string;
+  error_message?: string;
+}
+
 function cleanAddressPart(value?: string) {
   if (!value) {
     return '';
@@ -266,4 +284,91 @@ function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: num
       Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return earthRadiusKm * c;
+}
+
+function decodePolyline(encoded: string) {
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+  const coordinates: Array<{ latitude: number; longitude: number }> = [];
+
+  while (index < encoded.length) {
+    let result = 0;
+    let shift = 0;
+    let byte: number;
+
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+
+    const deltaLat = result & 1 ? ~(result >> 1) : result >> 1;
+    lat += deltaLat;
+
+    result = 0;
+    shift = 0;
+
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+
+    const deltaLng = result & 1 ? ~(result >> 1) : result >> 1;
+    lng += deltaLng;
+
+    coordinates.push({
+      latitude: lat / 1e5,
+      longitude: lng / 1e5,
+    });
+  }
+
+  return coordinates;
+}
+
+export async function getGoogleDirections(params: {
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number };
+  waypoints?: Array<{ lat: number; lng: number }>;
+}) {
+  const apiKey = getGoogleMapsApiKey();
+  const waypointString =
+    params.waypoints && params.waypoints.length > 0
+      ? `&waypoints=${encodeURIComponent(
+          params.waypoints.map((point) => `${point.lat},${point.lng}`).join('|'),
+        )}`
+      : '';
+
+  const url =
+    `https://maps.googleapis.com/maps/api/directions/json?` +
+    `origin=${params.origin.lat},${params.origin.lng}` +
+    `&destination=${params.destination.lat},${params.destination.lng}` +
+    `${waypointString}` +
+    `&mode=driving` +
+    `&language=ru` +
+    `&key=${encodeURIComponent(apiKey)}`;
+
+  const data = await fetchGoogleJson<GoogleDirectionsResponse>(url);
+  if (data.status !== 'OK' || !data.routes?.length) {
+    throw new Error(data.error_message || `Google directions status: ${data.status}`);
+  }
+
+  const route = data.routes[0];
+  const polyline = route.overview_polyline?.points ?? '';
+  const coordinates = polyline ? decodePolyline(polyline) : [];
+  const durationSeconds = (route.legs ?? []).reduce(
+    (sum, leg) => sum + (leg.duration?.value ?? 0),
+    0,
+  );
+  const distanceMeters = (route.legs ?? []).reduce(
+    (sum, leg) => sum + (leg.distance?.value ?? 0),
+    0,
+  );
+
+  return {
+    coordinates,
+    durationSeconds,
+    distanceMeters,
+  };
 }

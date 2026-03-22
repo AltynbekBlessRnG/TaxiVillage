@@ -45,6 +45,38 @@ export class UsersService {
       });
     }
 
+    if (params.role === 'COURIER') {
+      return this.prisma.user.create({
+        data: {
+          phone: params.phone,
+          email: params.email,
+          password: params.passwordHash,
+          role: 'COURIER',
+          courier: {
+            create: {
+              fullName: params.fullName,
+            },
+          },
+        },
+      });
+    }
+
+    if (params.role === 'MERCHANT') {
+      return this.prisma.user.create({
+        data: {
+          phone: params.phone,
+          email: params.email,
+          password: params.passwordHash,
+          role: 'MERCHANT',
+          merchant: {
+            create: {
+              name: params.fullName || 'Новое заведение',
+            },
+          },
+        },
+      });
+    }
+
     return this.prisma.user.create({
       data: {
         phone: params.phone,
@@ -70,6 +102,8 @@ export class UsersService {
             car: true,
           },
         },
+        courier: true,
+        merchant: true,
       },
     });
   }
@@ -80,6 +114,8 @@ export class UsersService {
       include: {
         passenger: true,
         driver: true,
+        courier: true,
+        merchant: true,
       },
     });
   }

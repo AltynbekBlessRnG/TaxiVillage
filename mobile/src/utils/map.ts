@@ -8,6 +8,10 @@ export function toMapPoint(lat?: number | null, lng?: number | null): MapPoint |
     return null;
   }
 
+  if (lat === 0 && lng === 0) {
+    return null;
+  }
+
   return {
     latitude: lat,
     longitude: lng,

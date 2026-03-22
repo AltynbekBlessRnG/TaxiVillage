@@ -26,10 +26,10 @@ interface Ride {
 
 const statusLabels: Record<string, string> = {
   SEARCHING_DRIVER: 'Поиск',
-  DRIVER_ASSIGNED: 'Назначен',
-  ON_THE_WAY: 'В пути',
-  DRIVER_ARRIVED: 'На месте',
-  IN_PROGRESS: 'В поездке',
+  DRIVER_ASSIGNED: 'Едет к клиенту',
+  ON_THE_WAY: 'Едет к клиенту',
+  DRIVER_ARRIVED: 'Водитель прибыл',
+  IN_PROGRESS: 'Вы в пути',
   COMPLETED: 'Завершена',
   CANCELED: 'Отменена',
 };

@@ -18,6 +18,7 @@ import { loadAuth } from '../../storage/authStorage';
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { sendLocalNotification } from '../../utils/notifications';
+import { resolveRideRoute } from '../../utils/rideRoute';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideStatus'>;
 
@@ -34,10 +35,10 @@ interface RideDriver {
   lat?: number;
   lng?: number;
   car?: {
-    brand: string;
-    model: string;
-    color: string;
-    plateNumber: string;
+    make?: string;
+    model?: string;
+    color?: string;
+    plateNumber?: string;
   };
 }
 
@@ -57,14 +58,43 @@ interface RideData {
   driver?: RideDriver;
 }
 
+const ACTIVE_CANCELABLE_STATUSES = ['SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'ON_THE_WAY', 'DRIVER_ARRIVED'];
+
 export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
   const { rideId } = route.params;
   const [status, setStatus] = useState<string>('');
   const [ride, setRide] = useState<RideData | null>(null);
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [displayRoute, setDisplayRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
+  const [followMap, setFollowMap] = useState(true);
 
   const mapRef = useRef<MapView>(null);
+
+  const fallbackRoute = useMemo(
+    () =>
+      buildRouteCoordinates({
+        fromLat:
+          status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED'
+            ? driverLocation?.lat
+            : ride?.fromLat,
+        fromLng:
+          status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED'
+            ? driverLocation?.lng
+            : ride?.fromLng,
+        stops: status === 'IN_PROGRESS' || status === 'SEARCHING_DRIVER' ? ride?.stops ?? [] : [],
+        toLat:
+          status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED'
+            ? ride?.fromLat
+            : ride?.toLat,
+        toLng:
+          status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED'
+            ? ride?.fromLng
+            : ride?.toLng,
+      }),
+    [driverLocation?.lat, driverLocation?.lng, ride?.fromLat, ride?.fromLng, ride?.stops, ride?.toLat, ride?.toLng, status],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -83,8 +113,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         setStatus(data.status);
 
         if (data.driver?.lat && data.driver?.lng) {
-          const nextLocation = { lat: data.driver.lat, lng: data.driver.lng };
-          setDriverLocation(nextLocation);
+          setDriverLocation({ lat: data.driver.lat, lng: data.driver.lng });
         }
 
         if (!auth?.accessToken) {
@@ -103,11 +132,17 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
           setStatus(updatedRide.status);
 
           if (updatedRide.driver?.lat && updatedRide.driver?.lng) {
-            const nextLocation = {
+            setDriverLocation({
               lat: updatedRide.driver.lat,
               lng: updatedRide.driver.lng,
-            };
-            setDriverLocation(nextLocation);
+            });
+          }
+
+          if (updatedRide.status === 'DRIVER_ARRIVED') {
+            await sendLocalNotification('Водитель прибыл', 'Водитель ожидает вас у точки подачи.', {
+              rideId: updatedRide.id,
+              status: updatedRide.status,
+            });
           }
 
           if (updatedRide.status === 'COMPLETED' && !showCompletionModal) {
@@ -117,6 +152,11 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
             );
             setShowCompletionModal(true);
           }
+
+          if (updatedRide.status === 'CANCELED') {
+            Alert.alert('Поездка отменена', 'Заказ был отменен.');
+            navigation.replace('PassengerHome', {});
+          }
         });
 
         socket.on('driver:moved', (payload: { rideId: string; lat: number; lng: number }) => {
@@ -124,35 +164,58 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
             return;
           }
 
-          const nextLocation = { lat: payload.lat, lng: payload.lng };
-          setDriverLocation(nextLocation);
+          setDriverLocation({ lat: payload.lat, lng: payload.lng });
         });
       } catch {
         Alert.alert('Ошибка', 'Не удалось загрузить данные поездки');
       }
     };
 
-    init();
+    init().catch(() => {});
 
     return () => {
       isMounted = false;
       socket?.disconnect();
     };
-  }, [rideId, showCompletionModal]);
+  }, [navigation, rideId, showCompletionModal]);
 
   useEffect(() => {
     if (!ride) {
       return;
     }
 
-    const points = [
-      ...buildRouteCoordinates({
-        fromLat: ride.fromLat,
-        fromLng: ride.fromLng,
+    const timeoutId = setTimeout(() => {
+      resolveRideRoute({
+        status,
+        fromCoord: ride.fromLat && ride.fromLng ? { lat: ride.fromLat, lng: ride.fromLng } : null,
+        toCoord: ride.toLat && ride.toLng ? { lat: ride.toLat, lng: ride.toLng } : null,
+        driverCoord: driverLocation,
         stops: ride.stops ?? [],
-        toLat: ride.toLat,
-        toLng: ride.toLng,
-      }),
+      })
+        .then((result) => {
+          setDisplayRoute(result.coordinates.length > 0 ? result.coordinates : fallbackRoute);
+          setEtaSeconds(result.durationSeconds);
+        })
+        .catch(() => {
+          setDisplayRoute(fallbackRoute);
+          setEtaSeconds(null);
+        });
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [driverLocation, fallbackRoute, ride, status]);
+
+  useEffect(() => {
+    if (!ride) {
+      return;
+    }
+
+    if (!followMap) {
+      return;
+    }
+
+    const points = [
+      ...(displayRoute.length > 0 ? displayRoute : fallbackRoute),
       ...(driverLocation ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
     ];
 
@@ -161,27 +224,15 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
       longitude: ride.fromLng ?? 76.8897,
     });
     mapRef.current?.animateToRegion(region, 350);
-  }, [driverLocation, ride]);
-
-  const routeCoordinates = useMemo(
-    () =>
-      buildRouteCoordinates({
-        fromLat: ride?.fromLat,
-        fromLng: ride?.fromLng,
-        stops: ride?.stops ?? [],
-        toLat: ride?.toLat,
-        toLng: ride?.toLng,
-      }),
-    [ride],
-  );
+  }, [displayRoute, driverLocation, fallbackRoute, followMap, ride]);
 
   const initialRegion = useMemo(
     () =>
-      buildRegion(routeCoordinates, {
+      buildRegion(displayRoute.length > 0 ? displayRoute : fallbackRoute, {
         latitude: ride?.fromLat ?? 43.2389,
         longitude: ride?.fromLng ?? 76.8897,
       }),
-    [ride?.fromLat, ride?.fromLng, routeCoordinates],
+    [displayRoute, fallbackRoute, ride?.fromLat, ride?.fromLng],
   );
 
   const handleCancel = async () => {
@@ -202,11 +253,12 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
     ]);
   };
 
-  const canCancel =
-    status === 'SEARCHING_DRIVER' ||
-    status === 'DRIVER_ASSIGNED' ||
-    status === 'ON_THE_WAY';
+  const canCancel = ACTIVE_CANCELABLE_STATUSES.includes(status);
   const price = ride?.finalPrice || ride?.estimatedPrice || 0;
+  const etaLabel =
+    etaSeconds && (status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED')
+      ? `${Math.max(1, Math.round(etaSeconds / 60))} мин`
+      : null;
 
   return (
     <View style={styles.container}>
@@ -219,14 +271,11 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         mapType="standard"
         customMapStyle={darkMinimalMapStyle}
+        onPanDrag={() => setFollowMap(false)}
       >
-        {ride?.fromLat && ride?.fromLng && (
-          <Marker
-            coordinate={{ latitude: ride.fromLat, longitude: ride.fromLng }}
-            title="Подача"
-            pinColor="#2563EB"
-          />
-        )}
+        {ride?.fromLat && ride?.fromLng ? (
+          <Marker coordinate={{ latitude: ride.fromLat, longitude: ride.fromLng }} title="Подача" pinColor="#2563EB" />
+        ) : null}
 
         {ride?.stops?.map((stop, index) => (
           <Marker
@@ -237,28 +286,49 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
           />
         ))}
 
-        {ride?.toLat && ride?.toLng && (
-          <Marker
-            coordinate={{ latitude: ride.toLat, longitude: ride.toLng }}
-            title="Финиш"
-            pinColor="#DC2626"
-          />
-        )}
+        {ride?.toLat && ride?.toLng ? (
+          <Marker coordinate={{ latitude: ride.toLat, longitude: ride.toLng }} title="Назначение" pinColor="#DC2626" />
+        ) : null}
 
-        {routeCoordinates.length >= 2 && (
+        {(displayRoute.length > 0 ? displayRoute : fallbackRoute).length >= 2 ? (
           <Polyline
-            coordinates={routeCoordinates}
+            coordinates={displayRoute.length > 0 ? displayRoute : fallbackRoute}
             strokeColor="#3B82F6"
             strokeWidth={4}
-            lineDashPattern={[8, 6]}
+            lineDashPattern={status === 'SEARCHING_DRIVER' ? [8, 6] : undefined}
           />
-        )}
+        ) : null}
 
-        {driverLocation && <Marker coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }} title="Водитель" pinColor="#F59E0B" />}
+        {driverLocation ? (
+          <Marker coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }} title="Водитель" pinColor="#F59E0B" />
+        ) : null}
       </MapView>
 
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.replace('PassengerHome', {})}>
         <Text style={styles.backBtnText}>← На главную</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.recenterBtn}
+        onPress={() => {
+          setFollowMap(true);
+          if (!ride) {
+            return;
+          }
+          const points = [
+            ...(displayRoute.length > 0 ? displayRoute : fallbackRoute),
+            ...(driverLocation ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
+          ];
+          mapRef.current?.animateToRegion(
+            buildRegion(points, {
+              latitude: ride.fromLat ?? 43.2389,
+              longitude: ride.fromLng ?? 76.8897,
+            }),
+            350,
+          );
+        }}
+      >
+        <Text style={styles.recenterBtnText}>⌖</Text>
       </TouchableOpacity>
 
       <View style={styles.bottomSheet}>
@@ -269,21 +339,28 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.statusTitle}>{translateStatus(status)}</Text>
         </View>
 
-        {ride?.driver && (
+        {etaLabel ? (
+          <View style={styles.etaBadge}>
+            <Text style={styles.etaLabel}>До подачи примерно</Text>
+            <Text style={styles.etaValue}>{etaLabel}</Text>
+          </View>
+        ) : null}
+
+        {ride?.driver ? (
           <View style={styles.card}>
             <View style={styles.driverRow}>
               <View>
                 <Text style={styles.driverName}>{ride.driver.fullName || 'Водитель'}</Text>
                 <Text style={styles.carInfo}>
-                  {ride.driver.car?.brand} {ride.driver.car?.model} • {ride.driver.car?.color}
+                  {[ride.driver.car?.make, ride.driver.car?.model, ride.driver.car?.color].filter(Boolean).join(' • ')}
                 </Text>
               </View>
               <View style={styles.plateBox}>
-                <Text style={styles.plateText}>{ride.driver.car?.plateNumber}</Text>
+                <Text style={styles.plateText}>{ride.driver.car?.plateNumber || '—'}</Text>
               </View>
             </View>
           </View>
-        )}
+        ) : null}
 
         <View style={styles.card}>
           <View style={styles.routePoint}>
@@ -318,20 +395,17 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         <View style={styles.buttonsRow}>
-          {canCancel && (
+          {canCancel ? (
             <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
               <Text style={styles.cancelBtnText}>Отменить</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
 
-          {ride?.driver && (
-            <TouchableOpacity
-              style={styles.chatBtn}
-              onPress={() => navigation.navigate('ChatScreen', { rideId })}
-            >
+          {ride?.driver ? (
+            <TouchableOpacity style={styles.chatBtn} onPress={() => navigation.navigate('ChatScreen', { rideId })}>
               <Text style={styles.chatBtnText}>Чат с водителем</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       </View>
 
@@ -356,10 +430,9 @@ function getStatusDotColor(status: string) {
     case 'IN_PROGRESS':
       return { backgroundColor: '#3B82F6' };
     case 'ON_THE_WAY':
+    case 'DRIVER_ASSIGNED':
     case 'DRIVER_ARRIVED':
       return { backgroundColor: '#F59E0B' };
-    case 'DRIVER_ASSIGNED':
-      return { backgroundColor: '#FACC15' };
     default:
       return { backgroundColor: '#71717A' };
   }
@@ -367,11 +440,11 @@ function getStatusDotColor(status: string) {
 
 function translateStatus(status: string): string {
   const t: Record<string, string> = {
-    SEARCHING_DRIVER: 'Ищем водителя...',
-    DRIVER_ASSIGNED: 'Водитель найден',
-    ON_THE_WAY: 'Водитель в пути',
-    DRIVER_ARRIVED: 'Водитель приехал',
-    IN_PROGRESS: 'В поездке',
+    SEARCHING_DRIVER: 'Ищем водителя',
+    DRIVER_ASSIGNED: 'Водитель едет к вам',
+    ON_THE_WAY: 'Водитель едет к вам',
+    DRIVER_ARRIVED: 'Водитель прибыл',
+    IN_PROGRESS: 'Вы в пути',
     COMPLETED: 'Поездка завершена',
     CANCELED: 'Отменена',
   };
@@ -393,6 +466,21 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backBtnText: { color: '#F4F4F5', fontSize: 14, fontWeight: '600' },
+  recenterBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  recenterBtnText: { color: '#F4F4F5', fontSize: 18, fontWeight: '700' },
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
@@ -418,10 +506,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   statusDot: { width: 12, height: 12, borderRadius: 6, marginRight: 10 },
   statusTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  etaBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginBottom: 16,
+  },
+  etaLabel: { color: '#A1A1AA', fontSize: 12, textAlign: 'center', marginBottom: 4 },
+  etaValue: { color: '#F4F4F5', fontSize: 18, fontWeight: '800', textAlign: 'center' },
   card: {
     backgroundColor: '#18181B',
     borderRadius: 20,

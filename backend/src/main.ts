@@ -12,7 +12,12 @@ async function bootstrap() {
 
   // Добавляем простой Middleware для логирования всех запросов
   app.use((req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
-    Logger.log(`[Request] ${req.method} ${req.url}`, 'HTTP');
+    const shouldSkipVerboseLocationLog =
+      req.method === 'PATCH' && req.url.includes('/api/drivers/location');
+
+    if (!shouldSkipVerboseLocationLog) {
+      Logger.log(`[Request] ${req.method} ${req.url}`, 'HTTP');
+    }
     next();
   });
 

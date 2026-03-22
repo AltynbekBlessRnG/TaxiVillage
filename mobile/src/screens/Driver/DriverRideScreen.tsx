@@ -13,8 +13,12 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE, UserLocationChangeEvent } f
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { createRidesSocket } from '../../api/socket';
+import { loadAuth } from '../../storage/authStorage';
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
+import { resolveRideRoute } from '../../utils/rideRoute';
+import { sendDriverLocationUpdate } from '../../location/driverLiveTracking';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverRide'>;
 
@@ -49,7 +53,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
   const [ride, setRide] = useState<RideDetails | null>(null);
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
-
+  const [displayRoute, setDisplayRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const mapRef = useRef<MapView>(null);
 
   const fetchRide = useCallback(async () => {
@@ -67,27 +71,105 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
     fetchRide().catch(() => {});
   }, [fetchRide]);
 
-  const routeCoordinates = useMemo(
+  useEffect(() => {
+    let socket: ReturnType<typeof createRidesSocket> | null = null;
+    let mounted = true;
+
+    const init = async () => {
+      const auth = await loadAuth();
+      if (!auth?.accessToken) {
+        return;
+      }
+
+      socket = createRidesSocket(auth.accessToken);
+      socket.emit('join:ride', rideId);
+
+      socket.on('ride:updated', (updatedRide: RideDetails) => {
+        if (!mounted || updatedRide.id !== rideId) {
+          return;
+        }
+
+        setRide(updatedRide);
+        setStatus(updatedRide.status);
+
+        if (updatedRide.status === 'CANCELED' || updatedRide.status === 'COMPLETED') {
+          navigation.replace('DriverHome');
+        }
+      });
+    };
+
+    init().catch(() => {});
+
+    return () => {
+      mounted = false;
+      socket?.disconnect();
+    };
+  }, [navigation, rideId]);
+
+  const fallbackRoute = useMemo(
     () =>
       buildRouteCoordinates({
-        fromLat: ride?.fromLat,
-        fromLng: ride?.fromLng,
-        stops: (ride?.stops ?? []).filter(
-          (stop): stop is Required<RideStop> => typeof stop.lat === 'number' && typeof stop.lng === 'number',
-        ),
-        toLat: ride?.toLat,
-        toLng: ride?.toLng,
+        fromLat:
+          status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED'
+            ? driverLocation?.lat
+            : ride?.fromLat,
+        fromLng:
+          status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED'
+            ? driverLocation?.lng
+            : ride?.fromLng,
+        stops:
+          status === 'IN_PROGRESS'
+            ? (ride?.stops ?? []).filter(
+                (stop): stop is Required<RideStop> => typeof stop.lat === 'number' && typeof stop.lng === 'number',
+              )
+            : [],
+        toLat:
+          status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED'
+            ? ride?.fromLat
+            : ride?.toLat,
+        toLng:
+          status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED'
+            ? ride?.fromLng
+            : ride?.toLng,
       }),
-    [ride],
+    [driverLocation?.lat, driverLocation?.lng, ride?.fromLat, ride?.fromLng, ride?.stops, ride?.toLat, ride?.toLng, status],
   );
+
+  useEffect(() => {
+    if (!ride) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      resolveRideRoute({
+        status,
+        fromCoord: ride.fromLat && ride.fromLng ? { lat: ride.fromLat, lng: ride.fromLng } : null,
+        toCoord: ride.toLat && ride.toLng ? { lat: ride.toLat, lng: ride.toLng } : null,
+        driverCoord: driverLocation,
+        stops: (ride.stops ?? [])
+          .filter((stop) => typeof stop.lat === 'number' && typeof stop.lng === 'number')
+          .map((stop) => ({
+            address: stop.address,
+            lat: stop.lat as number,
+            lng: stop.lng as number,
+          })),
+      })
+        .then((result) => {
+          setDisplayRoute(result.coordinates.length > 0 ? result.coordinates : fallbackRoute);
+        })
+        .catch(() => setDisplayRoute(fallbackRoute));
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [driverLocation, fallbackRoute, ride, status]);
 
   const initialRegion = useMemo(
     () =>
-      buildRegion(routeCoordinates, {
+      buildRegion(displayRoute.length > 0 ? displayRoute : fallbackRoute, {
         latitude: ride?.fromLat ?? 43.2389,
         longitude: ride?.fromLng ?? 76.8897,
       }),
-    [ride?.fromLat, ride?.fromLng, routeCoordinates],
+    [displayRoute, fallbackRoute, ride?.fromLat, ride?.fromLng],
   );
 
   const handleUserLocationChange = useCallback((event: UserLocationChangeEvent) => {
@@ -96,29 +178,14 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
       return;
     }
 
-    setDriverLocation({
+    const nextLocation = {
       lat: coordinate.latitude,
       lng: coordinate.longitude,
-    });
+    };
+
+    setDriverLocation(nextLocation);
+    sendDriverLocationUpdate(nextLocation).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!ride) {
-      return;
-    }
-
-    const points = [
-      ...routeCoordinates,
-      ...(driverLocation ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
-    ];
-    mapRef.current?.animateToRegion(
-      buildRegion(points, {
-        latitude: ride.fromLat ?? 43.2389,
-        longitude: ride.fromLng ?? 76.8897,
-      }),
-      350,
-    );
-  }, [driverLocation, ride, routeCoordinates]);
 
   const updateStatus = async (newStatus: string) => {
     setLoading(true);
@@ -166,13 +233,12 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
   const getStatusText = (value: string) => {
     switch (value) {
       case 'DRIVER_ASSIGNED':
-        return 'Ожидает подачи';
       case 'ON_THE_WAY':
         return 'Еду к клиенту';
       case 'DRIVER_ARRIVED':
         return 'На месте';
       case 'IN_PROGRESS':
-        return 'В пути';
+        return 'В путь';
       case 'COMPLETED':
         return 'Завершено';
       default:
@@ -196,13 +262,9 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
         onUserLocationChange={handleUserLocationChange}
         showsUserLocation
       >
-        {ride?.fromLat && ride?.fromLng && (
-          <Marker
-            coordinate={{ latitude: ride.fromLat, longitude: ride.fromLng }}
-            title="Подача"
-            pinColor="#2563EB"
-          />
-        )}
+        {ride?.fromLat && ride?.fromLng ? (
+          <Marker coordinate={{ latitude: ride.fromLat, longitude: ride.fromLng }} title="Подача" pinColor="#2563EB" />
+        ) : null}
 
         {ride?.stops
           ?.filter((stop): stop is Required<RideStop> => typeof stop.lat === 'number' && typeof stop.lng === 'number')
@@ -215,28 +277,43 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
             />
           ))}
 
-        {ride?.toLat && ride?.toLng && (
-          <Marker
-            coordinate={{ latitude: ride.toLat, longitude: ride.toLng }}
-            title="Финиш"
-            pinColor="#DC2626"
-          />
-        )}
+        {ride?.toLat && ride?.toLng ? (
+          <Marker coordinate={{ latitude: ride.toLat, longitude: ride.toLng }} title="Назначение" pinColor="#DC2626" />
+        ) : null}
 
-        {routeCoordinates.length >= 2 && (
-          <Polyline
-            coordinates={routeCoordinates}
-            strokeColor="#3B82F6"
-            strokeWidth={4}
-            lineDashPattern={[10, 6]}
-          />
-        )}
+        {(displayRoute.length > 0 ? displayRoute : fallbackRoute).length >= 2 ? (
+          <Polyline coordinates={displayRoute.length > 0 ? displayRoute : fallbackRoute} strokeColor="#3B82F6" strokeWidth={4} />
+        ) : null}
 
-        {driverLocation && <Marker coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }} title="Вы" pinColor="#10B981" />}
+        {driverLocation ? (
+          <Marker coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }} title="Вы" pinColor="#10B981" />
+        ) : null}
       </MapView>
 
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.replace('DriverHome')}>
         <Text style={styles.backBtnText}>← На главную</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.recenterBtn}
+        onPress={() => {
+          if (!ride) {
+            return;
+          }
+          const points = [
+            ...(displayRoute.length > 0 ? displayRoute : fallbackRoute),
+            ...(driverLocation ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
+          ];
+          mapRef.current?.animateToRegion(
+            buildRegion(points, {
+              latitude: ride.fromLat ?? 43.2389,
+              longitude: ride.fromLng ?? 76.8897,
+            }),
+            350,
+          );
+        }}
+      >
+        <Text style={styles.recenterBtnText}>⌖</Text>
       </TouchableOpacity>
 
       <View style={styles.bottomSheet}>
@@ -250,7 +327,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           </View>
 
-          {ride && (
+          {ride ? (
             <View style={styles.routeCard}>
               <View style={styles.routePoint}>
                 <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
@@ -275,47 +352,31 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
                   <Text style={styles.commentText}>{ride.comment}</Text>
                 </View>
               ) : null}
-
-              <View style={styles.priceLockBox}>
-                <Text style={styles.priceLockLabel}>Согласованная цена</Text>
-                <Text style={styles.priceLockValue}>{Math.round(agreedPrice)} ₸</Text>
-                <Text style={styles.priceLockHint}>Цена зафиксирована пассажиром и больше не редактируется.</Text>
-              </View>
             </View>
-          )}
+          ) : null}
 
           <View style={styles.buttonGroup}>
-            {status === 'DRIVER_ASSIGNED' && (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.onTheWayButton]}
-                onPress={() => updateStatus('ON_THE_WAY')}
-                disabled={loading}
-              >
-                <Text style={styles.actionButtonText}>Еду к клиенту</Text>
-              </TouchableOpacity>
-            )}
-
-            {status === 'ON_THE_WAY' && (
+            {(status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED') ? (
               <TouchableOpacity
                 style={[styles.actionButton, styles.arrivedButton]}
                 onPress={() => updateStatus('DRIVER_ARRIVED')}
                 disabled={loading}
               >
-                <Text style={styles.actionButtonText}>Я на месте</Text>
+                <Text style={styles.actionButtonText}>Я на местехуй</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
 
-            {status === 'DRIVER_ARRIVED' && (
+            {status === 'DRIVER_ARRIVED' ? (
               <TouchableOpacity
                 style={[styles.actionButton, styles.inProgressButton]}
                 onPress={() => updateStatus('IN_PROGRESS')}
                 disabled={loading}
               >
-                <Text style={styles.actionButtonText}>Клиент в машине</Text>
+                <Text style={styles.actionButtonText}>В путь</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
 
-            {status === 'IN_PROGRESS' && (
+            {status === 'IN_PROGRESS' ? (
               <TouchableOpacity
                 style={[styles.actionButton, styles.completeButton]}
                 onPress={completeRide}
@@ -323,15 +384,13 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
               >
                 <Text style={styles.completeButtonText}>Завершить поездку</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
 
-            {(status === 'DRIVER_ASSIGNED' ||
-              status === 'ON_THE_WAY' ||
-              status === 'DRIVER_ARRIVED') && (
+            {(status === 'ON_THE_WAY' || status === 'DRIVER_ASSIGNED' || status === 'DRIVER_ARRIVED') ? (
               <TouchableOpacity style={styles.cancelButton} onPress={cancelRide} disabled={loading}>
                 <Text style={styles.cancelButtonText}>Отменить заказ</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -354,20 +413,35 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backBtnText: { color: '#F4F4F5', fontSize: 14, fontWeight: '600' },
+  recenterBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  recenterBtnText: { color: '#F4F4F5', fontSize: 18, fontWeight: '700' },
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: '#09090B',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    paddingTop: 12,
-    paddingBottom: 40,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 18,
     borderWidth: 1,
     borderColor: '#27272A',
-    maxHeight: '64%',
+    maxHeight: '40%',
   },
   handleBar: {
     width: 40,
@@ -378,8 +452,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   scrollContent: { flexGrow: 0 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: '900', color: '#10B981' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  title: { fontSize: 20, fontWeight: '900', color: '#10B981' },
   statusBadge: {
     backgroundColor: '#18181B',
     paddingHorizontal: 12,
@@ -392,41 +466,31 @@ const styles = StyleSheet.create({
   routeCard: {
     backgroundColor: '#18181B',
     borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#27272A',
   },
-  routePoint: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  routePoint: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 15 },
-  routeText: { color: '#E4E4E7', fontSize: 15, flex: 1, fontWeight: '500' },
+  routeText: { color: '#E4E4E7', fontSize: 13, flex: 1, fontWeight: '500' },
   commentBox: { marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#27272A' },
   commentLabel: { color: '#71717A', fontSize: 12, marginBottom: 4, fontWeight: '600' },
-  commentText: { color: '#FCD34D', fontSize: 14, fontStyle: 'italic' },
-  priceLockBox: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#27272A',
-  },
-  priceLockLabel: { color: '#71717A', fontSize: 12, textTransform: 'uppercase', marginBottom: 6 },
-  priceLockValue: { color: '#3B82F6', fontSize: 22, fontWeight: '800', marginBottom: 6 },
-  priceLockHint: { color: '#A1A1AA', fontSize: 13, lineHeight: 18 },
-  buttonGroup: { gap: 12 },
-  actionButton: { borderRadius: 20, paddingVertical: 18, alignItems: 'center' },
-  actionButtonText: { color: '#000', fontSize: 18, fontWeight: '800' },
-  onTheWayButton: { backgroundColor: '#F59E0B' },
+  commentText: { color: '#FCD34D', fontSize: 13, fontStyle: 'italic' },
+  buttonGroup: { gap: 10 },
+  actionButton: { borderRadius: 16, paddingVertical: 13, alignItems: 'center' },
+  actionButtonText: { color: '#000', fontSize: 17, fontWeight: '800' },
   arrivedButton: { backgroundColor: '#F97316' },
   inProgressButton: { backgroundColor: '#3B82F6' },
   completeButton: { backgroundColor: '#10B981' },
   completeButtonText: { color: '#fff', fontSize: 18, fontWeight: '800' },
   cancelButton: {
-    paddingVertical: 16,
+    paddingVertical: 13,
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#27272A',
     backgroundColor: '#1C1C1E',
   },
-  cancelButtonText: { color: '#EF4444', fontSize: 16, fontWeight: '700' },
+  cancelButtonText: { color: '#EF4444', fontSize: 15, fontWeight: '700' },
 });

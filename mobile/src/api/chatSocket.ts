@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { loadAuth } from '../storage/authStorage';
+import { BASE_URL } from './instance';
 
 export interface Message {
   id: string;
@@ -24,8 +25,15 @@ export class ChatSocket {
     }
 
     this.rideId = rideId;
-    this.socket = io('http://192.168.0.11:3000/chat', {
+    const wsBase = BASE_URL.replace('/api', '');
+    this.socket = io(`${wsBase}/chat`, {
+      path: '/socket.io',
       auth: { token: auth.accessToken },
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      timeout: 10000,
     });
 
     return new Promise((resolve, reject) => {

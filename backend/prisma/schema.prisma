@@ -24,6 +24,8 @@ model User {
 
   passenger PassengerProfile?
   driver    DriverProfile?
+  courier   CourierProfile?
+  merchant  Merchant?
 }
 
 /// Профиль пассажира
@@ -35,6 +37,8 @@ model PassengerProfile {
   fullName  String?
 
   rides     Ride[]   @relation("PassengerRides")
+  courierOrders CourierOrder[] @relation("PassengerCourierOrders")
+  foodOrders FoodOrder[] @relation("PassengerFoodOrders")
   favoriteAddresses FavoriteAddress[]
   sentMessages     Message[]     @relation("SentPassengerMessages")
   receivedMessages Message[]     @relation("ReceivedPassengerMessages")
@@ -61,6 +65,44 @@ model DriverProfile {
   documents    DriverDocument[]
   sentMessages Message[]     @relation("SentDriverMessages")
   receivedMessages Message[] @relation("ReceivedDriverMessages")
+}
+
+/// Профиль курьера
+model CourierProfile {
+  id           String        @id @default(cuid())
+  userId       String        @unique
+  user         User          @relation(fields: [userId], references: [id])
+
+  fullName     String?
+  status       DriverStatus  @default(APPROVED)
+  isOnline     Boolean       @default(false)
+
+  lat          Float?
+  lng          Float?
+  lastOrderFinishedAt DateTime?
+  balance      Decimal       @default(0) @db.Decimal(10, 2)
+  rating       Float         @default(5.0)
+
+  orders       CourierOrder[] @relation("CourierOrders")
+}
+
+/// Заведение / merchant profile
+model Merchant {
+  id          String        @id @default(cuid())
+  userId      String        @unique
+  user        User          @relation(fields: [userId], references: [id])
+
+  name        String
+  cuisine     String?
+  description String?
+  etaMinutes  Int           @default(35)
+  minOrder    Decimal       @default(0) @db.Decimal(10, 2)
+  rating      Float         @default(5.0)
+  isOpen      Boolean       @default(true)
+  tone        String?       @default("#7C2D12")
+
+  menuCategories MenuCategory[]
+  foodOrders     FoodOrder[] @relation("MerchantFoodOrders")
 }
 
 /// Автомобиль водителя
@@ -173,6 +215,9 @@ model RideStatusHistory {
 enum UserRole {
   PASSENGER
   DRIVER
+  COURIER
+  DRIVER_INTERCITY
+  MERCHANT
   ADMIN
 }
 
@@ -189,6 +234,25 @@ enum RideStatus {
   DRIVER_ARRIVED
   IN_PROGRESS
   COMPLETED
+  CANCELED
+}
+
+enum CourierOrderStatus {
+  SEARCHING_COURIER
+  TO_PICKUP
+  PICKED_UP
+  DELIVERING
+  DELIVERED
+  CANCELED
+}
+
+enum FoodOrderStatus {
+  PLACED
+  ACCEPTED
+  PREPARING
+  READY_FOR_PICKUP
+  ON_DELIVERY
+  DELIVERED
   CANCELED
 }
 
@@ -248,5 +312,120 @@ model Message {
   createdAt   DateTime @default(now())
   
   @@index([rideId, createdAt])
+}
+
+/// Курьерский заказ
+model CourierOrder {
+  id               String              @id @default(cuid())
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  passengerId      String
+  passenger        PassengerProfile    @relation("PassengerCourierOrders", fields: [passengerId], references: [id])
+
+  courierId        String?
+  courier          CourierProfile?     @relation("CourierOrders", fields: [courierId], references: [id])
+
+  status           CourierOrderStatus  @default(SEARCHING_COURIER)
+  paymentMethod    PaymentMethod       @default(CARD)
+
+  pickupAddress    String
+  pickupLat        Float
+  pickupLng        Float
+
+  dropoffAddress   String
+  dropoffLat       Float
+  dropoffLng       Float
+
+  itemDescription  String
+  packageWeight    String?
+  packageSize      String?
+  comment          String?
+
+  estimatedPrice   Decimal?            @db.Decimal(10, 2)
+  finalPrice       Decimal?            @db.Decimal(10, 2)
+
+  pickedUpAt       DateTime?
+  deliveredAt      DateTime?
+
+  statusHistory    CourierOrderStatusHistory[]
+}
+
+/// История изменения статусов курьерского заказа
+model CourierOrderStatusHistory {
+  id             String             @id @default(cuid())
+  courierOrderId String
+  courierOrder   CourierOrder       @relation(fields: [courierOrderId], references: [id])
+
+  status         CourierOrderStatus
+  createdAt      DateTime           @default(now())
+}
+
+model MenuCategory {
+  id          String     @id @default(cuid())
+  merchantId  String
+  merchant    Merchant   @relation(fields: [merchantId], references: [id])
+
+  name        String
+  sortOrder   Int        @default(0)
+
+  items       MenuItem[]
+}
+
+model MenuItem {
+  id          String       @id @default(cuid())
+  categoryId  String
+  category    MenuCategory @relation(fields: [categoryId], references: [id])
+
+  name        String
+  description String?
+  price       Decimal      @db.Decimal(10, 2)
+  isAvailable Boolean      @default(true)
+  imageUrl    String?
+
+  foodOrderItems FoodOrderItem[]
+}
+
+model FoodOrder {
+  id              String           @id @default(cuid())
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  passengerId     String
+  passenger       PassengerProfile @relation("PassengerFoodOrders", fields: [passengerId], references: [id])
+
+  merchantId      String
+  merchant        Merchant         @relation("MerchantFoodOrders", fields: [merchantId], references: [id])
+
+  status          FoodOrderStatus  @default(PLACED)
+  deliveryAddress String
+  comment         String?
+  paymentMethod   PaymentMethod    @default(CARD)
+  totalPrice      Decimal          @db.Decimal(10, 2)
+
+  items           FoodOrderItem[]
+  statusHistory   FoodOrderStatusHistory[]
+}
+
+model FoodOrderItem {
+  id          String    @id @default(cuid())
+  foodOrderId String
+  foodOrder   FoodOrder @relation(fields: [foodOrderId], references: [id])
+
+  menuItemId  String
+  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id])
+
+  name        String
+  price       Decimal   @db.Decimal(10, 2)
+  qty         Int
+}
+
+model FoodOrderStatusHistory {
+  id          String          @id @default(cuid())
+  foodOrderId String
+  foodOrder   FoodOrder       @relation(fields: [foodOrderId], references: [id])
+
+  status      FoodOrderStatus
+  createdAt   DateTime        @default(now())
 }
 
