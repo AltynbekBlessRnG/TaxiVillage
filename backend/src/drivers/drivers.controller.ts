@@ -19,7 +19,7 @@ import { UploadService } from '../upload/upload.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { DocumentType, UserRole } from '@prisma/client';
+import { CourierTransportType, DocumentType, DriverMode, UserRole } from '@prisma/client/index';
 
 class SetStatusDto {
   @IsBoolean()
@@ -49,6 +49,25 @@ class CarDto {
 class AddDocumentDto {
   @IsEnum(DocumentType)
   type!: DocumentType;
+}
+
+class SetDriverModeDto {
+  @IsEnum(DriverMode)
+  driverMode!: DriverMode;
+}
+
+class SetIntercityCapabilityDto {
+  @IsBoolean()
+  supportsIntercity!: boolean;
+}
+
+class SetCourierCapabilityDto {
+  @IsBoolean()
+  supportsCourier!: boolean;
+
+  @IsEnum(CourierTransportType)
+  @Type(() => String)
+  courierTransportType!: CourierTransportType;
 }
 
 // ИЗМЕНЕНО: Простая настройка для хранения файла в буфере
@@ -93,6 +112,30 @@ export class DriversController {
   getProfile(@Req() req: any) {
     const userId: string = req.user.userId;
     return this.driversService.getProfile(userId);
+  }
+
+  @Post('mode')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  setMode(@Body() dto: SetDriverModeDto, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.driversService.setDriverMode(userId, dto.driverMode);
+  }
+
+  @Post('intercity-capability')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  setIntercityCapability(@Body() dto: SetIntercityCapabilityDto, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.driversService.updateIntercityCapability(userId, dto.supportsIntercity);
+  }
+
+  @Post('courier-capability')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  setCourierCapability(@Body() dto: SetCourierCapabilityDto, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.driversService.updateCourierCapability(userId, dto);
   }
 
   @Post('car')

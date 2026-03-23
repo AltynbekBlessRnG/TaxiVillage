@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client/index';
 
 type PublicRegisterRole = 'PASSENGER' | 'DRIVER' | 'COURIER' | 'MERCHANT';
 
@@ -44,13 +44,27 @@ export class AuthService {
   }
 
   async login(phone: string, password: string) {
-    const user = await this.usersService.findByPhone(phone);
+    let user = await this.usersService.findByPhone(phone);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.role === 'DRIVER_INTERCITY') {
+      user = (await this.usersService.upgradeLegacyIntercityDriver(user.id)) as any;
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+    }
+
+    if (user.role === 'COURIER') {
+      user = (await this.usersService.upgradeLegacyCourier(user.id)) as any;
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
     }
 
     const tokens = await this.issueTokens(user.id, user.role);
@@ -79,7 +93,22 @@ export class AuthService {
         throw new UnauthorizedException('Refresh token revoked');
       }
 
-      return this.issueTokens(payload.sub, payload.role);
+      const refreshedUser = await this.usersService.findOne(payload.sub);
+      if (!refreshedUser) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      if (refreshedUser.role === 'DRIVER_INTERCITY') {
+        const upgradedUser = await this.usersService.upgradeLegacyIntercityDriver(refreshedUser.id);
+        return this.issueTokens(payload.sub, (upgradedUser?.role ?? 'DRIVER') as UserRole);
+      }
+
+      if (refreshedUser.role === 'COURIER') {
+        const upgradedUser = await this.usersService.upgradeLegacyCourier(refreshedUser.id);
+        return this.issueTokens(payload.sub, (upgradedUser?.role ?? 'DRIVER') as UserRole);
+      }
+
+      return this.issueTokens(payload.sub, refreshedUser.role);
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }

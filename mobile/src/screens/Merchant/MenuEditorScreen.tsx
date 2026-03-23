@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, TextInput } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import {
@@ -20,12 +21,20 @@ export const MenuEditorScreen: React.FC<Props> = () => {
   const [itemDescription, setItemDescription] = useState('');
   const [itemPrice, setItemPrice] = useState('');
 
-  const loadProfile = () =>
-    apiClient.get('/merchants/profile/me').then((response) => setMerchant(response.data));
+  const loadProfile = useCallback(
+    () => apiClient.get('/merchants/profile/me').then((response) => setMerchant(response.data)),
+    [],
+  );
 
   useEffect(() => {
     loadProfile().catch(() => null);
-  }, []);
+  }, [loadProfile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile().catch(() => null);
+    }, [loadProfile]),
+  );
 
   const createCategory = async () => {
     if (!categoryName) {

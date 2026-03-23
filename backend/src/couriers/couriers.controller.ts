@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client/index';
 import { CouriersService } from './couriers.service';
 
 class SetStatusDto {
@@ -28,28 +28,28 @@ export class CouriersController {
 
   @Post('status')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.COURIER)
+  @Roles(UserRole.COURIER, UserRole.DRIVER)
   setStatus(@Body() dto: SetStatusDto, @Req() req: any) {
     return this.couriersService.setOnlineStatus(req.user.userId, dto.isOnline);
   }
 
   @Patch('location')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.COURIER)
+  @Roles(UserRole.COURIER, UserRole.DRIVER)
   updateLocation(@Body() dto: UpdateLocationDto, @Req() req: any) {
     return this.couriersService.updateLocation(req.user.userId, dto.lat, dto.lng);
   }
 
   @Get('current-order')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.COURIER)
+  @Roles(UserRole.COURIER, UserRole.DRIVER)
   currentOrder(@Req() req: any) {
     return this.couriersService.getCurrentOrderForCourier(req.user.userId);
   }
 
   @Get('profile')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.COURIER)
+  @Roles(UserRole.COURIER, UserRole.DRIVER)
   getProfile(@Req() req: any) {
     return this.couriersService.getProfile(req.user.userId);
   }

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { InlineLabel, PrimaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
@@ -11,12 +12,22 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
     apiClient
       .get('/merchants/profile/me')
       .then((response) => setProfile(response.data))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile]),
+  );
 
   if (loading) {
     return (

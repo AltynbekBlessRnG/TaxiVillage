@@ -35,6 +35,11 @@ interface DriverProfileData {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   balance?: number;
   rating?: number;
+  supportsTaxi?: boolean;
+  supportsCourier?: boolean;
+  supportsIntercity?: boolean;
+  driverMode?: 'TAXI' | 'COURIER' | 'INTERCITY';
+  courierTransportType?: 'CAR' | 'BIKE' | 'FOOT' | null;
   car?: Car;
   documents?: Document[];
 }
@@ -55,6 +60,9 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [carColor, setCarColor] = useState('');
   const [carPlate, setCarPlate] = useState('');
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+  const [updatingIntercity, setUpdatingIntercity] = useState(false);
+  const [updatingCourier, setUpdatingCourier] = useState(false);
+  const [courierTransportType, setCourierTransportType] = useState<'CAR' | 'BIKE' | 'FOOT'>('FOOT');
 
   const approvedDocuments = profile?.documents?.filter((doc) => doc.approved) ?? [];
   const hasApprovedLicense = approvedDocuments.some((doc) => doc.type === 'DRIVER_LICENSE');
@@ -86,6 +94,9 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
         setCarColor(data.car.color || '');
         setCarPlate(data.car.plateNumber || '');
       }
+      if (data.courierTransportType) {
+        setCourierTransportType(data.courierTransportType);
+      }
     } catch {
       Alert.alert('Ошибка', 'Не удалось загрузить профиль');
     } finally {
@@ -113,6 +124,35 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось сохранить');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const toggleIntercity = async () => {
+    try {
+      setUpdatingIntercity(true);
+      await apiClient.post('/drivers/intercity-capability', {
+        supportsIntercity: !profile?.supportsIntercity,
+      });
+      await loadProfile();
+    } catch (e: any) {
+      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось обновить межгородный режим');
+    } finally {
+      setUpdatingIntercity(false);
+    }
+  };
+
+  const toggleCourier = async (nextTransportType = courierTransportType) => {
+    try {
+      setUpdatingCourier(true);
+      await apiClient.post('/drivers/courier-capability', {
+        supportsCourier: !profile?.supportsCourier,
+        courierTransportType: nextTransportType,
+      });
+      await loadProfile();
+    } catch (e: any) {
+      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось обновить курьерский режим');
+    } finally {
+      setUpdatingCourier(false);
     }
   };
 
@@ -295,6 +335,63 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Режимы водителя</Text>
+        <View style={styles.checklist}>
+          <View style={styles.checkItem}>
+            <Text style={styles.checkIcon}>{profile?.supportsTaxi ? '✓' : '•'}</Text>
+            <Text style={styles.checkText}>Такси доступно</Text>
+          </View>
+          <View style={styles.checkItem}>
+            <Text style={styles.checkIcon}>{profile?.supportsIntercity ? '✓' : '•'}</Text>
+            <Text style={styles.checkText}>Межгород {profile?.supportsIntercity ? 'включен' : 'выключен'}</Text>
+          </View>
+          <View style={styles.checkItem}>
+            <Text style={styles.checkIcon}>{profile?.supportsCourier ? '✓' : '•'}</Text>
+            <Text style={styles.checkText}>Курьер {profile?.supportsCourier ? `включен (${profile?.courierTransportType || 'FOOT'})` : 'выключен'}</Text>
+          </View>
+          <View style={styles.checkItem}>
+            <Text style={styles.checkIcon}>•</Text>
+            <Text style={styles.checkText}>Текущий режим: {profile?.driverMode === 'INTERCITY' ? 'Межгород' : profile?.driverMode === 'COURIER' ? 'Курьер' : 'Такси'}</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.secondaryButton} onPress={toggleIntercity} disabled={updatingIntercity}>
+          <Text style={styles.secondaryButtonText}>
+            {updatingIntercity
+              ? 'Обновление...'
+              : profile?.supportsIntercity
+                ? 'Выключить межгород'
+                : 'Включить межгород'}
+          </Text>
+        </TouchableOpacity>
+        <View style={styles.transportRow}>
+          {(['FOOT', 'BIKE', 'CAR'] as const).map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[styles.transportChip, courierTransportType === type && styles.transportChipActive]}
+              onPress={() => setCourierTransportType(type)}
+            >
+              <Text style={[styles.transportChipText, courierTransportType === type && styles.transportChipTextActive]}>
+                {type === 'FOOT' ? 'Пеший' : type === 'BIKE' ? 'Байк' : 'Авто'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => toggleCourier(courierTransportType)}
+          disabled={updatingCourier}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {updatingCourier
+              ? 'Обновление...'
+              : profile?.supportsCourier
+                ? 'Выключить курьерский режим'
+                : 'Включить курьерский режим'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 };
@@ -339,4 +436,25 @@ const styles = StyleSheet.create({
   checkItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkIcon: { fontSize: 18, color: '#F4F4F5', width: 18 },
   checkText: { fontSize: 14, color: '#F4F4F5', flex: 1 },
+  transportRow: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 12 },
+  transportChip: {
+    flex: 1,
+    backgroundColor: '#09090B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  transportChipActive: {
+    backgroundColor: '#27272A',
+  },
+  transportChipText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  transportChipTextActive: {
+    color: '#F4F4F5',
+  },
 });

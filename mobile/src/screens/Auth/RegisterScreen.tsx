@@ -51,11 +51,11 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       if (user.role === 'DRIVER' || user.role === 'DRIVER_TAXI') {
         navigation.replace('DriverHome');
       } else if (user.role === 'COURIER') {
-        navigation.replace('CourierWorkerHome');
+        navigation.replace('DriverHome');
       } else if (user.role === 'MERCHANT') {
         navigation.replace('MerchantDashboard');
       } else if (user.role === 'DRIVER_INTERCITY') {
-        navigation.replace('IntercityDriverHome');
+        navigation.replace('DriverHome');
       } else {
         navigation.replace('PassengerHome', {});
       }

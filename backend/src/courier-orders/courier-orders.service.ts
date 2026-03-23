@@ -11,7 +11,7 @@ import {
   CourierOrderStatus,
   Prisma,
   UserRole,
-} from '@prisma/client';
+} from '@prisma/client/index';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CourierOrdersGateway } from './courier-orders.gateway';
@@ -95,6 +95,8 @@ export class CourierOrdersService implements OnModuleDestroy {
           in: [
             CourierOrderStatus.SEARCHING_COURIER,
             CourierOrderStatus.TO_PICKUP,
+            CourierOrderStatus.COURIER_ARRIVED,
+            CourierOrderStatus.TO_RECIPIENT,
             CourierOrderStatus.PICKED_UP,
             CourierOrderStatus.DELIVERING,
           ],
@@ -174,7 +176,7 @@ export class CourierOrdersService implements OnModuleDestroy {
       });
     }
 
-    if (role === UserRole.COURIER) {
+    if (role === UserRole.COURIER || role === UserRole.DRIVER) {
       const courier = await this.prisma.courierProfile.findUnique({
         where: { userId },
       });
@@ -244,7 +246,8 @@ export class CourierOrdersService implements OnModuleDestroy {
     }
     if (
       order.status !== CourierOrderStatus.SEARCHING_COURIER &&
-      order.status !== CourierOrderStatus.TO_PICKUP
+      order.status !== CourierOrderStatus.TO_PICKUP &&
+      order.status !== CourierOrderStatus.COURIER_ARRIVED
     ) {
       throw new BadRequestException('Cannot cancel courier order in current status');
     }
@@ -269,12 +272,7 @@ export class CourierOrdersService implements OnModuleDestroy {
   }
 
   async acceptOrder(courierUserId: string, orderId: string) {
-    const courier = await this.prisma.courierProfile.findUnique({
-      where: { userId: courierUserId },
-    });
-    if (!courier) {
-      throw new NotFoundException('Courier profile not found');
-    }
+    const courier = await this.requireCourierProfile(courierUserId);
 
     await this.prisma.$transaction(async (tx) => {
       const result = await tx.courierOrder.updateMany({
@@ -310,12 +308,7 @@ export class CourierOrdersService implements OnModuleDestroy {
   }
 
   async rejectOrder(courierUserId: string, orderId: string) {
-    const courier = await this.prisma.courierProfile.findUnique({
-      where: { userId: courierUserId },
-    });
-    if (!courier) {
-      throw new NotFoundException('Courier profile not found');
-    }
+    const courier = await this.requireCourierProfile(courierUserId);
 
     const order = await this.prisma.courierOrder.findUnique({
       where: { id: orderId },
@@ -341,12 +334,7 @@ export class CourierOrdersService implements OnModuleDestroy {
   }
 
   async updateOrderStatus(courierUserId: string, orderId: string, status: CourierOrderStatus) {
-    const courier = await this.prisma.courierProfile.findUnique({
-      where: { userId: courierUserId },
-    });
-    if (!courier) {
-      throw new NotFoundException('Courier profile not found');
-    }
+    const courier = await this.requireCourierProfile(courierUserId);
 
     const order = await this.loadOrderRecord(orderId);
     if (order.courierId !== courier.id) {
@@ -358,8 +346,12 @@ export class CourierOrdersService implements OnModuleDestroy {
     const now = new Date();
     const data: Prisma.CourierOrderUpdateInput = {
       status,
+      arrivedAt:
+        status === CourierOrderStatus.COURIER_ARRIVED && !order.arrivedAt
+          ? now
+          : order.arrivedAt,
       pickedUpAt:
-        status === CourierOrderStatus.PICKED_UP && !order.pickedUpAt
+        (status === CourierOrderStatus.PICKED_UP || status === CourierOrderStatus.TO_RECIPIENT) && !order.pickedUpAt
           ? now
           : order.pickedUpAt,
       deliveredAt:
@@ -398,10 +390,16 @@ export class CourierOrdersService implements OnModuleDestroy {
         CourierOrderStatus.CANCELED,
       ],
       [CourierOrderStatus.TO_PICKUP]: [
+        CourierOrderStatus.COURIER_ARRIVED,
         CourierOrderStatus.PICKED_UP,
         CourierOrderStatus.CANCELED,
       ],
-      [CourierOrderStatus.PICKED_UP]: [CourierOrderStatus.DELIVERING],
+      [CourierOrderStatus.COURIER_ARRIVED]: [
+        CourierOrderStatus.TO_RECIPIENT,
+        CourierOrderStatus.CANCELED,
+      ],
+      [CourierOrderStatus.TO_RECIPIENT]: [CourierOrderStatus.DELIVERED],
+      [CourierOrderStatus.PICKED_UP]: [CourierOrderStatus.DELIVERING, CourierOrderStatus.TO_RECIPIENT],
       [CourierOrderStatus.DELIVERING]: [CourierOrderStatus.DELIVERED],
       [CourierOrderStatus.DELIVERED]: [],
       [CourierOrderStatus.CANCELED]: [],
@@ -558,7 +556,7 @@ export class CourierOrdersService implements OnModuleDestroy {
       return;
     }
 
-    if (role === UserRole.COURIER) {
+    if (role === UserRole.COURIER || role === UserRole.DRIVER) {
       const courier = await this.prisma.courierProfile.findUnique({
         where: { userId },
         select: { id: true },
@@ -583,6 +581,16 @@ export class CourierOrdersService implements OnModuleDestroy {
       throw new NotFoundException('Courier order not found');
     }
     return order;
+  }
+
+  private async requireCourierProfile(userId: string) {
+    const courier = await this.prisma.courierProfile.findUnique({
+      where: { userId },
+    });
+    if (!courier) {
+      throw new NotFoundException('Courier profile not found');
+    }
+    return courier;
   }
 
   private getOrderInclude() {
@@ -614,10 +622,18 @@ export class CourierOrdersService implements OnModuleDestroy {
       });
     }
 
-    if (order.status === CourierOrderStatus.PICKED_UP) {
+    if (order.status === CourierOrderStatus.COURIER_ARRIVED) {
       await this.notificationsService.sendPush(pushToken, {
-        title: 'Посылка у курьера',
-        body: 'Курьер забрал посылку и готовится к доставке.',
+        title: 'Курьер на месте',
+        body: 'Курьер прибыл к точке забора.',
+        data: { courierOrderId: order.id, status: order.status },
+      });
+    }
+
+    if (order.status === CourierOrderStatus.PICKED_UP || order.status === CourierOrderStatus.TO_RECIPIENT) {
+      await this.notificationsService.sendPush(pushToken, {
+        title: 'Курьер едет к получателю',
+        body: 'Курьер забрал посылку и везет ее получателю.',
         data: { courierOrderId: order.id, status: order.status },
       });
     }

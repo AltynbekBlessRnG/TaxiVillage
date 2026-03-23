@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { PrimaryButton, SectionTitle, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
@@ -13,13 +14,23 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
   const [merchant, setMerchant] = useState<any>(null);
   const [cart, setCart] = useState<Array<{ menuItemId: string; name: string; price: string; qty: number }>>([]);
 
-  useEffect(() => {
+  const loadMerchant = useCallback(() => {
     apiClient
       .get(`/merchants/${restaurantId}/menu`)
       .then((response) => setMerchant(response.data))
       .catch(() => Alert.alert('Ошибка', 'Не удалось загрузить меню'))
       .finally(() => setLoading(false));
   }, [restaurantId]);
+
+  useEffect(() => {
+    loadMerchant();
+  }, [loadMerchant]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadMerchant();
+    }, [loadMerchant]),
+  );
 
   const totalItems = useMemo(
     () => cart.reduce((sum, item) => sum + item.qty, 0),

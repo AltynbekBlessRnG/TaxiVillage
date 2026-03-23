@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import {
@@ -27,12 +28,24 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadOrder = useCallback(() => {
     apiClient
       .get(`/food-orders/${route.params.orderId}`)
       .then((response) => setOrder(response.data))
       .finally(() => setLoading(false));
   }, [route.params.orderId]);
+
+  useEffect(() => {
+    loadOrder();
+  }, [loadOrder]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadOrder();
+      const intervalId = setInterval(loadOrder, 5000);
+      return () => clearInterval(intervalId);
+    }, [loadOrder]),
+  );
 
   if (loading) {
     return (

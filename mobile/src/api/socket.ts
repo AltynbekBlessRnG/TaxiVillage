@@ -29,3 +29,15 @@ export function createChatSocket(token: string): Socket {
     timeout: 10000,
   });
 }
+
+export function createCourierOrdersSocket(token: string): Socket {
+  return io(`${WS_BASE}/courier-orders`, {
+    path: '/socket.io',
+    auth: { token },
+    transports: ['polling', 'websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    timeout: 10000,
+  });
+}

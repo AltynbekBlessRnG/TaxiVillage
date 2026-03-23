@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CourierOrderStatus, DriverStatus } from '@prisma/client';
+import { CourierOrderStatus, DriverStatus } from '@prisma/client/index';
 import { PrismaService } from '../prisma/prisma.service';
 import { CourierOrdersGateway } from '../courier-orders/courier-orders.gateway';
 
@@ -14,24 +14,38 @@ export class CouriersService {
     private readonly courierOrdersGateway: CourierOrdersGateway,
   ) {}
 
-  async setOnlineStatus(userId: string, isOnline: boolean) {
+  private async requireCourierProfile(userId: string) {
     const courier = await this.prisma.courierProfile.findUnique({
       where: { userId },
     });
     if (!courier) {
       throw new NotFoundException('Профиль курьера не найден');
     }
+    return courier;
+  }
+
+  async setOnlineStatus(userId: string, isOnline: boolean) {
+    const courier = await this.requireCourierProfile(userId);
     if (isOnline && courier.status !== DriverStatus.APPROVED) {
       throw new BadRequestException('Курьер не одобрен администратором');
     }
-    return this.prisma.courierProfile.update({
+    const updated = await this.prisma.courierProfile.update({
       where: { userId },
       data: { isOnline },
     });
+    await this.prisma.driverProfile.updateMany({
+      where: { userId },
+      data: { isOnline },
+    });
+    return updated;
   }
 
   async updateLocation(userId: string, lat: number, lng: number) {
     const courier = await this.prisma.courierProfile.update({
+      where: { userId },
+      data: { lat, lng },
+    });
+    await this.prisma.driverProfile.updateMany({
       where: { userId },
       data: { lat, lng },
     });
@@ -42,6 +56,8 @@ export class CouriersService {
         status: {
           in: [
             CourierOrderStatus.TO_PICKUP,
+            CourierOrderStatus.COURIER_ARRIVED,
+            CourierOrderStatus.TO_RECIPIENT,
             CourierOrderStatus.PICKED_UP,
             CourierOrderStatus.DELIVERING,
           ],
@@ -57,12 +73,7 @@ export class CouriersService {
   }
 
   async getCurrentOrderForCourier(userId: string) {
-    const courier = await this.prisma.courierProfile.findUnique({
-      where: { userId },
-    });
-    if (!courier) {
-      throw new NotFoundException('Courier profile not found');
-    }
+    const courier = await this.requireCourierProfile(userId);
 
     return this.prisma.courierOrder.findFirst({
       where: {
@@ -70,6 +81,8 @@ export class CouriersService {
         status: {
           in: [
             CourierOrderStatus.TO_PICKUP,
+            CourierOrderStatus.COURIER_ARRIVED,
+            CourierOrderStatus.TO_RECIPIENT,
             CourierOrderStatus.PICKED_UP,
             CourierOrderStatus.DELIVERING,
           ],

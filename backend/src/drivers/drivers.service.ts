@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DocumentType, DriverStatus, RideStatus } from '@prisma/client';
+import { CourierTransportType, DocumentType, DriverMode, DriverStatus, RideStatus } from '@prisma/client/index';
 import { RidesGateway } from '../rides/rides.gateway';
 
 /** Haversine distance calculation */
@@ -116,6 +116,26 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       // Check driver approval status
       if (driver.status !== DriverStatus.APPROVED) {
         throw new BadRequestException('Водитель не одобрен администратором');
+      }
+
+      if (driver.driverMode === DriverMode.INTERCITY) {
+        return this.prisma.driverProfile.update({
+          where: { userId },
+          data: { isOnline },
+        });
+      }
+
+      if (driver.driverMode === DriverMode.COURIER) {
+        if (driver.courierTransportType === CourierTransportType.CAR) {
+          if (!driver.car || !driver.car.make || !driver.car.model || !driver.car.color || !driver.car.plateNumber) {
+            throw new BadRequestException('Для автокурьера нужно заполнить информацию об автомобиле');
+          }
+        }
+
+        return this.prisma.driverProfile.update({
+          where: { userId },
+          data: { isOnline },
+        });
       }
 
       // Check car information
@@ -260,6 +280,116 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('Driver profile not found');
     }
     return driver;
+  }
+
+  async setDriverMode(userId: string, driverMode: DriverMode) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver profile not found');
+    }
+    if (driverMode === DriverMode.INTERCITY && !driver.supportsIntercity) {
+      throw new BadRequestException('Межгородний режим еще не включен в профиле');
+    }
+    if (driverMode === DriverMode.TAXI && !driver.supportsTaxi) {
+      throw new BadRequestException('Такси-режим недоступен для этого профиля');
+    }
+
+    return this.prisma.driverProfile.update({
+      where: { userId },
+      data: { driverMode },
+      include: {
+        car: true,
+        user: true,
+      },
+    });
+  }
+
+  async updateIntercityCapability(userId: string, supportsIntercity: boolean) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver profile not found');
+    }
+
+    return this.prisma.driverProfile.update({
+      where: { userId },
+      data: {
+        supportsIntercity,
+        driverMode:
+          supportsIntercity && driver.driverMode === DriverMode.TAXI
+            ? driver.driverMode
+            : supportsIntercity
+              ? driver.driverMode
+              : DriverMode.TAXI,
+      },
+      include: {
+        car: true,
+        user: true,
+      },
+    });
+  }
+
+  async updateCourierCapability(
+    userId: string,
+    params: { supportsCourier: boolean; courierTransportType?: CourierTransportType | null },
+  ) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver profile not found');
+    }
+
+    const updated = await this.prisma.driverProfile.update({
+      where: { userId },
+      data: {
+        supportsCourier: params.supportsCourier,
+        courierTransportType: params.supportsCourier
+          ? params.courierTransportType ?? driver.courierTransportType ?? CourierTransportType.FOOT
+          : null,
+        driverMode:
+          !params.supportsCourier && driver.driverMode === DriverMode.COURIER
+            ? DriverMode.TAXI
+            : driver.driverMode,
+      },
+      include: {
+        car: true,
+        user: true,
+      },
+    });
+
+    if (params.supportsCourier) {
+      const courierProfile = await this.prisma.courierProfile.findUnique({ where: { userId } });
+      if (!courierProfile) {
+        await this.prisma.courierProfile.create({
+          data: {
+            userId,
+            fullName: updated.fullName,
+            status: updated.status,
+            isOnline: false,
+            rating: updated.rating,
+            balance: updated.balance,
+            lat: updated.lat,
+            lng: updated.lng,
+          },
+        });
+      } else {
+        await this.prisma.courierProfile.update({
+          where: { userId },
+          data: {
+            fullName: updated.fullName,
+            status: updated.status,
+            rating: updated.rating,
+            balance: updated.balance,
+          },
+        });
+      }
+    }
+
+    return updated;
   }
 
   async getNearbyDrivers(lat: number, lng: number, radius: number) {

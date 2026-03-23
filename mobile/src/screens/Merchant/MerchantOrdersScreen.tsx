@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { InlineLabel, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
@@ -31,15 +32,25 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadOrders = () =>
+  const loadOrders = useCallback(() =>
     apiClient
       .get('/merchants/orders/me')
       .then((response) => setOrders(response.data))
-      .finally(() => setLoading(false));
+      .finally(() => setLoading(false)), []);
 
   useEffect(() => {
     loadOrders().catch(() => null);
-  }, []);
+  }, [loadOrders]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadOrders().catch(() => null);
+      const intervalId = setInterval(() => {
+        loadOrders().catch(() => null);
+      }, 5000);
+      return () => clearInterval(intervalId);
+    }, [loadOrders]),
+  );
 
   const advanceStatus = async (orderId: string, currentStatus: string) => {
     const nextStatus = nextStatusMap[currentStatus];

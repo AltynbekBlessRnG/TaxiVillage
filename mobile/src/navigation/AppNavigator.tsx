@@ -58,15 +58,17 @@ export type RootStackParamList = {
   IntercityHome: undefined;
   IntercityOffers: { fromCity: string; toCity: string; date: string; seats: string; baggage: string };
   IntercityBooking: {
+    tripId: string;
     fromCity: string;
     toCity: string;
-    date: string;
+    departureAt: string;
     driverName: string;
     car: string;
-    price: string;
-    departureTime: string;
+    pricePerSeat: string;
+    seatCapacity: number;
+    seatsRemaining: number;
   };
-  IntercityTripStatus: { fromCity: string; toCity: string; driverName: string; departureTime: string };
+  IntercityTripStatus: { bookingId: string };
   FavoriteAddresses: undefined;
   RideStatus: { rideId: string };
   ChatScreen: { rideId: string };
@@ -80,7 +82,7 @@ export type RootStackParamList = {
   MerchantOrders: undefined;
   MenuEditor: undefined;
   IntercityDriverHome: undefined;
-  IntercityTrip: undefined;
+  IntercityTrip: { tripId?: string } | undefined;
   IntercityDriverProfile: undefined;
   RideHistory: undefined;
 };
@@ -100,11 +102,11 @@ export const AppNavigator: React.FC = () => {
         if (auth.role === 'DRIVER' || auth.role === 'DRIVER_TAXI') {
           setInitialRoute('DriverHome');
         } else if (auth.role === 'COURIER') {
-          setInitialRoute('CourierWorkerHome');
+          setInitialRoute('DriverHome');
         } else if (auth.role === 'MERCHANT') {
           setInitialRoute('MerchantDashboard');
         } else if (auth.role === 'DRIVER_INTERCITY') {
-          setInitialRoute('IntercityDriverHome');
+          setInitialRoute('DriverHome');
         } else {
           setInitialRoute('PassengerHome');
         }

@@ -15,6 +15,9 @@ import { CourierOrdersModule } from './courier-orders/courier-orders.module';
 import { CouriersModule } from './couriers/couriers.module';
 import { MerchantsModule } from './merchants/merchants.module';
 import { FoodOrdersModule } from './food-orders/food-orders.module';
+import { IntercityOrdersModule } from './intercity-orders/intercity-orders.module';
+import { IntercityDriversModule } from './intercity-drivers/intercity-drivers.module';
+import { IntercityTripsModule } from './intercity-trips/intercity-trips.module';
 
 @Module({
   imports: [
@@ -36,6 +39,9 @@ import { FoodOrdersModule } from './food-orders/food-orders.module';
     CouriersModule,
     MerchantsModule,
     FoodOrdersModule,
+    IntercityOrdersModule,
+    IntercityDriversModule,
+    IntercityTripsModule,
     // GraphQLModule мы временно убрали, чтобы сервер запустился
   ],
 })

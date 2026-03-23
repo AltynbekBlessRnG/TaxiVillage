@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/comm
 import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AuthGuard } from '@nestjs/passport';
-import { CourierOrderStatus, UserRole } from '@prisma/client';
+import { CourierOrderStatus, UserRole } from '@prisma/client/index';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CourierOrdersService } from './courier-orders.service';
@@ -72,7 +72,7 @@ export class CourierOrdersController {
 
   @Get('available')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.COURIER)
+  @Roles(UserRole.COURIER, UserRole.DRIVER)
   getAvailable(@Req() req: any) {
     return this.courierOrdersService.getAvailableOrdersForCourier(req.user.userId);
   }
@@ -99,21 +99,21 @@ export class CourierOrdersController {
 
   @Post(':id/accept')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.COURIER)
+  @Roles(UserRole.COURIER, UserRole.DRIVER)
   accept(@Param('id') id: string, @Req() req: any) {
     return this.courierOrdersService.acceptOrder(req.user.userId, id);
   }
 
   @Post(':id/reject')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.COURIER)
+  @Roles(UserRole.COURIER, UserRole.DRIVER)
   reject(@Param('id') id: string, @Req() req: any) {
     return this.courierOrdersService.rejectOrder(req.user.userId, id);
   }
 
   @Post(':id/status')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.COURIER)
+  @Roles(UserRole.COURIER, UserRole.DRIVER)
   updateStatus(@Param('id') id: string, @Body() dto: UpdateCourierOrderStatusDto, @Req() req: any) {
     return this.courierOrdersService.updateOrderStatus(req.user.userId, id, dto.status);
   }

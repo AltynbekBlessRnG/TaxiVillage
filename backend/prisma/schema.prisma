@@ -26,6 +26,7 @@ model User {
   driver    DriverProfile?
   courier   CourierProfile?
   merchant  Merchant?
+  intercityDriver IntercityDriverProfile?
 }
 
 /// Профиль пассажира
@@ -39,6 +40,8 @@ model PassengerProfile {
   rides     Ride[]   @relation("PassengerRides")
   courierOrders CourierOrder[] @relation("PassengerCourierOrders")
   foodOrders FoodOrder[] @relation("PassengerFoodOrders")
+  intercityOrders IntercityOrder[] @relation("PassengerIntercityOrders")
+  intercityBookings IntercityBooking[] @relation("PassengerIntercityBookings")
   favoriteAddresses FavoriteAddress[]
   sentMessages     Message[]     @relation("SentPassengerMessages")
   receivedMessages Message[]     @relation("ReceivedPassengerMessages")
@@ -53,6 +56,11 @@ model DriverProfile {
   fullName     String?
   status       DriverStatus  @default(PENDING) // PENDING / APPROVED / REJECTED
   isOnline     Boolean       @default(false)
+  supportsTaxi Boolean       @default(true)
+  supportsCourier Boolean    @default(false)
+  supportsIntercity Boolean  @default(false)
+  driverMode   DriverMode    @default(TAXI)
+  courierTransportType CourierTransportType?
 
   lat          Float?
   lng          Float?
@@ -62,6 +70,7 @@ model DriverProfile {
 
   car          Car?
   rides        Ride[]        @relation("DriverRides")
+  intercityTrips IntercityTrip[] @relation("DriverIntercityTrips")
   documents    DriverDocument[]
   sentMessages Message[]     @relation("SentDriverMessages")
   receivedMessages Message[] @relation("ReceivedDriverMessages")
@@ -103,6 +112,25 @@ model Merchant {
 
   menuCategories MenuCategory[]
   foodOrders     FoodOrder[] @relation("MerchantFoodOrders")
+}
+
+/// Профиль междугороднего водителя
+model IntercityDriverProfile {
+  id           String        @id @default(cuid())
+  userId       String        @unique
+  user         User          @relation(fields: [userId], references: [id])
+
+  fullName     String?
+  status       DriverStatus  @default(APPROVED)
+  isOnline     Boolean       @default(false)
+  rating       Float         @default(5.0)
+
+  carMake      String?
+  carModel     String?
+  carColor     String?
+  plateNumber  String?
+
+  orders       IntercityOrder[] @relation("IntercityDriverOrders")
 }
 
 /// Автомобиль водителя
@@ -227,6 +255,18 @@ enum DriverStatus {
   REJECTED
 }
 
+enum DriverMode {
+  TAXI
+  COURIER
+  INTERCITY
+}
+
+enum CourierTransportType {
+  CAR
+  BIKE
+  FOOT
+}
+
 enum RideStatus {
   SEARCHING_DRIVER
   DRIVER_ASSIGNED
@@ -240,6 +280,8 @@ enum RideStatus {
 enum CourierOrderStatus {
   SEARCHING_COURIER
   TO_PICKUP
+  COURIER_ARRIVED
+  TO_RECIPIENT
   PICKED_UP
   DELIVERING
   DELIVERED
@@ -254,6 +296,37 @@ enum FoodOrderStatus {
   ON_DELIVERY
   DELIVERED
   CANCELED
+}
+
+enum IntercityOrderStatus {
+  SEARCHING_DRIVER
+  CONFIRMED
+  DRIVER_EN_ROUTE
+  BOARDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+enum IntercityTripStatus {
+  PLANNED
+  BOARDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+enum IntercityBookingStatus {
+  CONFIRMED
+  BOARDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+enum IntercityBookingType {
+  SEAT
+  FULL_CABIN
 }
 
 enum DocumentType {
@@ -345,6 +418,7 @@ model CourierOrder {
   estimatedPrice   Decimal?            @db.Decimal(10, 2)
   finalPrice       Decimal?            @db.Decimal(10, 2)
 
+  arrivedAt        DateTime?
   pickedUpAt       DateTime?
   deliveredAt      DateTime?
 
@@ -427,5 +501,92 @@ model FoodOrderStatusHistory {
 
   status      FoodOrderStatus
   createdAt   DateTime        @default(now())
+}
+
+model IntercityOrder {
+  id                String               @id @default(cuid())
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  passengerId       String
+  passenger         PassengerProfile     @relation("PassengerIntercityOrders", fields: [passengerId], references: [id])
+
+  driverId          String?
+  driver            IntercityDriverProfile? @relation("IntercityDriverOrders", fields: [driverId], references: [id])
+
+  status            IntercityOrderStatus @default(SEARCHING_DRIVER)
+  paymentMethod     PaymentMethod        @default(CARD)
+
+  fromCity          String
+  toCity            String
+  departureAt       DateTime
+  seats             Int                  @default(1)
+  baggage           String?
+  comment           String?
+  price             Decimal              @db.Decimal(10, 2)
+
+  statusHistory     IntercityOrderStatusHistory[]
+}
+
+model IntercityOrderStatusHistory {
+  id                String               @id @default(cuid())
+  intercityOrderId  String
+  intercityOrder    IntercityOrder       @relation(fields: [intercityOrderId], references: [id])
+
+  status            IntercityOrderStatus
+  createdAt         DateTime             @default(now())
+}
+
+model IntercityTrip {
+  id                String               @id @default(cuid())
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  driverId          String
+  driver            DriverProfile        @relation("DriverIntercityTrips", fields: [driverId], references: [id])
+
+  fromCity          String
+  toCity            String
+  departureAt       DateTime
+  pricePerSeat      Decimal              @db.Decimal(10, 2)
+  seatCapacity      Int
+  comment           String?
+
+  carMake           String?
+  carModel          String?
+  carColor          String?
+  plateNumber       String?
+
+  status            IntercityTripStatus  @default(PLANNED)
+
+  bookings          IntercityBooking[]
+  statusHistory     IntercityTripStatusHistory[]
+}
+
+model IntercityBooking {
+  id                String                @id @default(cuid())
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  tripId            String
+  trip              IntercityTrip         @relation(fields: [tripId], references: [id])
+
+  passengerId       String
+  passenger         PassengerProfile      @relation("PassengerIntercityBookings", fields: [passengerId], references: [id])
+
+  bookingType       IntercityBookingType  @default(SEAT)
+  seatsBooked       Int                   @default(1)
+  totalPrice        Decimal               @db.Decimal(10, 2)
+  comment           String?
+  status            IntercityBookingStatus @default(CONFIRMED)
+}
+
+model IntercityTripStatusHistory {
+  id                String               @id @default(cuid())
+  intercityTripId   String
+  intercityTrip     IntercityTrip        @relation(fields: [intercityTripId], references: [id])
+
+  status            IntercityTripStatus
+  createdAt         DateTime             @default(now())
 }
 

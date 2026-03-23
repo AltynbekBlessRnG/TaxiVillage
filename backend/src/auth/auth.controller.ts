@@ -1,7 +1,7 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { IsEmail, IsIn, IsOptional, IsPhoneNumber, IsString, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client/index';
 import { AuthGuard } from '@nestjs/passport';
 
 type PublicRegisterRole = 'PASSENGER' | 'DRIVER' | 'COURIER' | 'MERCHANT';
