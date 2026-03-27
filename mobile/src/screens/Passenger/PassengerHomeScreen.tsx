@@ -6,7 +6,6 @@ import {
   Dimensions,
   Keyboard,
   LayoutAnimation,
-  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -15,59 +14,40 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import * as Location from 'expo-location';
+import MapView from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, logout } from '../../api/client';
-import { loadAuth } from '../../storage/authStorage';
-import {
-  initializeNotifications,
-  NOTIFICATION_TYPES,
-  sendLocalNotification,
-} from '../../utils/notifications';
+import { initializeNotifications } from '../../utils/notifications';
 import { SearchSheet } from '../../components/Passenger/SearchSheet';
 import { ConfirmationSheet } from '../../components/Passenger/ConfirmationSheet';
 import { SearchingSheet } from '../../components/Passenger/SearchingSheet';
 import { OrderDetailsSheet } from '../../components/Passenger/OrderDetailsSheet';
-import { createRidesSocket } from '../../api/socket';
 import { buildRegion, buildRouteCoordinates, toMapPoint } from '../../utils/map';
 import { geocodeAddressWithGoogle, reverseGeocodeWithGoogle } from '../../utils/googleMaps';
-import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { resolveRideRoute } from '../../utils/rideRoute';
+import { saveRecentAddress } from '../../storage/recentAddresses';
+import { PassengerMapScene } from './home/PassengerMapScene';
+import { usePassengerLocation } from './home/usePassengerLocation';
+import { usePassengerRideState } from './home/usePassengerRideState';
+import { usePassengerCourierState } from './home/usePassengerCourierState';
 
 const { width, height } = Dimensions.get('window');
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PassengerHome'>;
 type ScreenState = 'IDLE' | 'SEARCH' | 'MAP_PICK' | 'ORDER_SETUP' | 'SEARCHING';
-type SocketState = 'connected' | 'reconnecting' | 'disconnected';
 type SearchMode = 'route' | 'stop';
 
-interface RideSocketPayload {
-  id: string;
-  status: string;
-}
-
-const ACTIVE_RIDE_STATUSES = [
-  'SEARCHING_DRIVER',
-  'DRIVER_ASSIGNED',
-  'ON_THE_WAY',
-  'DRIVER_ARRIVED',
-  'IN_PROGRESS',
-] as const;
+const ACTIVE_CANCELABLE_STATUSES = ['SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'ON_THE_WAY', 'DRIVER_ARRIVED'];
 
 const hasValidCoordinates = (coords?: { lat: number; lng: number } | null) =>
   !!coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng) && !(coords.lat === 0 && coords.lng === 0);
 
 export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [screenState, setScreenState] = useState<ScreenState>('IDLE');
-  const [activeService, setActiveService] = useState('Такси');
+  const [activeService, setActiveService] = useState<'Такси' | 'Курьер' | 'Еда' | 'Межгород'>('Такси');
   const [loading, setLoading] = useState(false);
-  const [userProfile, setUserProfile] = useState<{ fullName?: string; phone?: string } | null>(null);
-  const [profileReady, setProfileReady] = useState(false);
-  const [currentRideId, setCurrentRideId] = useState<string | null>(null);
-  const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [fromAddress, setFromAddress] = useState('Определяем адрес...');
   const [toAddress, setToAddress] = useState('');
   const [fromCoord, setFromCoord] = useState<{ lat: number; lng: number } | null>(null);
@@ -79,18 +59,154 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ id: string; lat: number; lng: number; fullName: string }>>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [mapPickTarget, setMapPickTarget] = useState<'from' | 'to' | 'stop'>('to');
   const [searchMode, setSearchMode] = useState<SearchMode>('route');
-  const [socketState, setSocketState] = useState<SocketState>('disconnected');
   const [displayRoute, setDisplayRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [courierItemDescription, setCourierItemDescription] = useState('');
+  const [courierPackageWeight, setCourierPackageWeight] = useState('');
+  const [courierPackageSize, setCourierPackageSize] = useState('');
 
   const searchSheetAnim = useRef(new Animated.Value(height)).current;
   const orderSheetTranslateY = useRef(new Animated.Value(height)).current;
   const sideMenuAnim = useRef(new Animated.Value(-width)).current;
   const menuBackdropOpacity = useRef(new Animated.Value(0)).current;
   const mapRef = useRef<MapView>(null);
+
+  const updateAddress = useCallback(async (lat: number, lng: number, field: 'from' | 'to') => {
+    try {
+      const formatted = await reverseGeocodeWithGoogle(lat, lng);
+
+      if (field === 'from') {
+        setFromAddress(formatted);
+        setFromCoord({ lat, lng });
+      } else {
+        setToAddress(formatted);
+        setToCoord({ lat, lng });
+      }
+
+      await saveRecentAddress(formatted, lat, lng);
+    } catch (error) {
+      console.log(error);
+    }
+  }, []);
+
+  const changeState = useCallback((newState: ScreenState) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+    Animated.timing(searchSheetAnim, {
+      toValue: newState === 'SEARCH' ? height * 0.1 : height,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    if (newState === 'ORDER_SETUP') {
+      orderSheetTranslateY.setValue(height);
+      Animated.spring(orderSheetTranslateY, {
+        toValue: 0,
+        tension: 50,
+        friction: 10,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(orderSheetTranslateY, {
+        toValue: height,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+
+    setScreenState(newState);
+    Keyboard.dismiss();
+  }, [orderSheetTranslateY, searchSheetAnim]);
+
+  const {
+    userProfile,
+    profileReady,
+    userLocation,
+    mapCenter,
+    setMapCenter,
+  } = usePassengerLocation({
+    onResolvedCurrentLocation: async (coords) => {
+      setFromCoord(coords);
+      await updateAddress(coords.lat, coords.lng, 'from');
+      mapRef.current?.animateToRegion(
+        {
+          latitude: coords.lat,
+          longitude: coords.lng,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        },
+        300,
+      );
+    },
+  });
+
+  const handleRideReturnedToIdle = useCallback(() => {
+    setShowOrderDetails(false);
+    changeState('IDLE');
+  }, [changeState]);
+
+  const handleCourierReturnedToIdle = useCallback(() => {
+    setShowOrderDetails(false);
+    changeState('IDLE');
+  }, [changeState]);
+
+  const {
+    currentRideId,
+    setCurrentRideId,
+    activeRideId,
+    setActiveRideId,
+    activeRide,
+    setActiveRide,
+    driverLocation,
+    activeRideRoute,
+    etaSeconds,
+    socketState,
+    refreshActiveRide,
+  } = usePassengerRideState({
+    onBecameActive: () => changeState('SEARCHING'),
+    onReturnedToIdle: handleRideReturnedToIdle,
+  });
+
+  const {
+    activeCourierOrderId,
+    setActiveCourierOrderId,
+    activeCourierOrder,
+    setActiveCourierOrder,
+    courierLocation,
+    activeCourierRoute,
+    refreshActiveCourierOrder,
+    clearCourierState,
+  } = usePassengerCourierState({
+    onBecameActive: () => changeState('SEARCHING'),
+    onReturnedToIdle: handleCourierReturnedToIdle,
+    onForceCourierMode: () => setActiveService('Курьер'),
+  });
+
+  const resetTaxiDraft = useCallback(() => {
+    setToAddress('');
+    setToCoord(null);
+    setOfferedPrice('');
+    setComment('');
+    setStops([]);
+    setDisplayRoute([]);
+    setSearchMode('route');
+    setIsStopSelectionMode(false);
+    setMapPickTarget('to');
+  }, []);
+
+  const resetCourierDraft = useCallback(() => {
+    setToAddress('');
+    setToCoord(null);
+    setOfferedPrice('');
+    setComment('');
+    setCourierItemDescription('');
+    setCourierPackageWeight('');
+    setCourierPackageSize('');
+    setDisplayRoute([]);
+    setSearchMode('route');
+    setMapPickTarget('to');
+  }, []);
 
   const routeCoordinates = useMemo(
     () =>
@@ -128,78 +244,33 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     initializeNotifications().catch(() => {});
   }, []);
 
-  const refreshActiveRide = useCallback(async () => {
-    try {
-      const res = await apiClient.get('/rides/my');
-      const active = res.data.find((ride: any) => ACTIVE_RIDE_STATUSES.includes(ride.status));
-      setActiveRideId(active?.id ?? null);
-      setCurrentRideId((prev) => {
-        if (!prev) {
-          return active?.id ?? null;
+  useEffect(() => {
+    Promise.all([refreshActiveRide(), refreshActiveCourierOrder()])
+      .then(([activeRideItem, activeCourierItem]) => {
+        if (!activeRideItem && !activeCourierItem) {
+          setShowOrderDetails(false);
+          if (screenState === 'SEARCHING') {
+            setScreenState('IDLE');
+          }
         }
+      })
+      .catch(() => {});
 
-        return active?.id === prev ? prev : active?.id ?? null;
-      });
-      return active ?? null;
-    } catch (error) {
-      console.log(error);
-      setActiveRideId(null);
-      return null;
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshActiveRide().catch(() => {});
     const unsubscribe = navigation.addListener('focus', () => {
-      refreshActiveRide().catch(() => {});
+      Promise.all([refreshActiveRide(), refreshActiveCourierOrder()])
+        .then(([activeRideItem, activeCourierItem]) => {
+          if (!activeRideItem && !activeCourierItem) {
+            setShowOrderDetails(false);
+            if (screenState === 'SEARCHING') {
+              setScreenState('IDLE');
+            }
+          }
+        })
+        .catch(() => {});
     });
+
     return unsubscribe;
-  }, [navigation, refreshActiveRide]);
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const res = await apiClient.get('/users/me');
-        setUserProfile({
-          fullName: res.data.passenger?.fullName,
-          phone: res.data.phone,
-        });
-      } catch {
-        // Ignore profile bootstrap errors on home screen.
-        setUserProfile({ fullName: 'Пользователь', phone: '' });
-      } finally {
-        setProfileReady(true);
-      }
-
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') {
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({});
-      const coords = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      };
-
-      setUserLocation(coords);
-      setFromCoord(coords);
-      setMapCenter(coords);
-      await updateAddress(coords.lat, coords.lng, 'from');
-
-      mapRef.current?.animateToRegion(
-        {
-          latitude: coords.lat,
-          longitude: coords.lng,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.015,
-        },
-        300,
-      );
-    };
-
-    init().catch(() => {});
-  }, []);
+  }, [navigation, refreshActiveCourierOrder, refreshActiveRide, screenState]);
 
   useEffect(() => {
     if (screenState === 'IDLE' && userLocation) {
@@ -233,89 +304,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     );
 
     navigation.setParams({ selectedAddress: undefined });
-  }, [fromCoord?.lat, fromCoord?.lng, navigation, route.params?.selectedAddress, userLocation?.lat, userLocation?.lng]);
-
-  useEffect(() => {
-    let socket: ReturnType<typeof createRidesSocket> | null = null;
-    let mounted = true;
-
-    const connectSocket = async () => {
-      const auth = await loadAuth();
-      if (!mounted || !auth?.accessToken) {
-        return;
-      }
-
-      socket = createRidesSocket(auth.accessToken);
-
-      socket.on('connect', () => {
-        if (mounted) {
-          setSocketState('connected');
-        }
-      });
-      socket.on('disconnect', () => {
-        if (mounted) {
-          setSocketState('disconnected');
-        }
-      });
-      socket.io.on('reconnect_attempt', () => {
-        if (mounted) {
-          setSocketState('reconnecting');
-        }
-      });
-      socket.io.on('reconnect', () => {
-        if (mounted) {
-          setSocketState('connected');
-        }
-      });
-      socket.on('connect_error', () => {
-        if (mounted) {
-          setSocketState('reconnecting');
-        }
-      });
-
-      socket.on('ride:updated', async (updatedRide: RideSocketPayload) => {
-        if (!mounted) {
-          return;
-        }
-
-        if (updatedRide.id === currentRideId || updatedRide.id === activeRideId) {
-          if (updatedRide.status === 'DRIVER_ASSIGNED' || updatedRide.status === 'ON_THE_WAY') {
-            setCurrentRideId(updatedRide.id);
-            setActiveRideId(updatedRide.id);
-            navigation.navigate('RideStatus', { rideId: updatedRide.id });
-            return;
-          }
-
-          if (updatedRide.status === 'DRIVER_ARRIVED') {
-            await sendLocalNotification('Водитель приехал', 'Водитель ожидает вас у точки подачи', {
-              type: NOTIFICATION_TYPES.DRIVER_ARRIVED,
-              rideId: updatedRide.id,
-            });
-          }
-
-          if (updatedRide.status === 'CANCELED') {
-            await sendLocalNotification('Поездка отменена', 'Водитель не найден, попробуйте еще раз', {
-              type: 'RIDE_CANCELED',
-              rideId: updatedRide.id,
-            });
-            Alert.alert('Упс', 'Водитель не найден, попробуйте еще раз');
-            setCurrentRideId(null);
-            setActiveRideId(null);
-            setShowOrderDetails(false);
-            await refreshActiveRide();
-            changeState('IDLE');
-          }
-        }
-      });
-    };
-
-    connectSocket().catch(() => {});
-
-    return () => {
-      mounted = false;
-      socket?.disconnect();
-    };
-  }, [activeRideId, currentRideId, navigation, refreshActiveRide]);
+  }, [changeState, fromCoord?.lat, fromCoord?.lng, navigation, route.params?.selectedAddress, userLocation?.lat, userLocation?.lng]);
 
   const fetchNearbyDrivers = async () => {
     if (!userLocation) {
@@ -330,51 +319,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     } catch (error) {
       console.log('Failed to fetch nearby drivers:', error);
     }
-  };
-
-  const updateAddress = async (lat: number, lng: number, field: 'from' | 'to') => {
-    try {
-      const formatted = await reverseGeocodeWithGoogle(lat, lng);
-
-      if (field === 'from') {
-        setFromAddress(formatted);
-        setFromCoord({ lat, lng });
-      } else {
-        setToAddress(formatted);
-        setToCoord({ lat, lng });
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const changeState = (newState: ScreenState) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-
-    Animated.timing(searchSheetAnim, {
-      toValue: newState === 'SEARCH' ? height * 0.1 : height,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
-    if (newState === 'ORDER_SETUP') {
-      orderSheetTranslateY.setValue(height);
-      Animated.spring(orderSheetTranslateY, {
-        toValue: 0,
-        tension: 50,
-        friction: 10,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(orderSheetTranslateY, {
-        toValue: height,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
-
-    setScreenState(newState);
-    Keyboard.dismiss();
   };
 
   const handleGeocodeAndProceed = async () => {
@@ -414,6 +358,46 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handleCreateRide = async () => {
+    if (activeService === 'Курьер') {
+      if (!courierItemDescription.trim()) {
+        Alert.alert('Не хватает данных', 'Опишите, что нужно доставить.');
+        return;
+      }
+
+      if (!hasValidCoordinates(fromCoord) || !hasValidCoordinates(toCoord)) {
+        Alert.alert('Нужны координаты', 'Выберите адреса забора и доставки из подсказок или на карте.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await apiClient.post('/courier-orders', {
+          pickupAddress: fromAddress,
+          pickupLat: fromCoord!.lat,
+          pickupLng: fromCoord!.lng,
+          dropoffAddress: toAddress,
+          dropoffLat: toCoord!.lat,
+          dropoffLng: toCoord!.lng,
+          itemDescription: courierItemDescription.trim(),
+          packageWeight: courierPackageWeight.trim() || undefined,
+          packageSize: courierPackageSize.trim() || undefined,
+          comment: comment.trim() || undefined,
+          estimatedPrice: parseFloat(offeredPrice) || undefined,
+        });
+
+        setActiveCourierOrderId(res.data?.id ?? null);
+        setActiveCourierOrder(res.data ?? null);
+        changeState('SEARCHING');
+      } catch (e: any) {
+        const serverMessage = e.response?.data?.message;
+        const errorMessage = Array.isArray(serverMessage) ? serverMessage.join(', ') : serverMessage;
+        Alert.alert('Ошибка сервера', errorMessage || 'Не удалось создать заказ доставки');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!toAddress) {
       Alert.alert('Ошибка', 'Укажите адрес назначения');
       return;
@@ -465,8 +449,34 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handleCancelSearchingRide = async () => {
+    if (activeService === 'Курьер' && activeCourierOrderId) {
+      Alert.alert('Отменить доставку?', 'Мы прекратим поиск курьера для этого заказа.', [
+        { text: 'Нет', style: 'cancel' },
+        {
+          text: 'Да',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await apiClient.post(`/courier-orders/${activeCourierOrderId}/cancel`);
+              clearCourierState();
+              resetCourierDraft();
+              changeState('IDLE');
+            } catch (e: any) {
+              const message = e.response?.data?.message || 'Не удалось отменить заказ';
+              Alert.alert('Ошибка', message);
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]);
+      return;
+    }
+
     const rideIdToCancel = currentRideId ?? activeRideId;
     if (!rideIdToCancel) {
+      resetTaxiDraft();
       changeState('IDLE');
       return;
     }
@@ -484,6 +494,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
             setActiveRideId(null);
             setShowOrderDetails(false);
             await refreshActiveRide();
+            resetTaxiDraft();
             changeState('IDLE');
           } catch (e: any) {
             const message = e.response?.data?.message || 'Не удалось отменить заказ';
@@ -557,9 +568,17 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const mapPoints = [
-    ...(displayRoute.length > 0 ? displayRoute : routeCoordinates),
+    ...(activeRide
+      ? activeRideRoute
+      : activeCourierOrder
+      ? activeCourierRoute
+      : displayRoute.length > 0
+      ? displayRoute
+      : routeCoordinates),
     ...nearbyDrivers.map((driver) => ({ latitude: driver.lat, longitude: driver.lng })),
     ...(userLocation ? [{ latitude: userLocation.lat, longitude: userLocation.lng }] : []),
+    ...(driverLocation ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
+    ...(courierLocation ? [{ latitude: courierLocation.lat, longitude: courierLocation.lng }] : []),
   ];
 
   const initialRegion = buildRegion(
@@ -582,55 +601,33 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      <View style={styles.mapContainer}>
-        <MapView
-          ref={mapRef}
-          style={StyleSheet.absoluteFillObject}
-          initialRegion={initialRegion}
-          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-          mapType="standard"
-          customMapStyle={darkMinimalMapStyle}
-          showsUserLocation={false}
-          onRegionChangeComplete={(region) => {
-            if (screenState === 'MAP_PICK') {
-              setMapCenter({ lat: region.latitude, lng: region.longitude });
-            }
-          }}
-        >
-          {userLocation && (
-            <Marker
-              identifier="user"
-              coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }}
-              title="Вы"
-              pinColor="#2563EB"
-            />
-          )}
-
-          {nearbyDrivers.map((driver) => (
-            <Marker
-              key={driver.id}
-              coordinate={{ latitude: driver.lat, longitude: driver.lng }}
-              title={driver.fullName}
-              pinColor="#EF4444"
-            />
-          ))}
-
-          {(displayRoute.length > 0 ? displayRoute : routeCoordinates).length >= 2 && (
-            <Polyline
-              coordinates={displayRoute.length > 0 ? displayRoute : routeCoordinates}
-              strokeColor="#3B82F6"
-              strokeWidth={4}
-              lineDashPattern={screenState === 'SEARCHING' ? [8, 6] : undefined}
-            />
-          )}
-        </MapView>
-
-        {screenState === 'MAP_PICK' && (
-          <View style={styles.centerPinContainer} pointerEvents="none">
-            <View style={styles.ashenPin} />
-          </View>
-        )}
-      </View>
+      <PassengerMapScene
+        mapRef={mapRef}
+        initialRegion={initialRegion}
+        screenState={screenState}
+        activeService={activeService}
+        userLocation={userLocation}
+        nearbyDrivers={nearbyDrivers}
+        activeRide={activeRide}
+        driverLocation={driverLocation}
+        activeCourierOrder={activeCourierOrder}
+        courierLocation={courierLocation}
+        routeCoordinates={
+          activeRide
+            ? activeRideRoute
+            : activeCourierOrder
+            ? activeCourierRoute
+            : displayRoute.length > 0
+            ? displayRoute
+            : routeCoordinates
+        }
+        onRegionChangeComplete={(region) => {
+          if (screenState === 'MAP_PICK') {
+            setMapCenter({ lat: region.latitude, lng: region.longitude });
+          }
+        }}
+        showMapPickPin={screenState === 'MAP_PICK'}
+      />
 
       <ConnectionBanner visible={socketState !== 'connected'} />
 
@@ -651,7 +648,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
             <TouchableOpacity style={styles.ashenRow} onPress={() => changeState('SEARCH')}>
               <View style={styles.squareRed} />
               <Text style={toAddress ? styles.ashenInputText : styles.placeholderZinc}>
-                {toAddress || 'Куда едем?'}
+                {toAddress || (activeService === 'Курьер' ? 'Куда доставить?' : 'Куда едем?')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -660,10 +657,10 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={{ fontSize: 22 }}>🎯</Text>
           </TouchableOpacity>
 
-          {activeRideId && (
+          {activeRideId && !activeRide && (
             <TouchableOpacity
               style={styles.activeRideBanner}
-              onPress={() => navigation.navigate('RideStatus', { rideId: activeRideId })}
+              onPress={() => changeState('SEARCHING')}
             >
               <View style={styles.dotGreen} />
               <Text style={styles.activeRideText}>У вас есть активная поездка!</Text>
@@ -671,19 +668,35 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
           )}
 
+          {!activeRideId && activeCourierOrderId ? (
+            <TouchableOpacity
+              style={[styles.activeRideBanner, styles.activeCourierBanner]}
+              onPress={() => {
+                setActiveService('Курьер');
+                changeState('SEARCHING');
+              }}
+            >
+              <View style={styles.dotGreen} />
+              <Text style={styles.activeRideText}>У вас есть активная доставка!</Text>
+              <Text style={styles.activeRideArrow}>›</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.bottomAshenBar}>
-            {['Такси', 'Курьер', 'Еда', 'Межгород'].map((service) => (
+            {(['Такси', 'Курьер', 'Еда', 'Межгород'] as const).map((service) => (
               <TouchableOpacity
                 key={service}
                 style={[styles.serviceBtn, activeService === service && styles.serviceBtnActive]}
                 onPress={() => {
                   setActiveService(service);
                   if (service === 'Курьер') {
-                    navigation.navigate('CourierHome');
+                    resetTaxiDraft();
                   } else if (service === 'Еда') {
                     navigation.navigate('FoodHome');
                   } else if (service === 'Межгород') {
                     navigation.navigate('IntercityHome');
+                  } else if (service === 'Такси') {
+                    resetCourierDraft();
                   }
                 }}
               >
@@ -717,7 +730,16 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         onClose={() => {
           setIsStopSelectionMode(false);
           setSearchMode('route');
-          changeState(toAddress ? 'ORDER_SETUP' : 'IDLE');
+          if (toAddress) {
+            changeState('ORDER_SETUP');
+          } else {
+            if (activeService === 'Курьер') {
+              resetCourierDraft();
+            } else {
+              resetTaxiDraft();
+            }
+            changeState('IDLE');
+          }
         }}
         onMapPick={(field) => {
           setMapPickTarget(field);
@@ -726,6 +748,9 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         }}
         onSubmit={handleGeocodeAndProceed}
         onAddressSelect={handleAddressSelect}
+        fromPlaceholder={activeService === 'Курьер' ? 'Откуда забрать?' : 'Откуда?'}
+        toPlaceholder={activeService === 'Курьер' ? 'Куда доставить?' : 'Куда?'}
+        title={searchMode === 'stop' ? 'Добавить заезд' : activeService === 'Курьер' ? 'Доставка' : 'Маршрут'}
       />
 
       {screenState === 'MAP_PICK' && (
@@ -743,14 +768,17 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
                     ...current,
                     { address: addrStr, lat: mapCenter.lat, lng: mapCenter.lng },
                   ]);
+                  await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
                   setIsStopSelectionMode(false);
                   setSearchMode('route');
                 } else if (mapPickTarget === 'from') {
                   setFromAddress(addrStr);
                   setFromCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
+                  await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
                 } else {
                   setToAddress(addrStr);
                   setToCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
+                  await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
                 }
               }
               if (mapPickTarget === 'from' && !toAddress) {
@@ -770,13 +798,21 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <ConfirmationSheet
         translateY={orderSheetTranslateY}
+        serviceType={activeService === 'Курьер' ? 'courier' : 'taxi'}
         fromAddress={fromAddress}
         toAddress={toAddress}
         price={offeredPrice}
         setPrice={setOfferedPrice}
         onOrder={handleCreateRide}
         onEditAddress={() => changeState('SEARCH')}
-        onSwipeDown={() => changeState('IDLE')}
+        onSwipeDown={() => {
+          if (activeService === 'Курьер') {
+            resetCourierDraft();
+          } else {
+            resetTaxiDraft();
+          }
+          changeState('IDLE');
+        }}
         loading={loading}
         comment={comment}
         setComment={setComment}
@@ -795,15 +831,128 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         onRemoveStop={(indexToRemove: number) =>
           setStops((current) => current.filter((_, index) => index !== indexToRemove))
         }
+        itemDescription={courierItemDescription}
+        setItemDescription={setCourierItemDescription}
+        packageWeight={courierPackageWeight}
+        setPackageWeight={setCourierPackageWeight}
+        packageSize={courierPackageSize}
+        setPackageSize={setCourierPackageSize}
       />
 
       {screenState === 'SEARCHING' && (
-        <SearchingSheet
-          onCancel={() => {
-            void handleCancelSearchingRide();
-          }}
-          onShowDetails={() => setShowOrderDetails(true)}
-        />
+        activeRide ? (
+          <View style={styles.activeRideSheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.statusHeader}>
+              <View style={[styles.statusDot, getStatusDotColor(activeRide.status)]} />
+              <Text style={styles.statusTitle}>{translateStatus(activeRide.status)}</Text>
+            </View>
+
+            {etaSeconds && (activeRide.status === 'ON_THE_WAY' || activeRide.status === 'DRIVER_ASSIGNED' || activeRide.status === 'DRIVER_ARRIVED') ? (
+              <View style={styles.etaBadge}>
+                <Text style={styles.etaLabel}>До подачи примерно</Text>
+                <Text style={styles.etaValue}>{`${Math.max(1, Math.round(etaSeconds / 60))} мин`}</Text>
+              </View>
+            ) : null}
+
+            {activeRide?.driver ? (
+              <View style={styles.rideCard}>
+                <View style={styles.driverRow}>
+                  <View>
+                    <Text style={styles.driverName}>{activeRide.driver.fullName || 'Водитель'}</Text>
+                    <Text style={styles.carInfo}>
+                      {[activeRide.driver.car?.make, activeRide.driver.car?.model, activeRide.driver.car?.color].filter(Boolean).join(' • ')}
+                    </Text>
+                  </View>
+                  <View style={styles.plateBox}>
+                    <Text style={styles.plateText}>{activeRide.driver.car?.plateNumber || '—'}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
+            <View style={styles.rideCard}>
+              <View style={styles.routePointRow}>
+                <View style={styles.routeDotBlue} />
+                <Text style={styles.addressText} numberOfLines={1}>{activeRide.fromAddress}</Text>
+              </View>
+              {activeRide?.stops?.map((stop: any, index: number) => (
+                <View key={`${stop.address}-${index}`} style={styles.routePointRow}>
+                  <View style={styles.routeDotStop} />
+                  <Text style={styles.addressText} numberOfLines={1}>{`Заезд: ${stop.address}`}</Text>
+                </View>
+              ))}
+              <View style={styles.routePointRow}>
+                <View style={styles.routeDotRed} />
+                <Text style={styles.addressText} numberOfLines={1}>{activeRide.toAddress}</Text>
+              </View>
+              <View style={styles.rideDivider} />
+              <View style={styles.priceRowActive}>
+                <Text style={styles.priceLabel}>Стоимость поездки</Text>
+                <Text style={styles.priceValue}>{Math.round(Number(activeRide.finalPrice || activeRide.estimatedPrice || 0))} ₸</Text>
+              </View>
+            </View>
+
+            <View style={styles.buttonsRow}>
+              {ACTIVE_CANCELABLE_STATUSES.includes(activeRide.status) ? (
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => void handleCancelSearchingRide()}>
+                  <Text style={styles.cancelBtnText}>Отменить</Text>
+                </TouchableOpacity>
+              ) : null}
+              {activeRide?.driver ? (
+                <TouchableOpacity style={styles.chatBtn} onPress={() => navigation.navigate('ChatScreen', { rideId: activeRide.id })}>
+                  <Text style={styles.chatBtnText}>Чат с водителем</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        ) : activeCourierOrder ? (
+          <View style={styles.activeRideSheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.statusHeader}>
+              <View style={[styles.statusDot, getStatusDotColor(activeCourierOrder.status)]} />
+              <Text style={styles.statusTitle}>{translateCourierStatus(activeCourierOrder.status)}</Text>
+            </View>
+
+            <View style={styles.rideCard}>
+              <View style={styles.routePointRow}>
+                <View style={styles.routeDotBlue} />
+                <Text style={styles.addressText} numberOfLines={1}>{activeCourierOrder.pickupAddress}</Text>
+              </View>
+              <View style={styles.routePointRow}>
+                <View style={styles.routeDotRed} />
+                <Text style={styles.addressText} numberOfLines={1}>{activeCourierOrder.dropoffAddress}</Text>
+              </View>
+              <View style={styles.rideDivider} />
+              <Text style={styles.courierPayloadTitle}>Посылка</Text>
+              <Text style={styles.courierPayloadText}>{activeCourierOrder.itemDescription || '-'}</Text>
+              {activeCourierOrder.packageWeight ? <Text style={styles.courierMeta}>Вес: {activeCourierOrder.packageWeight}</Text> : null}
+              {activeCourierOrder.packageSize ? <Text style={styles.courierMeta}>Размер: {activeCourierOrder.packageSize}</Text> : null}
+              {activeCourierOrder.comment ? <Text style={styles.courierMeta}>Комментарий: {activeCourierOrder.comment}</Text> : null}
+              <View style={styles.priceRowActive}>
+                <Text style={styles.priceLabel}>Стоимость доставки</Text>
+                <Text style={styles.priceValue}>{Math.round(Number(activeCourierOrder.estimatedPrice || 0))} ₸</Text>
+              </View>
+            </View>
+
+            <View style={styles.buttonsRow}>
+              {activeCourierOrder.status !== 'DELIVERED' && activeCourierOrder.status !== 'CANCELED' ? (
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => void handleCancelSearchingRide()}>
+                  <Text style={styles.cancelBtnText}>Отменить</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        ) : (
+          <SearchingSheet
+            onCancel={() => {
+              void handleCancelSearchingRide();
+            }}
+            onShowDetails={() => setShowOrderDetails(true)}
+            title={activeService === 'Курьер' ? 'Ищем курьера...' : 'Ищем машину...'}
+            cancelLabel={activeService === 'Курьер' ? 'Отменить\nдоставку' : 'Отменить\nпоездку'}
+          />
+        )
       )}
 
       <OrderDetailsSheet
@@ -861,6 +1010,48 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
+function getStatusDotColor(status: string) {
+  switch (status) {
+    case 'COMPLETED':
+      return { backgroundColor: '#10B981' };
+    case 'CANCELED':
+      return { backgroundColor: '#EF4444' };
+    case 'IN_PROGRESS':
+      return { backgroundColor: '#3B82F6' };
+    case 'ON_THE_WAY':
+    case 'DRIVER_ASSIGNED':
+    case 'DRIVER_ARRIVED':
+      return { backgroundColor: '#F59E0B' };
+    default:
+      return { backgroundColor: '#71717A' };
+  }
+}
+
+function translateStatus(status: string): string {
+  const t: Record<string, string> = {
+    SEARCHING_DRIVER: 'Ищем водителя',
+    DRIVER_ASSIGNED: 'Водитель едет к вам',
+    ON_THE_WAY: 'Водитель едет к вам',
+    DRIVER_ARRIVED: 'Водитель прибыл',
+    IN_PROGRESS: 'Вы в пути',
+    COMPLETED: 'Поездка завершена',
+    CANCELED: 'Отменена',
+  };
+  return t[status] || status;
+}
+
+function translateCourierStatus(status: string): string {
+  const t: Record<string, string> = {
+    SEARCHING_COURIER: 'Ищем курьера',
+    TO_PICKUP: 'Курьер едет к вам',
+    COURIER_ARRIVED: 'Курьер на месте',
+    TO_RECIPIENT: 'Курьер едет к получателю',
+    DELIVERED: 'Доставлено',
+    CANCELED: 'Отменено',
+  };
+  return t[status] || status;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   loadingContainer: {
@@ -869,7 +1060,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#09090B',
   },
-  mapContainer: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
   uiOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
   burgerBtn: {
     position: 'absolute',
@@ -923,6 +1113,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  activeCourierBanner: {
+    backgroundColor: '#F59E0B',
+  },
   dotGreen: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff', marginRight: 12 },
   activeRideText: { color: '#fff', fontSize: 16, fontWeight: '700', flex: 1 },
   activeRideArrow: { color: '#fff', fontSize: 24, fontWeight: '300', marginTop: -4 },
@@ -951,24 +1144,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   zincMainBtnText: { color: '#000', fontSize: 18, fontWeight: '800' },
-  centerPinContainer: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginTop: -40,
-    marginLeft: -11,
-    zIndex: 5,
-  },
-  ashenPin: {
-    width: 22,
-    height: 22,
-    backgroundColor: '#fff',
-    borderRadius: 11,
-    borderBottomLeftRadius: 0,
-    transform: [{ rotate: '45deg' }],
-    borderWidth: 4,
-    borderColor: '#000',
-  },
   menuBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 900 },
   sideDrawer: {
     position: 'absolute',
@@ -988,4 +1163,90 @@ const styles = StyleSheet.create({
   drawerText: { color: '#E4E4E7', fontSize: 17, fontWeight: '500' },
   dotBlue: { width: 8, height: 8, backgroundColor: '#3B82F6', borderRadius: 4, marginRight: 15 },
   squareRed: { width: 8, height: 8, backgroundColor: '#EF4444', marginRight: 15 },
+  activeRideSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#09090B',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    zIndex: 700,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#27272A',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  statusDot: { width: 12, height: 12, borderRadius: 6, marginRight: 10 },
+  statusTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  etaBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginBottom: 16,
+  },
+  etaLabel: { color: '#A1A1AA', fontSize: 12, textAlign: 'center', marginBottom: 4 },
+  etaValue: { color: '#F4F4F5', fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  rideCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  driverRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  driverName: { color: '#F4F4F5', fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  carInfo: { color: '#A1A1AA', fontSize: 14, fontWeight: '500' },
+  plateBox: { backgroundColor: '#27272A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  plateText: { color: '#F4F4F5', fontSize: 14, fontWeight: '700', textTransform: 'uppercase' },
+  routePointRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
+  routeDotBlue: { width: 10, height: 10, borderRadius: 5, marginRight: 12, backgroundColor: '#3B82F6' },
+  routeDotStop: { width: 10, height: 10, borderRadius: 5, marginRight: 12, backgroundColor: '#F97316' },
+  routeDotRed: { width: 10, height: 10, borderRadius: 5, marginRight: 12, backgroundColor: '#EF4444' },
+  addressText: { color: '#E4E4E7', fontSize: 15, fontWeight: '500', flex: 1 },
+  rideDivider: { height: 1, backgroundColor: '#27272A', marginVertical: 12 },
+  priceRowActive: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  priceLabel: { color: '#A1A1AA', fontSize: 14, fontWeight: '500' },
+  priceValue: { color: '#3B82F6', fontSize: 22, fontWeight: '800' },
+  buttonsRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: '#1C1C1E',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  cancelBtnText: { color: '#EF4444', fontSize: 16, fontWeight: '600' },
+  chatBtn: {
+    flex: 2,
+    backgroundColor: '#F4F4F5',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  chatBtnText: { color: '#000', fontSize: 16, fontWeight: '800' },
+  courierPayloadTitle: { color: '#F4F4F5', fontSize: 14, fontWeight: '800', marginBottom: 6 },
+  courierPayloadText: { color: '#E4E4E7', fontSize: 15, fontWeight: '600', marginBottom: 6 },
+  courierMeta: { color: '#A1A1AA', fontSize: 13, marginBottom: 4 },
 });

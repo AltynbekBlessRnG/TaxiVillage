@@ -50,6 +50,14 @@ export class CourierOrdersService implements OnModuleDestroy {
   private readonly orderOfferStates = new Map<string, OfferState>();
   private readonly MAX_ATTEMPTS = 3;
   private readonly OFFER_TIMEOUT = 30000;
+  private readonly ACTIVE_ORDER_STATUSES = [
+    CourierOrderStatus.SEARCHING_COURIER,
+    CourierOrderStatus.TO_PICKUP,
+    CourierOrderStatus.COURIER_ARRIVED,
+    CourierOrderStatus.TO_RECIPIENT,
+    CourierOrderStatus.PICKED_UP,
+    CourierOrderStatus.DELIVERING,
+  ] as const;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -92,14 +100,7 @@ export class CourierOrdersService implements OnModuleDestroy {
       where: {
         passengerId: passenger.id,
         status: {
-          in: [
-            CourierOrderStatus.SEARCHING_COURIER,
-            CourierOrderStatus.TO_PICKUP,
-            CourierOrderStatus.COURIER_ARRIVED,
-            CourierOrderStatus.TO_RECIPIENT,
-            CourierOrderStatus.PICKED_UP,
-            CourierOrderStatus.DELIVERING,
-          ],
+          in: [...this.ACTIVE_ORDER_STATUSES],
         },
       },
     });
@@ -111,6 +112,16 @@ export class CourierOrdersService implements OnModuleDestroy {
     const pickupLng = data.pickupLng ?? 0;
     const dropoffLat = data.dropoffLat ?? 0;
     const dropoffLng = data.dropoffLng ?? 0;
+    if (
+      !Number.isFinite(pickupLat) ||
+      !Number.isFinite(pickupLng) ||
+      !Number.isFinite(dropoffLat) ||
+      !Number.isFinite(dropoffLng) ||
+      (pickupLat === 0 && pickupLng === 0) ||
+      (dropoffLat === 0 && dropoffLng === 0)
+    ) {
+      throw new BadRequestException('Нужно выбрать точки забора и доставки на карте или из подсказок.');
+    }
     const hasRoute =
       (pickupLat !== 0 || pickupLng !== 0) && (dropoffLat !== 0 || dropoffLng !== 0);
     const distanceKm = hasRoute
@@ -200,6 +211,26 @@ export class CourierOrdersService implements OnModuleDestroy {
     return [];
   }
 
+  async getCurrentOrderForPassenger(userId: string) {
+    const passenger = await this.prisma.passengerProfile.findUnique({
+      where: { userId },
+    });
+    if (!passenger) {
+      throw new NotFoundException('Passenger profile not found');
+    }
+
+    return this.prisma.courierOrder.findFirst({
+      where: {
+        passengerId: passenger.id,
+        status: {
+          in: [...this.ACTIVE_ORDER_STATUSES],
+        },
+      },
+      include: this.getOrderInclude(),
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getOrderByIdForUser(userId: string, role: UserRole, orderId: string) {
     const order = await this.loadOrderRecord(orderId);
     await this.assertOrderAccess(order, userId, role);
@@ -273,6 +304,21 @@ export class CourierOrdersService implements OnModuleDestroy {
 
   async acceptOrder(courierUserId: string, orderId: string) {
     const courier = await this.requireCourierProfile(courierUserId);
+    const workerProfile = await this.prisma.driverProfile.findUnique({
+      where: { userId: courierUserId },
+      select: {
+        driverMode: true,
+        supportsCourier: true,
+      },
+    });
+
+    if (!courier.isOnline) {
+      throw new BadRequestException('Сначала выйдите на линию как курьер');
+    }
+
+    if (workerProfile && (!workerProfile.supportsCourier || workerProfile.driverMode !== 'COURIER')) {
+      throw new BadRequestException('Сначала переключитесь в курьерский режим');
+    }
 
     await this.prisma.$transaction(async (tx) => {
       const result = await tx.courierOrder.updateMany({

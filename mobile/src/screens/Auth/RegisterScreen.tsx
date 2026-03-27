@@ -23,7 +23,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'PASSENGER' | 'DRIVER' | 'COURIER' | 'MERCHANT'>('PASSENGER');
+  const [role, setRole] = useState<'PASSENGER' | 'DRIVER' | 'MERCHANT'>('PASSENGER');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<FieldName>(null);
@@ -48,9 +48,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       });
       await registerPushToken().catch(() => null);
 
-      if (user.role === 'DRIVER' || user.role === 'DRIVER_TAXI') {
-        navigation.replace('DriverHome');
-      } else if (user.role === 'COURIER') {
+      if (user.role === 'DRIVER' || user.role === 'DRIVER_TAXI' || user.role === 'COURIER') {
         navigation.replace('DriverHome');
       } else if (user.role === 'MERCHANT') {
         navigation.replace('MerchantDashboard');
@@ -108,15 +106,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => setRole('DRIVER')}
               >
                 <Text style={[styles.segmentText, role === 'DRIVER' && styles.segmentTextActive]}>
-                  Водитель
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.segmentButton, role === 'COURIER' && styles.segmentButtonActive]}
-                onPress={() => setRole('COURIER')}
-              >
-                <Text style={[styles.segmentText, role === 'COURIER' && styles.segmentTextActive]}>
-                  Курьер
+                  Водитель/курьер
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -166,6 +156,12 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 {loading ? 'Создание...' : 'Создать аккаунт'}
               </Text>
             </TouchableOpacity>
+
+            {role === 'DRIVER' ? (
+              <Text style={styles.helperText}>
+                Курьер и межгород теперь включаются внутри одного аккаунта водителя на экране профиля.
+              </Text>
+            ) : null}
 
             <View style={styles.linkRow}>
               <Text style={styles.linkText}>Уже есть аккаунт?</Text>
@@ -264,6 +260,12 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     marginBottom: 14,
     fontSize: 14,
+  },
+  helperText: {
+    color: '#71717A',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 12,
   },
   button: {
     backgroundColor: '#F4F4F5',

@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '@prisma/client/index';
 
-type PublicRegisterRole = 'PASSENGER' | 'DRIVER' | 'COURIER' | 'MERCHANT';
+type PublicRegisterRole = 'PASSENGER' | 'DRIVER' | 'MERCHANT';
 
 export interface JwtPayload {
   sub: string;
@@ -67,6 +67,13 @@ export class AuthService {
       }
     }
 
+    if (user.role === 'DRIVER') {
+      user = (await this.usersService.ensureUnifiedDriverProfile(user.id)) as any;
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+    }
+
     const tokens = await this.issueTokens(user.id, user.role);
     const {
       password: _password,
@@ -106,6 +113,10 @@ export class AuthService {
       if (refreshedUser.role === 'COURIER') {
         const upgradedUser = await this.usersService.upgradeLegacyCourier(refreshedUser.id);
         return this.issueTokens(payload.sub, (upgradedUser?.role ?? 'DRIVER') as UserRole);
+      }
+
+      if (refreshedUser.role === 'DRIVER') {
+        await this.usersService.ensureUnifiedDriverProfile(refreshedUser.id);
       }
 
       return this.issueTokens(payload.sub, refreshedUser.role);

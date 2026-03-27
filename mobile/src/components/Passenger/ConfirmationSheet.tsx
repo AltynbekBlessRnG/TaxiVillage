@@ -6,6 +6,7 @@ import {
 
 interface Props {
   translateY: Animated.Value;
+  serviceType?: 'taxi' | 'courier';
   fromAddress: string;
   toAddress: string;
   price: string;
@@ -21,10 +22,16 @@ interface Props {
   isAddStopDisabled?: boolean;
   // Добавляем пропс для удаления остановки
   onRemoveStop?: (index: number) => void; 
+  itemDescription?: string;
+  setItemDescription?: (t: string) => void;
+  packageWeight?: string;
+  setPackageWeight?: (t: string) => void;
+  packageSize?: string;
+  setPackageSize?: (t: string) => void;
 }
 
 export const ConfirmationSheet: React.FC<Props> = ({
-  translateY, fromAddress, toAddress, price, setPrice, onOrder, onEditAddress, onSwipeDown, loading, comment, setComment, stops, onAddStop, isAddStopDisabled, onRemoveStop
+  translateY, serviceType = 'taxi', fromAddress, toAddress, price, setPrice, onOrder, onEditAddress, onSwipeDown, loading, comment, setComment, stops, onAddStop, isAddStopDisabled, onRemoveStop, itemDescription, setItemDescription, packageWeight, setPackageWeight, packageSize, setPackageSize
 }) => {
   // Стейты для модалки комментария
   const [isCommentModalVisible, setCommentModalVisible] = useState(false);
@@ -82,10 +89,10 @@ export const ConfirmationSheet: React.FC<Props> = ({
             <View style={styles.expoRow}>
               <View style={styles.squareRedSmall} />
               <TouchableOpacity style={styles.addressContainer} onPress={onEditAddress}>
-                <Text style={styles.expoAddressText} numberOfLines={1}>{toAddress || 'Куда едем?'}</Text>
+                <Text style={styles.expoAddressText} numberOfLines={1}>{toAddress || (serviceType === 'courier' ? 'Куда доставить?' : 'Куда едем?')}</Text>
                 
                 {/* Рендерим остановки как кликабельный текст */}
-                {stops.map((stop, index) => (
+                {serviceType === 'taxi' && stops.map((stop, index) => (
                   <TouchableOpacity key={index} onPress={() => handleStopPress(index, stop.address)}>
                     <Text style={styles.stopsText} numberOfLines={1}>
                       Заезд: {stop.address}
@@ -95,7 +102,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
               </TouchableOpacity>
               
               {/* Плюсик исчезает, если остановок уже 3 */}
-              {stops.length < 3 && (
+              {serviceType === 'taxi' && stops.length < 3 && (
                 <TouchableOpacity
                   style={[styles.expoActionBtn, isAddStopDisabled && styles.expoActionBtnDisabled]}
                   onPress={onAddStop}
@@ -107,11 +114,39 @@ export const ConfirmationSheet: React.FC<Props> = ({
             </View>
           </View>
 
+          {serviceType === 'courier' ? (
+            <View style={styles.courierFields}>
+              <TextInput
+                style={styles.courierInput}
+                placeholder="Что доставить?"
+                placeholderTextColor="#71717A"
+                value={itemDescription}
+                onChangeText={(text) => setItemDescription?.(text)}
+              />
+              <View style={styles.courierRow}>
+                <TextInput
+                  style={[styles.courierInput, styles.courierInputHalf]}
+                  placeholder="Вес"
+                  placeholderTextColor="#71717A"
+                  value={packageWeight}
+                  onChangeText={(text) => setPackageWeight?.(text)}
+                />
+                <TextInput
+                  style={[styles.courierInput, styles.courierInputHalf]}
+                  placeholder="Размер"
+                  placeholderTextColor="#71717A"
+                  value={packageSize}
+                  onChangeText={(text) => setPackageSize?.(text)}
+                />
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.priceRow}>
             <Text style={styles.currencyIcon}>₸</Text>
-            <TextInput 
+            <TextInput
               style={styles.priceInput} 
-              placeholder="Ваша цена" 
+              placeholder={serviceType === 'courier' ? 'Цена доставки' : 'Ваша цена'} 
               placeholderTextColor="#71717A" 
               keyboardType="numeric" 
               value={price} 
@@ -176,6 +211,19 @@ const styles = StyleSheet.create({
   priceInput: { flex: 1, color: '#fff', fontSize: 20, fontWeight: '700' },
   expoFinalBtn: { backgroundColor: '#F4F4F5', height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginTop: 25 },
   expoFinalBtnText: { color: '#000', fontSize: 18, fontWeight: '900' },
+  courierFields: { marginTop: 14, gap: 10 },
+  courierRow: { flexDirection: 'row', gap: 10 },
+  courierInput: {
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    color: '#fff',
+    fontSize: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  courierInputHalf: { flex: 1 },
   
   // Стили модалки
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },

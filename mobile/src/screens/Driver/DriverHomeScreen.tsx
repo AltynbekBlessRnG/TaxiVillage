@@ -40,6 +40,7 @@ import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { InlineLabel, PrimaryButton, SecondaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
 import { getGoogleDirections } from '../../utils/googleMaps';
+import { resolveRideRoute } from '../../utils/rideRoute';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
 type SocketState = 'connected' | 'reconnecting' | 'disconnected';
@@ -62,6 +63,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const isFocused = useIsFocused();
   const [isOnline, setIsOnline] = useState(false);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
+  const [currentRide, setCurrentRide] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [profileReady, setProfileReady] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -74,13 +76,34 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [availableCourierOrders, setAvailableCourierOrders] = useState<any[]>([]);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [courierRoute, setCourierRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [driverRoute, setDriverRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [metrics, setMetrics] = useState<any>(null);
 
   const mapRef = useRef<MapView>(null);
 
   const loadDriverShell = useCallback(async () => {
-    const profileRes = await apiClient.get('/drivers/profile');
+    const [profileRes, metricsRes] = await Promise.all([
+      apiClient.get('/drivers/profile'),
+      apiClient.get('/drivers/metrics', { params: { days: 7 } }).catch(() => ({ data: null })),
+    ]);
     setProfile(profileRes.data);
     setIsOnline(Boolean(profileRes.data?.isOnline));
+    setMetrics(metricsRes.data);
+
+    if (profileRes.data?.driverMode === 'TAXI' || profileRes.data?.supportsTaxi) {
+      const currentRideRes = await apiClient.get('/drivers/current-ride').catch(() => ({ data: null }));
+      if (currentRideRes.data?.id) {
+        const rideRes = await apiClient.get(`/rides/${currentRideRes.data.id}`).catch(() => ({ data: null }));
+        setCurrentRideId(currentRideRes.data.id);
+        setCurrentRide(rideRes.data ?? null);
+      } else {
+        setCurrentRideId(null);
+        setCurrentRide(null);
+      }
+    } else {
+      setCurrentRideId(null);
+      setCurrentRide(null);
+    }
 
     if (profileRes.data?.supportsIntercity) {
       const [currentTripRes, myTripsRes] = await Promise.all([
@@ -120,6 +143,21 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
     loadDriverShell().catch(() => {});
   }, [isFocused, loadDriverShell]);
+
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+
+    Location.getForegroundPermissionsAsync()
+      .then((result) => {
+        if (result.status !== 'granted') {
+          return Location.requestForegroundPermissionsAsync();
+        }
+        return result;
+      })
+      .catch(() => null);
+  }, [isFocused]);
 
   const ensureBackgroundPermissions = useCallback(async () => {
     const foreground = await Location.requestForegroundPermissionsAsync();
@@ -262,18 +300,38 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     [currentCourierOrder, currentIntercityTrip, currentRideId, loadDriverShell],
   );
 
+  const openIntercityHub = useCallback(async () => {
+    try {
+      if (currentRideId || currentCourierOrder) {
+        Alert.alert('Активный заказ', 'Сначала завершите текущую поездку или доставку.');
+        return;
+      }
+
+      if (profile?.driverMode !== 'INTERCITY') {
+        const response = await apiClient.post('/drivers/mode', { driverMode: 'INTERCITY' });
+        setProfile(response.data);
+      }
+
+      await loadDriverShell();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось открыть межгород';
+      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+    }
+  }, [currentCourierOrder, currentRideId, loadDriverShell, profile?.driverMode]);
+
   const acceptRide = useCallback(
     async (rideId: string) => {
       try {
         await apiClient.post(`/rides/${rideId}/accept`);
         setIncomingOffer(null);
+        const rideRes = await apiClient.get(`/rides/${rideId}`).catch(() => ({ data: null }));
         setCurrentRideId(rideId);
-        navigation.navigate('DriverRide', { rideId });
+        setCurrentRide(rideRes.data ?? null);
       } catch {
         Alert.alert('Ошибка', 'Не удалось принять заказ');
       }
     },
-    [navigation],
+    [],
   );
 
   const rejectRide = useCallback(async (rideId: string) => {
@@ -285,12 +343,105 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     setIncomingOffer(null);
   }, []);
 
+  const acceptCourierOrder = useCallback(
+    async (orderId: string) => {
+      try {
+        await apiClient.post(`/courier-orders/${orderId}/accept`);
+        await loadDriverShell();
+      } catch (error: any) {
+        const message = error?.response?.data?.message || 'Не удалось принять доставку';
+        Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      }
+    },
+    [loadDriverShell],
+  );
+
+  const updateRideStatus = useCallback(
+    async (status: string) => {
+      if (!currentRideId) {
+        return;
+      }
+
+      try {
+        await apiClient.post(`/rides/${currentRideId}/status`, { status });
+        const rideRes = await apiClient.get(`/rides/${currentRideId}`).catch(() => ({ data: null }));
+        setCurrentRide(rideRes.data ?? null);
+      } catch (error: any) {
+        const message = error?.response?.data?.message || 'Не удалось обновить статус поездки';
+        Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      }
+    },
+    [currentRideId],
+  );
+
+  const completeRide = useCallback(async () => {
+    if (!currentRideId) {
+      return;
+    }
+
+    try {
+      await apiClient.post(`/rides/${currentRideId}/complete`, {});
+      setCurrentRideId(null);
+      setCurrentRide(null);
+      await loadDriverShell();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось завершить поездку';
+      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+    }
+  }, [currentRideId, loadDriverShell]);
+
+  const cancelRide = useCallback(() => {
+    if (!currentRideId) {
+      return;
+    }
+
+    Alert.alert('Отмена заказа', 'Вы уверены, что хотите отменить этот заказ?', [
+      { text: 'Нет', style: 'cancel' },
+      {
+        text: 'Да, отменить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.post(`/rides/${currentRideId}/status`, { status: 'CANCELED' });
+            setCurrentRideId(null);
+            setCurrentRide(null);
+            await loadDriverShell();
+          } catch (error: any) {
+            const message = error?.response?.data?.message || 'Не удалось отменить заказ';
+            Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+          }
+        },
+      },
+    ]);
+  }, [currentRideId, loadDriverShell]);
+
+  const updateCourierStatus = useCallback(
+    async (status: string) => {
+      if (!currentCourierOrder?.id) {
+        return;
+      }
+
+      try {
+        await apiClient.post(`/courier-orders/${currentCourierOrder.id}/status`, { status });
+        if (status === 'DELIVERED') {
+          setCurrentCourierOrder(null);
+        }
+        await loadDriverShell();
+      } catch (error: any) {
+        const message = error?.response?.data?.message || 'Не удалось обновить статус доставки';
+        Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      }
+    },
+    [currentCourierOrder?.id, loadDriverShell],
+  );
+
   useEffect(() => {
     let socket: ReturnType<typeof createRidesSocket> | null = null;
     let mounted = true;
 
-    if (!isOnline) {
+    if (!isOnline || profile?.driverMode !== 'TAXI') {
       setCurrentRideId(null);
+      setIncomingOffer(null);
       setSocketState('disconnected');
       return;
     }
@@ -305,6 +456,12 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         const res = await apiClient.get('/drivers/current-ride');
         if (mounted && res.data?.id) {
           setCurrentRideId(res.data.id);
+          const rideRes = await apiClient.get(`/rides/${res.data.id}`).catch(() => ({ data: null }));
+          if (mounted) {
+            setCurrentRide(rideRes.data ?? null);
+          }
+        } else if (mounted) {
+          setCurrentRide(null);
         }
 
         socket = createRidesSocket(auth.accessToken);
@@ -340,17 +497,20 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
               Alert.alert('Заказ отменен', 'Пассажир отменил заказ');
             }
             setCurrentRideId(null);
+            setCurrentRide(null);
             return;
           }
 
           if (ride.status === 'COMPLETED') {
             setCurrentRideId(null);
+            setCurrentRide(null);
             setIncomingOffer(null);
             setIsOnline(true);
             return;
           }
 
           setCurrentRideId(ride.id);
+          apiClient.get(`/rides/${ride.id}`).then((res) => setCurrentRide(res.data)).catch(() => null);
         });
       } catch {
         if (mounted) {
@@ -365,7 +525,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       mounted = false;
       socket?.disconnect();
     };
-  }, [incomingOffer?.id, isOnline]);
+  }, [incomingOffer?.id, isOnline, profile?.driverMode]);
 
   useEffect(() => {
     let socket: ReturnType<typeof createCourierOrdersSocket> | null = null;
@@ -402,6 +562,9 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         }
         setCurrentCourierOrder((current: any) => (current?.id === order.id || order.courier?.userId ? order : current));
         setAvailableCourierOrders((prev) => prev.filter((item) => item.id !== order.id));
+        if (order.status === 'DELIVERED' || order.status === 'CANCELED') {
+          setCurrentCourierOrder(null);
+        }
       });
     };
 
@@ -413,47 +576,106 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [isOnline, profile?.driverMode]);
 
-  const routeCoordinates = useMemo(
-    () =>
-      incomingOffer
-        ? buildRouteCoordinates({
-            fromLat: incomingOffer.fromLat,
-            fromLng: incomingOffer.fromLng,
-            stops: incomingOffer.stops ?? [],
-            toLat: incomingOffer.toLat,
-            toLng: incomingOffer.toLng,
-          })
-        : [],
-    [incomingOffer],
-  );
+  const currentModeIsCourier = profile?.driverMode === 'COURIER' && profile?.supportsCourier;
+  const activeLocation = currentModeIsCourier ? courierLocation ?? location : location;
+
+  const routeCoordinates = useMemo(() => {
+    if (currentModeIsCourier) {
+      const previewOrder = currentCourierOrder ?? availableCourierOrders[0];
+      if (!previewOrder) {
+        return [];
+      }
+
+      const destination =
+        previewOrder.status === 'TO_RECIPIENT' || previewOrder.status === 'PICKED_UP' || previewOrder.status === 'DELIVERING'
+          ? { lat: previewOrder.dropoffLat, lng: previewOrder.dropoffLng }
+          : { lat: previewOrder.pickupLat, lng: previewOrder.pickupLng };
+
+      const origin = courierLocation ?? location;
+
+      return buildRouteCoordinates({
+        fromLat: origin?.lat,
+        fromLng: origin?.lng,
+        toLat: destination.lat,
+        toLng: destination.lng,
+      });
+    }
+
+    if (currentRide) {
+      return buildRouteCoordinates({
+        fromLat:
+          currentRide.status === 'ON_THE_WAY' || currentRide.status === 'DRIVER_ASSIGNED' || currentRide.status === 'DRIVER_ARRIVED'
+            ? location?.lat
+            : currentRide.fromLat,
+        fromLng:
+          currentRide.status === 'ON_THE_WAY' || currentRide.status === 'DRIVER_ASSIGNED' || currentRide.status === 'DRIVER_ARRIVED'
+            ? location?.lng
+            : currentRide.fromLng,
+        stops:
+          currentRide.status === 'IN_PROGRESS'
+            ? (currentRide.stops ?? []).filter((stop: any) => typeof stop.lat === 'number' && typeof stop.lng === 'number')
+            : [],
+        toLat:
+          currentRide.status === 'ON_THE_WAY' || currentRide.status === 'DRIVER_ASSIGNED' || currentRide.status === 'DRIVER_ARRIVED'
+            ? currentRide.fromLat
+            : currentRide.toLat,
+        toLng:
+          currentRide.status === 'ON_THE_WAY' || currentRide.status === 'DRIVER_ASSIGNED' || currentRide.status === 'DRIVER_ARRIVED'
+            ? currentRide.fromLng
+            : currentRide.toLng,
+      });
+    }
+
+    return incomingOffer
+      ? buildRouteCoordinates({
+          fromLat: incomingOffer.fromLat,
+          fromLng: incomingOffer.fromLng,
+          stops: incomingOffer.stops ?? [],
+          toLat: incomingOffer.toLat,
+          toLng: incomingOffer.toLng,
+        })
+      : [];
+  }, [availableCourierOrders, courierLocation, currentCourierOrder, currentModeIsCourier, incomingOffer, location]);
+
+  const renderedRouteCoordinates = useMemo(() => {
+    if (currentModeIsCourier && currentCourierOrder) {
+      return courierRoute.length > 0 ? courierRoute : routeCoordinates;
+    }
+
+    if (!currentModeIsCourier && currentRide) {
+      return driverRoute.length > 0 ? driverRoute : routeCoordinates;
+    }
+
+    return routeCoordinates;
+  }, [courierRoute, currentCourierOrder, currentModeIsCourier, currentRide, driverRoute, routeCoordinates]);
 
   const mapRegion = useMemo(() => {
     const points = [
-      ...routeCoordinates,
-      ...(location ? [{ latitude: location.lat, longitude: location.lng }] : []),
+      ...renderedRouteCoordinates,
+      ...(activeLocation ? [{ latitude: activeLocation.lat, longitude: activeLocation.lng }] : []),
     ];
 
     return buildRegion(points, {
-      latitude: location?.lat ?? 43.2389,
-      longitude: location?.lng ?? 76.8897,
+      latitude: activeLocation?.lat ?? 43.2389,
+      longitude: activeLocation?.lng ?? 76.8897,
     });
-  }, [location, routeCoordinates]);
+  }, [activeLocation, renderedRouteCoordinates]);
 
   const recenterMap = useCallback(() => {
-    if (!location) {
+    if (!activeLocation) {
       return;
     }
 
     mapRef.current?.animateToRegion(
       {
-        latitude: location.lat,
-        longitude: location.lng,
+        latitude: activeLocation.lat,
+        longitude: activeLocation.lng,
         latitudeDelta: 0.015,
         longitudeDelta: 0.015,
       },
       300,
     );
-  }, [location]);
+  }, [activeLocation]);
 
   const handleUserLocationChange = useCallback((event: UserLocationChangeEvent) => {
     const coordinate = event.nativeEvent.coordinate;
@@ -521,154 +743,37 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       );
   }, [courierLocation, currentCourierOrder]);
 
+  useEffect(() => {
+    if (!currentRide) {
+      setDriverRoute([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      resolveRideRoute({
+        status: currentRide.status,
+        fromCoord: currentRide.fromLat && currentRide.fromLng ? { lat: currentRide.fromLat, lng: currentRide.fromLng } : null,
+        toCoord: currentRide.toLat && currentRide.toLng ? { lat: currentRide.toLat, lng: currentRide.toLng } : null,
+        driverCoord: location,
+        stops: (currentRide.stops ?? [])
+          .filter((stop: any) => typeof stop.lat === 'number' && typeof stop.lng === 'number')
+          .map((stop: any) => ({
+            address: stop.address,
+            lat: stop.lat,
+            lng: stop.lng,
+          })),
+      })
+        .then((result) => setDriverRoute(result.coordinates))
+        .catch(() => setDriverRoute(routeCoordinates));
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentRide, location, routeCoordinates]);
+
   if (!profileReady || !profile) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#F4F4F5" />
-      </View>
-    );
-  }
-
-  if (profile?.driverMode === 'COURIER' && profile?.supportsCourier) {
-    const courierMarkers =
-      currentCourierOrder
-        ? [
-            { id: 'pickup', lat: currentCourierOrder.pickupLat, lng: currentCourierOrder.pickupLng, title: 'Забор', color: '#2563EB' },
-            { id: 'dropoff', lat: currentCourierOrder.dropoffLat, lng: currentCourierOrder.dropoffLng, title: 'Получатель', color: '#DC2626' },
-          ]
-        : availableCourierOrders.slice(0, 3).map((order) => ({
-            id: order.id,
-            lat: order.pickupLat,
-            lng: order.pickupLng,
-            title: order.pickupAddress,
-            color: '#F59E0B',
-          }));
-
-    const courierMapPoints = [
-      ...courierRoute,
-      ...courierMarkers
-        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
-        .map((point) => ({ latitude: point.lat, longitude: point.lng })),
-      ...(courierLocation ? [{ latitude: courierLocation.lat, longitude: courierLocation.lng }] : []),
-    ];
-
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-        <MapView
-          ref={mapRef}
-          style={StyleSheet.absoluteFillObject}
-          initialRegion={buildRegion(courierMapPoints, {
-            latitude: courierLocation?.lat ?? 43.2389,
-            longitude: courierLocation?.lng ?? 76.8897,
-          })}
-          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-          mapType="standard"
-          customMapStyle={darkMinimalMapStyle}
-          onUserLocationChange={handleUserLocationChange}
-          showsUserLocation
-          followsUserLocation={false}
-        >
-          {courierMarkers.map((point) => (
-            <Marker
-              key={point.id}
-              coordinate={{ latitude: point.lat, longitude: point.lng }}
-              title={point.title}
-              pinColor={point.color}
-            />
-          ))}
-          {courierRoute.length >= 2 ? <Polyline coordinates={courierRoute} strokeColor="#F59E0B" strokeWidth={4} /> : null}
-        </MapView>
-
-        <ConnectionBanner visible={isOnline && socketState !== 'connected'} />
-
-        <TouchableOpacity style={styles.burgerBtn} onPress={() => setIsMenuOpen(true)}>
-          <Text style={styles.iconText}>☰</Text>
-        </TouchableOpacity>
-
-        <View style={styles.toggleContainer}>
-          <Text style={styles.toggleText}>{isOnline ? 'На линии' : 'Офлайн'}</Text>
-          <Switch
-            value={isOnline}
-            onValueChange={toggleOnline}
-            trackColor={{ false: '#475569', true: '#10B981' }}
-            thumbColor="#fff"
-          />
-        </View>
-
-        <TouchableOpacity style={styles.recenterBtn} onPress={recenterMap}>
-          <Text style={styles.iconDark}>🎯</Text>
-        </TouchableOpacity>
-
-        <View style={styles.modeSwitcher}>
-          {profile?.supportsTaxi ? (
-            <TouchableOpacity style={[styles.modeChip, profile?.driverMode === 'TAXI' && styles.modeChipActive]} onPress={() => switchDriverMode('TAXI')}>
-              <Text style={[styles.modeChipText, profile?.driverMode === 'TAXI' && styles.modeChipTextActive]}>Такси</Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={[styles.modeChip, styles.modeChipActiveCourier]} onPress={() => switchDriverMode('COURIER')}>
-            <Text style={[styles.modeChipText, styles.modeChipTextActive]}>Курьер</Text>
-          </TouchableOpacity>
-          {profile?.supportsIntercity ? (
-            <TouchableOpacity style={[styles.modeChip, profile?.driverMode === 'INTERCITY' && styles.modeChipActiveBlue]} onPress={() => switchDriverMode('INTERCITY')}>
-              <Text style={[styles.modeChipText, profile?.driverMode === 'INTERCITY' && styles.modeChipTextActive]}>Межгород</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <View style={[styles.bottomSheet, styles.courierBottomSheet]}>
-          <View style={styles.handleBar} />
-          {currentCourierOrder ? (
-            <>
-              <Text style={styles.courierTitle}>Активная доставка</Text>
-              <View style={styles.routeCard}>
-                <View style={styles.routePoint}>
-                  <View style={[styles.dot, { backgroundColor: '#2563EB' }]} />
-                  <Text style={styles.routeText}>{currentCourierOrder.pickupAddress}</Text>
-                </View>
-                <View style={styles.routePoint}>
-                  <View style={[styles.dot, { backgroundColor: '#DC2626' }]} />
-                  <Text style={styles.routeText}>{currentCourierOrder.dropoffAddress}</Text>
-                </View>
-              </View>
-              <PrimaryButton title="Открыть доставку" onPress={() => navigation.navigate('CourierOrder', { orderId: currentCourierOrder.id })} accentColor="#F59E0B" />
-            </>
-          ) : availableCourierOrders.length > 0 ? (
-            <>
-              <Text style={styles.courierTitle}>Ближайшие доставки</Text>
-              {availableCourierOrders.slice(0, 2).map((order) => (
-                <TouchableOpacity key={order.id} style={styles.intercityTripCard} onPress={async () => {
-                  try {
-                    await apiClient.post(`/courier-orders/${order.id}/accept`);
-                    await loadDriverShell();
-                    navigation.navigate('CourierOrder', { orderId: order.id });
-                  } catch (error: any) {
-                    const message = error?.response?.data?.message || 'Не удалось принять заказ';
-                    Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
-                  }
-                }}>
-                  <Text style={styles.intercityTripRoute}>{order.pickupAddress}</Text>
-                  <Text style={styles.intercityTripMeta}>
-                    {order.dropoffAddress} • {Math.round(Number(order.estimatedPrice || 0))} тг
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </>
-          ) : (
-            <Text style={styles.intercityEmpty}>Пока нет доступных курьерских заказов рядом.</Text>
-          )}
-        </View>
-
-        <DriverSideMenu
-          isOpen={isMenuOpen}
-          onClose={() => setIsMenuOpen(false)}
-          profile={profile}
-          onNavigate={(screen) => {
-            setIsMenuOpen(false);
-            navigation.navigate(screen as never);
-          }}
-          onLogout={handleLogout}
-        />
       </View>
     );
   }
@@ -680,6 +785,8 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         eyebrow="Driver mode"
         title="Межгород"
         subtitle="Один водительский аккаунт, отдельный режим рейсов и бронирований."
+        backLabel="На главную"
+        onBack={() => switchDriverMode(profile?.supportsTaxi ? 'TAXI' : 'COURIER')}
       >
         {profile?.supportsTaxi ? (
           <ServiceCard compact>
@@ -754,16 +861,24 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         showsUserLocation
         followsUserLocation={false}
       >
-        {routeCoordinates.length >= 2 && (
+        {renderedRouteCoordinates.length >= 2 && (
           <Polyline
-            coordinates={routeCoordinates}
-            strokeColor="#3B82F6"
+            coordinates={renderedRouteCoordinates}
+            strokeColor={currentModeIsCourier ? '#F59E0B' : '#3B82F6'}
             strokeWidth={4}
-            lineDashPattern={[10, 6]}
+            lineDashPattern={currentModeIsCourier ? undefined : [10, 6]}
           />
         )}
 
-        {incomingOffer?.fromLat && incomingOffer?.fromLng && (
+        {!currentModeIsCourier && currentRide?.fromLat && currentRide?.fromLng ? (
+          <Marker
+            coordinate={{ latitude: currentRide.fromLat, longitude: currentRide.fromLng }}
+            title="Подача"
+            pinColor="#2563EB"
+          />
+        ) : null}
+
+        {!currentModeIsCourier && !currentRide && incomingOffer?.fromLat && incomingOffer?.fromLng && (
           <Marker
             coordinate={{ latitude: incomingOffer.fromLat, longitude: incomingOffer.fromLng }}
             title="Подача"
@@ -771,7 +886,16 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           />
         )}
 
-        {incomingOffer?.stops?.map((stop, index) => (
+        {!currentModeIsCourier && currentRide?.stops?.map((stop: any, index: number) => (
+          <Marker
+            key={`${currentRide.id}-stop-${index}`}
+            coordinate={{ latitude: stop.lat, longitude: stop.lng }}
+            title={stop.address}
+            pinColor="#F97316"
+          />
+        ))}
+
+        {!currentModeIsCourier && !currentRide && incomingOffer?.stops?.map((stop, index) => (
           <Marker
             key={`${incomingOffer.id}-stop-${index}`}
             coordinate={{ latitude: stop.lat, longitude: stop.lng }}
@@ -780,7 +904,15 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           />
         ))}
 
-        {incomingOffer?.toLat && incomingOffer?.toLng && (
+        {!currentModeIsCourier && currentRide?.toLat && currentRide?.toLng ? (
+          <Marker
+            coordinate={{ latitude: currentRide.toLat, longitude: currentRide.toLng }}
+            title="Назначение"
+            pinColor="#DC2626"
+          />
+        ) : null}
+
+        {!currentModeIsCourier && !currentRide && incomingOffer?.toLat && incomingOffer?.toLng && (
           <Marker
             coordinate={{ latitude: incomingOffer.toLat, longitude: incomingOffer.toLng }}
             title="Назначение"
@@ -788,8 +920,35 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           />
         )}
 
-        {location && (
-          <Marker coordinate={{ latitude: location.lat, longitude: location.lng }} title="Вы" pinColor="#10B981" />
+        {currentModeIsCourier && currentCourierOrder?.pickupLat && currentCourierOrder?.pickupLng ? (
+          <Marker
+            coordinate={{ latitude: currentCourierOrder.pickupLat, longitude: currentCourierOrder.pickupLng }}
+            title="Забор"
+            pinColor="#2563EB"
+          />
+        ) : null}
+
+        {currentModeIsCourier && currentCourierOrder?.dropoffLat && currentCourierOrder?.dropoffLng ? (
+          <Marker
+            coordinate={{ latitude: currentCourierOrder.dropoffLat, longitude: currentCourierOrder.dropoffLng }}
+            title="Получатель"
+            pinColor="#DC2626"
+          />
+        ) : null}
+
+        {currentModeIsCourier && !currentCourierOrder
+          ? availableCourierOrders.slice(0, 2).map((order) => (
+              <Marker
+                key={order.id}
+                coordinate={{ latitude: order.pickupLat, longitude: order.pickupLng }}
+                title={order.pickupAddress}
+                pinColor="#F59E0B"
+              />
+            ))
+          : null}
+
+        {activeLocation && (
+          <Marker coordinate={{ latitude: activeLocation.lat, longitude: activeLocation.lng }} title="Вы" pinColor="#10B981" />
         )}
       </MapView>
 
@@ -814,19 +973,11 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       </TouchableOpacity>
 
       {profile?.supportsIntercity ? (
-        <View style={styles.modeSwitcher}>
-          <TouchableOpacity style={[styles.modeChip, profile?.driverMode === 'TAXI' && styles.modeChipActive]} onPress={() => switchDriverMode('TAXI')}>
-            <Text style={[styles.modeChipText, profile?.driverMode === 'TAXI' && styles.modeChipTextActive]}>Такси</Text>
-          </TouchableOpacity>
-          {profile?.supportsCourier ? (
-            <TouchableOpacity style={[styles.modeChip, profile?.driverMode === 'COURIER' && styles.modeChipActiveCourier]} onPress={() => switchDriverMode('COURIER')}>
-              <Text style={[styles.modeChipText, profile?.driverMode === 'COURIER' && styles.modeChipTextActive]}>Курьер</Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={[styles.modeChip, profile?.driverMode === 'INTERCITY' && styles.modeChipActiveBlue]} onPress={() => switchDriverMode('INTERCITY')}>
-            <Text style={[styles.modeChipText, profile?.driverMode === 'INTERCITY' && styles.modeChipTextActive]}>Межгород</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={[styles.intercityHubBtn, profile?.driverMode === 'INTERCITY' && styles.intercityHubBtnActive]} onPress={openIntercityHub}>
+          <Text style={[styles.intercityHubText, profile?.driverMode === 'INTERCITY' && styles.intercityHubTextActive]}>
+            Межгород
+          </Text>
+        </TouchableOpacity>
       ) : null}
 
       {incomingOffer ? (
@@ -835,8 +986,17 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         <DriverStatusSheet
           isOnline={isOnline}
           currentRideId={currentRideId}
+          currentRide={currentRide}
           profile={profile}
-          onGoToRide={() => currentRideId && navigation.navigate('DriverRide', { rideId: currentRideId })}
+          metrics={metrics}
+          onSwitchMode={switchDriverMode}
+          currentCourierOrder={currentCourierOrder}
+          availableCourierOrders={currentModeIsCourier ? availableCourierOrders : []}
+          onAcceptCourierOrder={acceptCourierOrder}
+          onRideStatusChange={updateRideStatus}
+          onCompleteRide={completeRide}
+          onCancelRide={cancelRide}
+          onCourierStatusChange={updateCourierStatus}
         />
       )}
 
@@ -912,6 +1072,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     zIndex: 10,
+  },
+  intercityHubBtn: {
+    position: 'absolute',
+    top: 108,
+    left: 20,
+    backgroundColor: '#18181B',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#0EA5E9',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    zIndex: 10,
+  },
+  intercityHubBtnActive: {
+    backgroundColor: '#082F49',
+  },
+  intercityHubText: {
+    color: '#BAE6FD',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  intercityHubTextActive: {
+    color: '#E0F2FE',
   },
   modeChip: {
     backgroundColor: '#18181B',
@@ -1026,6 +1209,39 @@ const styles = StyleSheet.create({
     color: '#F4F4F5',
     fontSize: 14,
     fontWeight: '700',
+  },
+  courierModeTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 6,
+    gap: 6,
+    marginBottom: 14,
+  },
+  courierModeTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  courierModeTabActive: {
+    backgroundColor: '#27272A',
+  },
+  courierModeTabActiveCourier: {
+    backgroundColor: '#3F2B05',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  courierModeTabText: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  courierModeTabTextActive: {
+    color: '#F4F4F5',
   },
   iconText: { fontSize: 24, color: '#fff' },
   iconDark: { fontSize: 22 },

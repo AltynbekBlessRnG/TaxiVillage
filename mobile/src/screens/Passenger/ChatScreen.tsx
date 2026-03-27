@@ -42,9 +42,42 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const socketRef = useRef<any>(null);
   const currentUserId = useRef<string>('');
+
+  const markRead = useCallback(async () => {
+    try {
+      await apiClient.post(`/chat/mark-read/${rideId}`);
+    } catch {
+      return;
+    }
+  }, [rideId]);
+
+  const loadMessages = useCallback(
+    async (cursor?: string | null) => {
+      const response = await apiClient.get<{
+        items: Message[];
+        nextCursor: string | null;
+        hasMore: boolean;
+      }>(`/chat/messages/${rideId}`, {
+        params: {
+          cursor: cursor || undefined,
+          limit: 30,
+        },
+      });
+
+      setMessages((prev) =>
+        cursor ? mergeMessages(response.data.items, prev) : mergeMessages([], response.data.items),
+      );
+      setNextCursor(response.data.nextCursor);
+      setHasMore(response.data.hasMore);
+    },
+    [rideId],
+  );
 
   const scrollToBottom = useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -66,16 +99,16 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         socket.onMessage((message: Message) => {
           setMessages((prev) => mergeMessages(prev, [message]));
           scrollToBottom();
+          void markRead();
         });
 
         socket.onError((error: any) => {
           Alert.alert('Ошибка', error.message || 'Произошла ошибка');
         });
 
-        const response = await apiClient.get<Message[]>(`/chat/messages/${rideId}`);
-        setMessages(mergeMessages([], response.data));
+        await loadMessages();
         scrollToBottom(false);
-        await apiClient.post(`/chat/mark-read/${rideId}`);
+        await markRead();
       } catch {
         Alert.alert('Ошибка', 'Не удалось загрузить чат');
       }
@@ -88,7 +121,22 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         socketRef.current = null;
       }
     };
-  }, [rideId, scrollToBottom]);
+  }, [loadMessages, markRead, rideId, scrollToBottom]);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!hasMore || !nextCursor || loadingMore) {
+      return;
+    }
+
+    setLoadingMore(true);
+    try {
+      await loadMessages(nextCursor);
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось загрузить предыдущие сообщения');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadMessages, loadingMore, nextCursor]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || loading) return;
@@ -108,6 +156,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
       }
       setNewMessage('');
       scrollToBottom();
+      await markRead();
     } catch {
       Alert.alert('Ошибка', 'Не удалось отправить сообщение');
     } finally {
@@ -153,6 +202,19 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         style={styles.messagesList}
         contentContainerStyle={styles.messagesContainer}
         onContentSizeChange={() => scrollToBottom(false)}
+        ListHeaderComponent={
+          hasMore ? (
+            <TouchableOpacity
+              style={[styles.loadMoreButton, loadingMore && styles.loadMoreButtonDisabled]}
+              onPress={loadOlderMessages}
+              disabled={loadingMore}
+            >
+              <Text style={styles.loadMoreButtonText}>
+                {loadingMore ? 'Загружаем...' : 'Показать предыдущие'}
+              </Text>
+            </TouchableOpacity>
+          ) : null
+        }
       />
 
       <View style={styles.inputContainer}>
@@ -183,6 +245,25 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 72 },
   messagesList: { flex: 1 },
   messagesContainer: { paddingHorizontal: 20, paddingBottom: 20 },
+  loadMoreButton: {
+    alignSelf: 'center',
+    backgroundColor: '#18181B',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  loadMoreButtonDisabled: {
+    opacity: 0.6,
+  },
+  loadMoreButtonText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   messageContainer: { marginVertical: 8, maxWidth: '84%', alignSelf: 'flex-start' },
   ownMessage: { alignSelf: 'flex-end' },
   messageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },

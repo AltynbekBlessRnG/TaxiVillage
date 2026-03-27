@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CourierTransportType, DocumentType, DriverMode, DriverStatus, RideStatus } from '@prisma/client/index';
+import { Prisma, CourierOrderStatus, CourierTransportType, DocumentType, DriverMode, DriverStatus, RideStatus } from '@prisma/client/index';
 import { RidesGateway } from '../rides/rides.gateway';
 
 /** Haversine distance calculation */
@@ -21,6 +21,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 @Injectable()
 export class DriversService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DriversService.name);
+  private readonly ACTIVE_RIDE_CACHE_TTL = 3000;
   
   constructor(
     private readonly prisma: PrismaService,
@@ -28,6 +29,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   private locationCache = new Map<string, { lat: number; lng: number; lastUpdate: Date }>();
+  private activeRideCache = new Map<string, { rideId: string | null; checkedAt: number }>();
   private readonly BATCH_INTERVAL = 30000; // 30 seconds
   private readonly CACHE_CLEANUP_INTERVAL = 60000; // 1 minute - clean old entries
   private locationBatchTimer?: NodeJS.Timeout;
@@ -62,6 +64,12 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
     for (const [userId, location] of this.locationCache.entries()) {
       if (now.getTime() - location.lastUpdate.getTime() > STALE_TIME) {
         this.locationCache.delete(userId);
+      }
+    }
+
+    for (const [userId, activeRide] of this.activeRideCache.entries()) {
+      if (Date.now() - activeRide.checkedAt > STALE_TIME) {
+        this.activeRideCache.delete(userId);
       }
     }
     
@@ -101,6 +109,37 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
     this.locationCache.clear();
   }
 
+  private async getActiveRideId(userId: string) {
+    const cached = this.activeRideCache.get(userId);
+    if (cached && Date.now() - cached.checkedAt < this.ACTIVE_RIDE_CACHE_TTL) {
+      return cached.rideId;
+    }
+
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!driver) {
+      this.activeRideCache.set(userId, { rideId: null, checkedAt: Date.now() });
+      return null;
+    }
+
+    const currentRide = await this.prisma.ride.findFirst({
+      where: {
+        driverId: driver.id,
+        status: {
+          in: [RideStatus.ON_THE_WAY, RideStatus.DRIVER_ARRIVED, RideStatus.IN_PROGRESS],
+        },
+      },
+      select: { id: true },
+    });
+
+    const rideId = currentRide?.id ?? null;
+    this.activeRideCache.set(userId, { rideId, checkedAt: Date.now() });
+    return rideId;
+  }
+
   async setOnlineStatus(userId: string, isOnline: boolean) {
     // If going online, validate driver profile
     if (isOnline) {
@@ -119,22 +158,43 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (driver.driverMode === DriverMode.INTERCITY) {
-        return this.prisma.driverProfile.update({
-          where: { userId },
-          data: { isOnline },
+        return this.prisma.$transaction(async (tx) => {
+          const updatedDriver = await tx.driverProfile.update({
+            where: { userId },
+            data: { isOnline },
+          });
+          await tx.courierProfile.updateMany({
+            where: { userId },
+            data: { isOnline: false },
+          });
+          return updatedDriver;
         });
       }
 
       if (driver.driverMode === DriverMode.COURIER) {
+        const approvedDocuments = driver.documents.filter((doc) => doc.approved);
+        const hasCourierId = approvedDocuments.some((doc) => doc.type === DocumentType.COURIER_ID);
+
+        if (!hasCourierId) {
+          throw new BadRequestException('Необходимо загрузить и получить одобрение удостоверения курьера');
+        }
+
         if (driver.courierTransportType === CourierTransportType.CAR) {
           if (!driver.car || !driver.car.make || !driver.car.model || !driver.car.color || !driver.car.plateNumber) {
             throw new BadRequestException('Для автокурьера нужно заполнить информацию об автомобиле');
           }
         }
 
-        return this.prisma.driverProfile.update({
-          where: { userId },
-          data: { isOnline },
+        return this.prisma.$transaction(async (tx) => {
+          const updatedDriver = await tx.driverProfile.update({
+            where: { userId },
+            data: { isOnline },
+          });
+          await tx.courierProfile.updateMany({
+            where: { userId },
+            data: { isOnline },
+          });
+          return updatedDriver;
         });
       }
 
@@ -159,9 +219,16 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const driver = await this.prisma.driverProfile.update({
-      where: { userId },
-      data: { isOnline },
+    const driver = await this.prisma.$transaction(async (tx) => {
+      const updatedDriver = await tx.driverProfile.update({
+        where: { userId },
+        data: { isOnline },
+      });
+      await tx.courierProfile.updateMany({
+        where: { userId },
+        data: { isOnline: false },
+      });
+      return updatedDriver;
     });
     return driver;
   }
@@ -169,32 +236,14 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
   async updateLocation(userId: string, lat: number, lng: number) {
     // Store in cache instead of immediate DB write
     this.locationCache.set(userId, { lat, lng, lastUpdate: new Date() });
-    
-    // Also update the driver profile immediately for real-time tracking
-    // But only if we have an active ride (critical for passenger tracking)
-    const driver = await this.prisma.driverProfile.findUnique({
-      where: { userId },
-    });
 
-    if (driver) {
-      // Check if driver has an active ride
-      const currentRide = await this.prisma.ride.findFirst({
-        where: {
-          driverId: driver.id,
-          status: {
-            in: [RideStatus.ON_THE_WAY, RideStatus.DRIVER_ARRIVED, RideStatus.IN_PROGRESS],
-          },
-        },
+    const activeRideId = await this.getActiveRideId(userId);
+    if (activeRideId) {
+      await this.prisma.driverProfile.update({
+        where: { userId },
+        data: { lat, lng },
       });
-
-      if (currentRide) {
-        // For drivers with active rides, update immediately (critical for passenger)
-        await this.prisma.driverProfile.update({
-          where: { userId },
-          data: { lat, lng },
-        });
-        this.ridesGateway.emitDriverMoved(currentRide.id, lat, lng);
-      }
+      this.ridesGateway.emitDriverMoved(activeRideId, lat, lng);
     }
 
     return { success: true };
@@ -208,7 +257,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('Driver profile not found');
     }
 
-    return this.prisma.ride.findFirst({
+    const ride = await this.prisma.ride.findFirst({
       where: {
         driverId: driver.id,
         status: {
@@ -221,6 +270,13 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
         },
       },
     });
+
+    this.activeRideCache.set(userId, {
+      rideId: ride?.id ?? null,
+      checkedAt: Date.now(),
+    });
+
+    return ride;
   }
 
   async upsertCar(
@@ -273,13 +329,109 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       where: { userId },
       include: {
         car: true,
+        documents: true,
         user: true,
       },
     });
     if (!driver) {
       throw new NotFoundException('Driver profile not found');
     }
+
     return driver;
+  }
+
+  async getMetrics(userId: string, days = 7) {
+    const clampedDays = Math.max(1, Math.min(30, Math.round(days || 7)));
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+      include: {
+        user: true,
+      },
+    });
+    if (!driver) {
+      throw new NotFoundException('Driver profile not found');
+    }
+
+    const courierProfile = await this.prisma.courierProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const periodStart = new Date(todayStart);
+    periodStart.setDate(periodStart.getDate() - (clampedDays - 1));
+
+    const [completedRides, completedDeliveries] = await Promise.all([
+      this.prisma.ride.findMany({
+        where: {
+          driverId: driver.id,
+          status: RideStatus.COMPLETED,
+          finishedAt: { gte: periodStart },
+        },
+        select: {
+          finishedAt: true,
+          finalPrice: true,
+          estimatedPrice: true,
+        },
+      }),
+      courierProfile
+        ? this.prisma.courierOrder.findMany({
+            where: {
+              courierId: courierProfile.id,
+              status: CourierOrderStatus.DELIVERED,
+              deliveredAt: { gte: periodStart },
+            },
+            select: {
+              deliveredAt: true,
+              finalPrice: true,
+              estimatedPrice: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const buckets = Array.from({ length: clampedDays }, (_, index) => {
+      const date = new Date(periodStart);
+      date.setDate(periodStart.getDate() + index);
+      const isoDate = date.toISOString().slice(0, 10);
+      return {
+        date: isoDate,
+        label: date.toLocaleDateString('ru-RU', { weekday: 'short' }),
+        earnings: 0,
+      };
+    });
+
+    const addToBucket = (dateValue: Date | null | undefined, amountValue: Prisma.Decimal | number | null | undefined) => {
+      if (!dateValue) {
+        return;
+      }
+      const key = new Date(dateValue).toISOString().slice(0, 10);
+      const bucket = buckets.find((item) => item.date === key);
+      if (!bucket) {
+        return;
+      }
+      bucket.earnings += Number(amountValue ?? 0);
+    };
+
+    completedRides.forEach((ride) => addToBucket(ride.finishedAt, ride.finalPrice ?? ride.estimatedPrice));
+    completedDeliveries.forEach((order) => addToBucket(order.deliveredAt, order.finalPrice ?? order.estimatedPrice));
+
+    const todayEarnings = buckets.find((item) => item.date === todayStart.toISOString().slice(0, 10))?.earnings ?? 0;
+
+    return {
+      todayEarnings,
+      dailyBuckets: buckets.map((bucket) => ({
+        ...bucket,
+        earnings: Math.round(bucket.earnings),
+      })),
+      completedTaxiRides: completedRides.length,
+      completedCourierDeliveries: completedDeliveries.length,
+      rating: Number(driver.rating ?? 5),
+      balance: Number(driver.balance ?? 0),
+    };
   }
 
   async setDriverMode(userId: string, driverMode: DriverMode) {
@@ -292,17 +444,35 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
     if (driverMode === DriverMode.INTERCITY && !driver.supportsIntercity) {
       throw new BadRequestException('Межгородний режим еще не включен в профиле');
     }
+    if (driverMode === DriverMode.COURIER && !driver.supportsCourier) {
+      throw new BadRequestException('Курьерский режим еще не включен в профиле');
+    }
     if (driverMode === DriverMode.TAXI && !driver.supportsTaxi) {
       throw new BadRequestException('Такси-режим недоступен для этого профиля');
     }
 
-    return this.prisma.driverProfile.update({
-      where: { userId },
-      data: { driverMode },
-      include: {
-        car: true,
-        user: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const updatedDriver = await tx.driverProfile.update({
+        where: { userId },
+        data: { driverMode },
+        include: {
+          car: true,
+          documents: true,
+          user: true,
+        },
+      });
+
+      await tx.courierProfile.updateMany({
+        where: { userId },
+        data: {
+          isOnline:
+            driverMode === DriverMode.COURIER && updatedDriver.isOnline
+              ? true
+              : false,
+        },
+      });
+
+      return updatedDriver;
     });
   }
 

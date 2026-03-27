@@ -10,6 +10,7 @@ export interface Message {
   receiverId: string;
   receiverType: 'PASSENGER' | 'DRIVER';
   createdAt: string;
+  readAt?: string | null;
   senderName?: string;
   receiverName?: string;
 }
@@ -17,6 +18,8 @@ export interface Message {
 export class ChatSocket {
   private socket: Socket | null = null;
   private rideId: string | null = null;
+  private messageCallback?: (message: Message) => void;
+  private errorCallback?: (error: any) => void;
 
   async connect(rideId: string): Promise<void> {
     const auth = await loadAuth();
@@ -37,24 +40,35 @@ export class ChatSocket {
     });
 
     return new Promise((resolve, reject) => {
-      this.socket!.on('connect', () => {
+      const handleConnect = () => {
         console.log('Chat socket connected');
         this.socket!.emit('join:ride', { rideId });
         resolve();
-      });
+      };
 
-      this.socket!.on('connect_error', (error) => {
+      const handleConnectError = (error: any) => {
         console.error('Chat socket connection error:', error);
         reject(error);
-      });
+      };
+
+      this.socket!.once('connect', handleConnect);
+      this.socket!.once('connect_error', handleConnectError);
     });
   }
 
   disconnect(): void {
     if (this.socket) {
+      if (this.messageCallback) {
+        this.socket.off('message:sent', this.messageCallback);
+      }
+      if (this.errorCallback) {
+        this.socket.off('error', this.errorCallback);
+      }
       this.socket.disconnect();
       this.socket = null;
       this.rideId = null;
+      this.messageCallback = undefined;
+      this.errorCallback = undefined;
     }
   }
 
@@ -74,6 +88,10 @@ export class ChatSocket {
       throw new Error('Chat socket not connected');
     }
 
+    if (this.messageCallback) {
+      this.socket.off('message:sent', this.messageCallback);
+    }
+    this.messageCallback = callback;
     this.socket.on('message:sent', callback);
   }
 
@@ -82,6 +100,10 @@ export class ChatSocket {
       throw new Error('Chat socket not connected');
     }
 
+    if (this.errorCallback) {
+      this.socket.off('error', this.errorCallback);
+    }
+    this.errorCallback = callback;
     this.socket.on('error', callback);
   }
 }

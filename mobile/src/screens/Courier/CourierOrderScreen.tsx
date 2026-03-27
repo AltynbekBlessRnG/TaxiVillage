@@ -38,6 +38,7 @@ export const CourierOrderScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [displayRoute, setDisplayRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [resolvedOrderId, setResolvedOrderId] = useState<string | null>(route.params?.orderId ?? null);
   const orderId = route.params?.orderId;
   const mapRef = useRef<MapView>(null);
 
@@ -52,11 +53,19 @@ export const CourierOrderScreen: React.FC<Props> = ({ navigation, route }) => {
 
       if (!resolvedOrderId) {
         setOrder(null);
+        setResolvedOrderId(null);
         return;
       }
 
+      setResolvedOrderId(resolvedOrderId);
       const response = await apiClient.get(`/courier-orders/${resolvedOrderId}`);
       setOrder(response.data);
+      if (response.data?.courier?.lat != null && response.data?.courier?.lng != null) {
+        setCourierLocation({
+          lat: response.data.courier.lat,
+          lng: response.data.courier.lng,
+        });
+      }
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось загрузить заказ';
       Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
@@ -80,8 +89,8 @@ export const CourierOrderScreen: React.FC<Props> = ({ navigation, route }) => {
       }
 
       socket = createCourierOrdersSocket(auth.accessToken);
-      if (orderId) {
-        socket.emit('join:courier-order', orderId);
+      if (resolvedOrderId) {
+        socket.emit('join:courier-order', resolvedOrderId);
       }
 
       socket.on('courier-order:updated', (updatedOrder: any) => {
@@ -89,13 +98,19 @@ export const CourierOrderScreen: React.FC<Props> = ({ navigation, route }) => {
           return;
         }
 
-        if (orderId && updatedOrder.id !== orderId) {
+        if (resolvedOrderId && updatedOrder.id !== resolvedOrderId) {
           return;
         }
 
         setOrder(updatedOrder);
+        if (updatedOrder?.courier?.lat != null && updatedOrder?.courier?.lng != null) {
+          setCourierLocation({
+            lat: updatedOrder.courier.lat,
+            lng: updatedOrder.courier.lng,
+          });
+        }
         if (updatedOrder.status === 'DELIVERED' || updatedOrder.status === 'CANCELED') {
-          navigation.replace('DriverHome');
+          navigation.navigate('DriverHome');
         }
       });
     };
@@ -106,7 +121,7 @@ export const CourierOrderScreen: React.FC<Props> = ({ navigation, route }) => {
       mounted = false;
       socket?.disconnect();
     };
-  }, [navigation, orderId]);
+  }, [navigation, orderId, resolvedOrderId]);
 
   const fallbackRoute = useMemo(
     () =>
@@ -166,7 +181,7 @@ export const CourierOrderScreen: React.FC<Props> = ({ navigation, route }) => {
       await apiClient.post(`/courier-orders/${order.id}/status`, { status });
       await loadOrder();
       if (status === 'DELIVERED') {
-        navigation.replace('DriverHome');
+        navigation.navigate('DriverHome');
       }
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось обновить статус';
@@ -222,8 +237,8 @@ export const CourierOrderScreen: React.FC<Props> = ({ navigation, route }) => {
         ) : null}
       </MapView>
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.replace('DriverHome')}>
-        <Text style={styles.backBtnText}>← K home курьера</Text>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('DriverHome')}>
+        <Text style={styles.backBtnText}>← На главную</Text>
       </TouchableOpacity>
 
       <View style={styles.bottomSheet}>
@@ -243,7 +258,18 @@ export const CourierOrderScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
 
-        <Text style={styles.itemText}>{order?.itemDescription || '-'}</Text>
+        <View style={styles.detailsCard}>
+          <Text style={styles.detailLabel}>Посылка</Text>
+          <Text style={styles.itemText}>{order?.itemDescription || '-'}</Text>
+          <Text style={styles.detailLabel}>Вес</Text>
+          <Text style={styles.detailText}>{order?.packageWeight || 'Не указан'}</Text>
+          <Text style={styles.detailLabel}>Размер</Text>
+          <Text style={styles.detailText}>{order?.packageSize || 'Не указан'}</Text>
+          <Text style={styles.detailLabel}>Комментарий</Text>
+          <Text style={styles.detailText}>{order?.comment || 'Нет комментария'}</Text>
+          <Text style={styles.detailLabel}>Цена</Text>
+          <Text style={styles.priceText}>{Math.round(Number(order?.estimatedPrice || 0))} тг</Text>
+        </View>
 
         {order?.status === 'TO_PICKUP' ? (
           <TouchableOpacity style={[styles.actionButton, styles.arrivedButton]} onPress={() => updateStatus('COURIER_ARRIVED')}>
@@ -338,7 +364,32 @@ const styles = StyleSheet.create({
     color: '#F4F4F5',
     fontSize: 15,
     fontWeight: '700',
+  },
+  detailsCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
+    padding: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  detailLabel: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+    marginTop: 6,
+    textTransform: 'uppercase',
+  },
+  detailText: {
+    color: '#F4F4F5',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  priceText: {
+    color: '#60A5FA',
+    fontSize: 18,
+    fontWeight: '900',
   },
   actionButton: { borderRadius: 16, paddingVertical: 13, alignItems: 'center', marginBottom: 10 },
   actionButtonText: { color: '#000', fontSize: 17, fontWeight: '800' },

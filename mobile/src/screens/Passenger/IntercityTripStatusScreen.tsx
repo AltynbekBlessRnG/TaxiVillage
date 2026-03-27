@@ -60,7 +60,7 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
       title="Статус бронирования"
       subtitle="Пассажир видит актуальный статус своей брони и самого рейса."
       backLabel="На главную"
-      onBack={() => navigation.replace('PassengerHome', {})}
+      onBack={() => navigation.navigate('PassengerHome', {})}
     >
       <ServiceCard>
         <View style={styles.pill}>
@@ -81,7 +81,7 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
         <InlineLabel label="4" value="Завершено" />
       </ServiceCard>
 
-      <PrimaryButton title="Вернуться в такси" onPress={() => navigation.replace('PassengerHome', {})} />
+        <PrimaryButton title="Вернуться в такси" onPress={() => navigation.navigate('PassengerHome', {})} />
     </ServiceScreen>
   );
 };

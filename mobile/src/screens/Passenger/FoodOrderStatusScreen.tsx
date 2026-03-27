@@ -62,7 +62,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       title="Заказ оформлен"
       subtitle="Экран статуса уже читает реальный `FoodOrder` и статус кухни из backend."
       backLabel="На главную"
-      onBack={() => navigation.replace('PassengerHome', {})}
+      onBack={() => navigation.navigate('PassengerHome', {})}
     >
       <ServiceCard>
         <SectionTitle>Статус кухни</SectionTitle>
@@ -83,7 +83,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
         <InlineLabel label="5" value="Доставлено" />
       </ServiceCard>
 
-      <PrimaryButton title="Вернуться в такси" onPress={() => navigation.replace('PassengerHome', {})} />
+        <PrimaryButton title="Вернуться в такси" onPress={() => navigation.navigate('PassengerHome', {})} />
     </ServiceScreen>
   );
 };

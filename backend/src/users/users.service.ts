@@ -40,9 +40,15 @@ export class UsersService {
             create: {
               fullName: params.fullName,
               supportsTaxi: true,
-              supportsCourier: false,
+              supportsCourier: true,
               supportsIntercity: false,
               driverMode: 'TAXI',
+              courierTransportType: 'FOOT',
+            },
+          },
+          courier: {
+            create: {
+              fullName: params.fullName,
             },
           },
         },
@@ -310,6 +316,81 @@ export class UsersService {
           role: 'DRIVER',
         },
       });
+
+      return tx.user.findUnique({
+        where: { id: user.id },
+        include: {
+          passenger: true,
+          driver: true,
+          courier: true,
+          merchant: true,
+          intercityDriver: true,
+        },
+      });
+    });
+  }
+
+  async ensureUnifiedDriverProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        driver: true,
+        courier: true,
+      },
+    });
+
+    if (!user || user.role !== 'DRIVER') {
+      return user;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const baseDriver =
+        user.driver ??
+        (await tx.driverProfile.create({
+          data: {
+            userId: user.id,
+            fullName: user.courier?.fullName ?? undefined,
+            status: user.courier?.status ?? 'APPROVED',
+            isOnline: false,
+            rating: user.courier?.rating ?? 5,
+            balance: user.courier?.balance ?? 0,
+            supportsTaxi: true,
+            supportsCourier: true,
+            supportsIntercity: false,
+            driverMode: 'TAXI',
+            courierTransportType: 'FOOT',
+          },
+        }));
+
+      const updatedDriver = await tx.driverProfile.update({
+        where: { id: baseDriver.id },
+        data: {
+          supportsTaxi: baseDriver.supportsTaxi ?? true,
+          supportsCourier: true,
+          supportsIntercity: baseDriver.supportsIntercity ?? false,
+          driverMode: baseDriver.driverMode ?? 'TAXI',
+          courierTransportType: baseDriver.courierTransportType ?? 'FOOT',
+        },
+      });
+
+      const courierProfile = await tx.courierProfile.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (!courierProfile) {
+        await tx.courierProfile.create({
+          data: {
+            userId: user.id,
+            fullName: updatedDriver.fullName,
+            status: updatedDriver.status,
+            isOnline: false,
+            rating: updatedDriver.rating,
+            balance: updatedDriver.balance,
+            lat: updatedDriver.lat,
+            lng: updatedDriver.lng,
+          },
+        });
+      }
 
       return tx.user.findUnique({
         where: { id: user.id },

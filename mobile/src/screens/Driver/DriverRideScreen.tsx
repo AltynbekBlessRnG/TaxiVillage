@@ -93,7 +93,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
         setStatus(updatedRide.status);
 
         if (updatedRide.status === 'CANCELED' || updatedRide.status === 'COMPLETED') {
-          navigation.replace('DriverHome');
+          navigation.navigate('DriverHome');
         }
       });
     };
@@ -193,7 +193,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
       await apiClient.post(`/rides/${rideId}/status`, { status: newStatus });
       setStatus(newStatus);
       if (newStatus === 'CANCELED') {
-        navigation.replace('DriverHome');
+        navigation.navigate('DriverHome');
         return;
       }
       await fetchRide();
@@ -209,7 +209,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       await apiClient.post(`/rides/${rideId}/complete`, {});
       setStatus('COMPLETED');
-      navigation.replace('DriverHome');
+      navigation.navigate('DriverHome');
     } catch (e: any) {
       Alert.alert('Ошибка', e.response?.data?.message || 'Не удалось завершить поездку');
     } finally {
@@ -290,7 +290,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
         ) : null}
       </MapView>
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.replace('DriverHome')}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('DriverHome')}>
         <Text style={styles.backBtnText}>← На главную</Text>
       </TouchableOpacity>
 
@@ -362,7 +362,7 @@ export const DriverRideScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={() => updateStatus('DRIVER_ARRIVED')}
                 disabled={loading}
               >
-                <Text style={styles.actionButtonText}>Я на местехуй</Text>
+                <Text style={styles.actionButtonText}>Я на месте</Text>
               </TouchableOpacity>
             ) : null}
 

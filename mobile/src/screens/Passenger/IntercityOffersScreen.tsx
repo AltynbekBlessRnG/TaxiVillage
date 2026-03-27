@@ -73,16 +73,7 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
                 'Авто не указано',
               pricePerSeat: String(Math.round(Number(offer.pricePerSeat || 0))),
               seatCapacity: Number(offer.seatCapacity || 0),
-              seatsRemaining: Math.max(
-                Number(offer.seatCapacity || 0) -
-                  (Array.isArray(offer.bookings)
-                    ? offer.bookings.reduce(
-                        (sum: number, booking: any) => sum + Number(booking.seatsBooked || 0),
-                        0,
-                      )
-                    : 0),
-                0,
-              ),
+              seatsRemaining: Number(offer.seatsRemaining ?? offer.seatCapacity ?? 0),
             })
           }
         >
@@ -94,15 +85,8 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
             {[offer.carMake, offer.carModel, offer.carColor].filter(Boolean).join(' • ') || 'Авто не заполнено'}
           </Text>
           <Text style={styles.offerTime}>
-            Выезд: {new Date(offer.departureAt).toLocaleString()} • Мест: {Math.max(
-              Number(offer.seatCapacity || 0) -
-                (Array.isArray(offer.bookings)
-                  ? offer.bookings.reduce(
-                      (sum: number, booking: any) => sum + Number(booking.seatsBooked || 0),
-                      0,
-                    )
-                  : 0),
-              0,
+            Выезд: {new Date(offer.departureAt).toLocaleString()} • Мест: {Number(
+              offer.seatsRemaining ?? offer.seatCapacity ?? 0,
             )} из {offer.seatCapacity}
           </Text>
         </TouchableOpacity>

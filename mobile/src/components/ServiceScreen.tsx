@@ -1,5 +1,7 @@
 import React from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -28,19 +30,29 @@ export const ServiceScreen: React.FC<ServiceScreenProps> = ({
   children,
 }) => (
   <SafeAreaView style={styles.container}>
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        {onBack ? (
-          <TouchableOpacity style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backText}>← {backLabel}</Text>
-          </TouchableOpacity>
-        ) : null}
-        <Text style={[styles.eyebrow, { color: accentColor }]}>{eyebrow}</Text>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      </View>
-      {children}
-    </ScrollView>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          {onBack ? (
+            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+              <Text style={styles.backText}>← {backLabel}</Text>
+            </TouchableOpacity>
+          ) : null}
+          <Text style={[styles.eyebrow, { color: accentColor }]}>{eyebrow}</Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        </View>
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
   </SafeAreaView>
 );
 
@@ -97,6 +109,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#09090B',
+  },
+  flex: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: 20,

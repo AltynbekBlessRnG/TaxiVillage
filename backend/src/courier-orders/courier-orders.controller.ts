@@ -64,6 +64,13 @@ class UpdateCourierOrderStatusDto {
 export class CourierOrdersController {
   constructor(private readonly courierOrdersService: CourierOrdersService) {}
 
+  @Get('current')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  getCurrent(@Req() req: any) {
+    return this.courierOrdersService.getCurrentOrderForPassenger(req.user.userId);
+  }
+
   @Get('my')
   @UseGuards(AuthGuard('jwt'))
   getMyOrders(@Req() req: any) {

@@ -114,6 +114,15 @@ export class DriversController {
     return this.driversService.getProfile(userId);
   }
 
+  @Get('metrics')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  getMetrics(@Req() req: any) {
+    const userId: string = req.user.userId;
+    const days = Number(req.query.days ?? 7);
+    return this.driversService.getMetrics(userId, days);
+  }
+
   @Post('mode')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.DRIVER)

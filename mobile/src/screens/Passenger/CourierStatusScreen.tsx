@@ -41,6 +41,7 @@ export const CourierStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [displayRoute, setDisplayRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [isFollowingCourier, setIsFollowingCourier] = useState(true);
   const mapRef = useRef<MapView>(null);
 
   const loadOrder = useCallback(async (silent = false) => {
@@ -79,7 +80,7 @@ export const CourierStatusScreen: React.FC<Props> = ({ navigation, route }) => {
       loadOrder(true).catch(() => null);
       const intervalId = setInterval(() => {
         loadOrder(true).catch(() => null);
-      }, 5000);
+      }, 30000);
 
       return () => clearInterval(intervalId);
     }, [loadOrder]),
@@ -137,6 +138,15 @@ export const CourierStatusScreen: React.FC<Props> = ({ navigation, route }) => {
       return [];
     }
 
+    if (order.status === 'SEARCHING_COURIER') {
+      return buildRouteCoordinates({
+        fromLat: order.pickupLat,
+        fromLng: order.pickupLng,
+        toLat: order.dropoffLat,
+        toLng: order.dropoffLng,
+      });
+    }
+
     const destination =
       order.status === 'TO_RECIPIENT' || order.status === 'PICKED_UP' || order.status === 'DELIVERING'
         ? { lat: order.dropoffLat, lng: order.dropoffLng }
@@ -153,6 +163,11 @@ export const CourierStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   useEffect(() => {
     if (!order) {
       setDisplayRoute([]);
+      return;
+    }
+
+    if (order.status === 'SEARCHING_COURIER') {
+      setDisplayRoute(fallbackRoute);
       return;
     }
 
@@ -200,12 +215,12 @@ export const CourierStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 
   useEffect(() => {
-    if (!mapRef.current || mapPoints.length === 0) {
+    if (!mapRef.current || mapPoints.length === 0 || !isFollowingCourier) {
       return;
     }
 
     mapRef.current.animateToRegion(initialRegion, 500);
-  }, [initialRegion, mapPoints.length]);
+  }, [initialRegion, isFollowingCourier, mapPoints.length]);
 
   if (loading && !order) {
     return (
@@ -230,6 +245,7 @@ export const CourierStatusScreen: React.FC<Props> = ({ navigation, route }) => {
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         mapType="standard"
         customMapStyle={darkMinimalMapStyle}
+        onPanDrag={() => setIsFollowingCourier(false)}
       >
         {courierLocation ? (
           <Marker coordinate={{ latitude: courierLocation.lat, longitude: courierLocation.lng }} title="Курьер" pinColor="#F59E0B" />
@@ -244,6 +260,18 @@ export const CourierStatusScreen: React.FC<Props> = ({ navigation, route }) => {
           <Polyline coordinates={routeToRender} strokeColor="#F59E0B" strokeWidth={4} />
         ) : null}
       </MapView>
+
+      {!isFollowingCourier ? (
+        <TouchableOpacity
+          style={styles.recenterBtn}
+          onPress={() => {
+            setIsFollowingCourier(true);
+            mapRef.current?.animateToRegion(initialRegion, 500);
+          }}
+        >
+          <Text style={styles.recenterBtnText}>⌖</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('PassengerHome', {})}>
         <Text style={styles.backBtnText}>← На главную</Text>
@@ -284,6 +312,10 @@ export const CourierStatusScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={styles.infoValue}>{order?.itemDescription || 'Посылка'}</Text>
             <Text style={styles.infoLabel}>Вес</Text>
             <Text style={styles.infoValue}>{order?.packageWeight || 'Не указан'}</Text>
+            <Text style={styles.infoLabel}>Размер</Text>
+            <Text style={styles.infoValue}>{order?.packageSize || 'Не указан'}</Text>
+            <Text style={styles.infoLabel}>Комментарий</Text>
+            <Text style={styles.infoValue}>{order?.comment || 'Нет комментария'}</Text>
             <Text style={styles.infoLabel}>Цена</Text>
             <Text style={[styles.infoValue, styles.priceValue]}>{price}</Text>
           </View>
@@ -315,6 +347,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#27272A',
     zIndex: 10,
+  },
+  recenterBtn: {
+    position: 'absolute',
+    top: 52,
+    right: 18,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  recenterBtnText: {
+    color: '#F4F4F5',
+    fontSize: 20,
+    fontWeight: '800',
   },
   backBtnText: {
     color: '#F4F4F5',

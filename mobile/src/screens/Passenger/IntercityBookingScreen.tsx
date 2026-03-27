@@ -34,7 +34,7 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
         comment: comment.trim() || undefined,
       });
 
-      navigation.replace('IntercityTripStatus', { bookingId: response.data.id });
+      navigation.navigate('IntercityTripStatus', { bookingId: response.data.id });
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось забронировать поездку';
       Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);

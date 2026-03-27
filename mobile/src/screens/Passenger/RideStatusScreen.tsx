@@ -155,7 +155,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
 
           if (updatedRide.status === 'CANCELED') {
             Alert.alert('Поездка отменена', 'Заказ был отменен.');
-            navigation.replace('PassengerHome', {});
+        navigation.navigate('PassengerHome', {});
           }
         });
 
@@ -244,7 +244,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         onPress: async () => {
           try {
             await apiClient.post(`/rides/${rideId}/cancel`);
-            navigation.replace('PassengerHome', {});
+      navigation.navigate('PassengerHome', {});
           } catch (e: any) {
             Alert.alert('Ошибка', e.response?.data?.message || 'Не удалось отменить заказ');
           }
@@ -304,7 +304,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         ) : null}
       </MapView>
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.replace('PassengerHome', {})}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('PassengerHome', {})}>
         <Text style={styles.backBtnText}>← На главную</Text>
       </TouchableOpacity>
 
@@ -415,7 +415,7 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
         rideId={rideId}
         finalPrice={price}
         driverName={ride?.driver?.fullName || 'Водитель'}
-        onRatingSubmitted={() => navigation.replace('PassengerHome', {})}
+          onRatingSubmitted={() => navigation.navigate('PassengerHome', {})}
       />
     </View>
   );

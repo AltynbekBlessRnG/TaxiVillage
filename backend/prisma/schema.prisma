@@ -333,6 +333,7 @@ enum DocumentType {
   DRIVER_LICENSE
   CAR_REGISTRATION
   TAXI_LICENSE
+  COURIER_ID
   OTHER
 }
 
@@ -383,6 +384,7 @@ model Message {
   
   content     String
   createdAt   DateTime @default(now())
+  readAt      DateTime?
   
   @@index([rideId, createdAt])
 }

@@ -82,7 +82,7 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
         seatCapacity: Number(seatCapacity),
         comment: comment.trim() || undefined,
       });
-      navigation.replace('IntercityTrip', { tripId: response.data.id });
+      navigation.navigate('IntercityTrip', { tripId: response.data.id });
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось создать рейс';
       Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);

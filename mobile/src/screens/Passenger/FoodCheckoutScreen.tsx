@@ -32,7 +32,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
         })),
       });
 
-      navigation.replace('FoodOrderStatus', { orderId: response.data.id });
+      navigation.navigate('FoodOrderStatus', { orderId: response.data.id });
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось оформить заказ';
       Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);

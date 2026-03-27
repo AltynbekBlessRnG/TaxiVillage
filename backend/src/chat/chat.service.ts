@@ -12,16 +12,25 @@ interface SendMessageDto {
   receiverType: MessageSender;
 }
 
+interface GetMessagesParams {
+  cursor?: string;
+  limit?: number;
+}
+
 @Injectable()
 export class ChatService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getChatMessages(userId: string, rideId: string) {
+  async getChatMessages(userId: string, rideId: string, params: GetMessagesParams = {}) {
     const participant = await this.getRideParticipant(userId, rideId);
+    const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
 
     const messages = await this.prisma.message.findMany({
       where: { rideId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
+      take: limit + 1,
+      cursor: params.cursor ? { id: params.cursor } : undefined,
+      skip: params.cursor ? 1 : 0,
       include: {
         sender: { include: { user: true } },
         driverSender: { include: { user: true } },
@@ -30,7 +39,15 @@ export class ChatService {
       },
     });
 
-    return messages.map((message) => this.serializeMessage(message, participant));
+    const hasMore = messages.length > limit;
+    const pageItems = hasMore ? messages.slice(0, limit) : messages;
+    const orderedItems = [...pageItems].reverse();
+
+    return {
+      items: orderedItems.map((message) => this.serializeMessage(message, participant)),
+      nextCursor: hasMore ? pageItems[pageItems.length - 1]?.id ?? null : null,
+      hasMore,
+    };
   }
 
   async sendMessage(userId: string, rideId: string, data: SendMessageDto) {
@@ -73,8 +90,21 @@ export class ChatService {
   }
 
   async markMessagesAsRead(userId: string, rideId: string) {
-    await this.getRideParticipant(userId, rideId);
-    return { success: true };
+    const participant = await this.getRideParticipant(userId, rideId);
+
+    const result = await this.prisma.message.updateMany({
+      where: {
+        rideId,
+        receiverId: participant.profileId,
+        receiverType: participant.senderType,
+        readAt: null,
+      },
+      data: {
+        readAt: new Date(),
+      },
+    });
+
+    return { success: true, updatedCount: result.count };
   }
 
   async assertRideParticipant(userId: string, rideId: string) {
@@ -143,6 +173,7 @@ export class ChatService {
         receiverProfile?.userId ?? participant.ride.driver?.userId ?? '',
       receiverType: message.receiverType,
       createdAt: message.createdAt,
+      readAt: message.readAt,
       senderName:
         senderProfile?.fullName ?? senderProfile?.user?.phone ?? 'Пользователь',
       receiverName:

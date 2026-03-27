@@ -18,7 +18,7 @@ export class IntercityTripsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listPublicTrips(filters: { fromCity?: string; toCity?: string }) {
-    return this.prisma.intercityTrip.findMany({
+    const trips = await this.prisma.intercityTrip.findMany({
       where: {
         status: IntercityTripStatus.PLANNED,
         fromCity: filters.fromCity ? { contains: filters.fromCity, mode: 'insensitive' } : undefined,
@@ -27,6 +27,15 @@ export class IntercityTripsService {
       },
       include: this.publicTripInclude(),
       orderBy: [{ departureAt: 'asc' }, { createdAt: 'desc' }],
+    });
+
+    return trips.map((trip) => {
+      const seatsUsed = trip.bookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
+      return {
+        ...trip,
+        seatsRemaining: Math.max(trip.seatCapacity - seatsUsed, 0),
+        bookings: undefined,
+      };
     });
   }
 
@@ -338,7 +347,20 @@ export class IntercityTripsService {
           car: true,
         },
       },
-      bookings: true,
+      bookings: {
+        where: {
+          status: {
+            in: [
+              IntercityBookingStatus.CONFIRMED,
+              IntercityBookingStatus.BOARDING,
+              IntercityBookingStatus.IN_PROGRESS,
+            ],
+          },
+        },
+        select: {
+          seatsBooked: true,
+        },
+      },
     } satisfies Prisma.IntercityTripInclude;
   }
 

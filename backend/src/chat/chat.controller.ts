@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Req, UseGuards } from '@nestjs/common';
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ChatService } from './chat.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -21,10 +21,17 @@ export class ChatController {
 
   @Get('messages/:rideId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  async getChatMessages(@Req() req: any) {
+  async getChatMessages(
+    @Req() req: any,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
     const userId: string = req.user.userId;
     const rideId: string = req.params.rideId;
-    return this.chatService.getChatMessages(userId, rideId);
+    return this.chatService.getChatMessages(userId, rideId, {
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   @Post('send/:rideId')

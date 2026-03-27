@@ -99,14 +99,10 @@ export const AppNavigator: React.FC = () => {
       if (!mounted) return;
       if (auth) {
         setAuthToken(auth.accessToken);
-        if (auth.role === 'DRIVER' || auth.role === 'DRIVER_TAXI') {
-          setInitialRoute('DriverHome');
-        } else if (auth.role === 'COURIER') {
+        if (['DRIVER', 'DRIVER_TAXI', 'COURIER', 'DRIVER_INTERCITY'].includes(auth.role)) {
           setInitialRoute('DriverHome');
         } else if (auth.role === 'MERCHANT') {
           setInitialRoute('MerchantDashboard');
-        } else if (auth.role === 'DRIVER_INTERCITY') {
-          setInitialRoute('DriverHome');
         } else {
           setInitialRoute('PassengerHome');
         }
@@ -129,41 +125,62 @@ export const AppNavigator: React.FC = () => {
   }
 
   return (
-    <Stack.Navigator initialRouteName={initialRoute}>
-      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
-      <Stack.Screen 
-  name="PassengerHome" 
-  component={PassengerHomeScreen} 
-  options={{ headerShown: false }} 
-/>
-      <Stack.Screen name="CourierHome" component={CourierHomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="CourierStatus" component={CourierStatusScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="FoodHome" component={FoodHomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Restaurant" component={RestaurantScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Cart" component={CartScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="FoodCheckout" component={FoodCheckoutScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="FoodOrderStatus" component={FoodOrderStatusScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="IntercityHome" component={IntercityHomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="IntercityOffers" component={IntercityOffersScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="IntercityBooking" component={IntercityBookingScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="IntercityTripStatus" component={IntercityTripStatusScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="FavoriteAddresses" component={FavoriteAddressesScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="RideStatus" component={RideStatusScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="DriverHome" component={DriverHomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="DriverProfile" component={DriverProfileScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="DriverRide" component={DriverRideScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="CourierWorkerHome" component={CourierWorkerHomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="CourierOrder" component={CourierOrderScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="CourierProfile" component={CourierProfileScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="MerchantDashboard" component={MerchantDashboardScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="MerchantOrders" component={MerchantOrdersScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="MenuEditor" component={MenuEditorScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="IntercityDriverHome" component={IntercityDriverHomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="IntercityTrip" component={IntercityTripScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="IntercityDriverProfile" component={IntercityDriverProfileScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="RideHistory" component={RideHistoryScreen} options={{ headerShown: false }} />
+    <Stack.Navigator
+      initialRouteName={initialRoute}
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        contentStyle: {
+          backgroundColor: '#09090B',
+        },
+      }}
+    >
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="PassengerHome" component={PassengerHomeScreen} />
+      <Stack.Screen name="CourierHome" component={CourierHomeScreen} />
+      <Stack.Screen name="CourierStatus" component={CourierStatusScreen} />
+      <Stack.Screen
+        name="FoodHome"
+        component={FoodHomeScreen}
+        options={{ animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen name="Restaurant" component={RestaurantScreen} />
+      <Stack.Screen name="Cart" component={CartScreen} />
+      <Stack.Screen name="FoodCheckout" component={FoodCheckoutScreen} />
+      <Stack.Screen name="FoodOrderStatus" component={FoodOrderStatusScreen} />
+      <Stack.Screen
+        name="IntercityHome"
+        component={IntercityHomeScreen}
+        options={{ animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen name="IntercityOffers" component={IntercityOffersScreen} />
+      <Stack.Screen name="IntercityBooking" component={IntercityBookingScreen} />
+      <Stack.Screen name="IntercityTripStatus" component={IntercityTripStatusScreen} />
+      <Stack.Screen
+        name="FavoriteAddresses"
+        component={FavoriteAddressesScreen}
+        options={{ presentation: 'modal', animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen name="RideStatus" component={RideStatusScreen} />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} />
+      <Stack.Screen name="DriverHome" component={DriverHomeScreen} />
+      <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
+      <Stack.Screen name="DriverRide" component={DriverRideScreen} />
+      <Stack.Screen name="CourierWorkerHome" component={CourierWorkerHomeScreen} />
+      <Stack.Screen name="CourierOrder" component={CourierOrderScreen} />
+      <Stack.Screen name="CourierProfile" component={CourierProfileScreen} />
+      <Stack.Screen name="MerchantDashboard" component={MerchantDashboardScreen} />
+      <Stack.Screen name="MerchantOrders" component={MerchantOrdersScreen} />
+      <Stack.Screen name="MenuEditor" component={MenuEditorScreen} />
+      <Stack.Screen name="IntercityDriverHome" component={IntercityDriverHomeScreen} />
+      <Stack.Screen name="IntercityTrip" component={IntercityTripScreen} />
+      <Stack.Screen name="IntercityDriverProfile" component={IntercityDriverProfileScreen} />
+      <Stack.Screen
+        name="RideHistory"
+        component={RideHistoryScreen}
+        options={{ presentation: 'modal', animation: 'fade_from_bottom' }}
+      />
     </Stack.Navigator>
   );
 };
@@ -173,11 +190,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#09090B',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
+    color: '#F4F4F5',
   },
 });
 

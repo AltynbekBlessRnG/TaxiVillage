@@ -892,6 +892,8 @@ export class RidesService implements OnModuleDestroy {
     const baseWhere: Prisma.DriverProfileWhereInput = {
       status: 'APPROVED',
       isOnline: true,
+      supportsTaxi: true,
+      driverMode: 'TAXI',
       balance: { gte: new Prisma.Decimal(this.MIN_BALANCE) },
       lat: { not: null },
       lng: { not: null },

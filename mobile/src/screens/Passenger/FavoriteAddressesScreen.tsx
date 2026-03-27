@@ -3,7 +3,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -242,83 +244,89 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
 
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={resetModal}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editingAddress ? 'Редактировать адрес' : 'Добавить адрес'}</Text>
-            <Text style={styles.presetLabel}>Быстрый выбор</Text>
-            <View style={styles.presetButtons}>
-              {PRESET_NAMES.map((preset) => (
-                <TouchableOpacity
-                  key={preset}
-                  style={[styles.presetButton, formData.name === preset && styles.presetButtonActive]}
-                  onPress={() => setFormData((current) => ({ ...current, name: preset }))}
-                >
-                  <Text style={[styles.presetButtonText, formData.name === preset && styles.presetButtonTextActive]}>{preset}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Название"
-              placeholderTextColor="#71717A"
-              value={formData.name}
-              onChangeText={(text) => setFormData((current) => ({ ...current, name: text }))}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Найдите адрес через Google"
-              placeholderTextColor="#71717A"
-              value={formData.address}
-              onChangeText={handleAddressInputChange}
-            />
-
-            <View style={styles.coordinateHint}>
-              <Text style={styles.coordinateHintText}>
-                {hasValidCoordinates(formData.lat, formData.lng)
-                  ? 'Точка выбрана. Адрес можно сохранять.'
-                  : 'Сначала выберите адрес из подсказок ниже.'}
-              </Text>
-            </View>
-
-            {searchLoading ? (
-              <View style={styles.searchLoading}>
-                <ActivityIndicator color="#F4F4F5" size="small" />
-                <Text style={styles.searchLoadingText}>Ищем адрес...</Text>
-              </View>
-            ) : null}
-
-            {searchResults.length > 0 ? (
-              <FlatList
-                data={searchResults}
-                keyExtractor={(item) => item.place_id}
-                style={styles.suggestionsList}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.suggestionItem} onPress={() => void handleSuggestionPress(item)}>
-                    <Text style={styles.suggestionTitle}>
-                      {item.structured_formatting?.main_text || item.description}
-                    </Text>
-                    {item.structured_formatting?.secondary_text ? (
-                      <Text style={styles.suggestionSubtitle}>{item.structured_formatting.secondary_text}</Text>
-                    ) : null}
+          <KeyboardAvoidingView
+            style={styles.modalAvoiding}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{editingAddress ? 'Редактировать адрес' : 'Добавить адрес'}</Text>
+              <Text style={styles.presetLabel}>Быстрый выбор</Text>
+              <View style={styles.presetButtons}>
+                {PRESET_NAMES.map((preset) => (
+                  <TouchableOpacity
+                    key={preset}
+                    style={[styles.presetButton, formData.name === preset && styles.presetButtonActive]}
+                    onPress={() => setFormData((current) => ({ ...current, name: preset }))}
+                  >
+                    <Text style={[styles.presetButtonText, formData.name === preset && styles.presetButtonTextActive]}>{preset}</Text>
                   </TouchableOpacity>
-                )}
-              />
-            ) : null}
+                ))}
+              </View>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelModalButton} onPress={resetModal}>
-                <Text style={styles.cancelModalButtonText}>Отмена</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveModalButton, loading && styles.saveModalButtonDisabled]}
-                onPress={handleSave}
-                disabled={loading}
-              >
-                <Text style={styles.saveModalButtonText}>{loading ? 'Сохранение...' : 'Сохранить'}</Text>
-              </TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                placeholder="Название"
+                placeholderTextColor="#71717A"
+                value={formData.name}
+                onChangeText={(text) => setFormData((current) => ({ ...current, name: text }))}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Найдите адрес через Google"
+                placeholderTextColor="#71717A"
+                value={formData.address}
+                onChangeText={handleAddressInputChange}
+              />
+
+              <View style={styles.coordinateHint}>
+                <Text style={styles.coordinateHintText}>
+                  {hasValidCoordinates(formData.lat, formData.lng)
+                    ? 'Точка выбрана. Адрес можно сохранять.'
+                    : 'Сначала выберите адрес из подсказок ниже.'}
+                </Text>
+              </View>
+
+              {searchLoading ? (
+                <View style={styles.searchLoading}>
+                  <ActivityIndicator color="#F4F4F5" size="small" />
+                  <Text style={styles.searchLoadingText}>Ищем адрес...</Text>
+                </View>
+              ) : null}
+
+              {searchResults.length > 0 ? (
+                <FlatList
+                  data={searchResults}
+                  keyExtractor={(item) => item.place_id}
+                  style={styles.suggestionsList}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={styles.suggestionItem} onPress={() => void handleSuggestionPress(item)}>
+                      <Text style={styles.suggestionTitle}>
+                        {item.structured_formatting?.main_text || item.description}
+                      </Text>
+                      {item.structured_formatting?.secondary_text ? (
+                        <Text style={styles.suggestionSubtitle}>{item.structured_formatting.secondary_text}</Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  )}
+                />
+              ) : null}
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={styles.cancelModalButton} onPress={resetModal}>
+                  <Text style={styles.cancelModalButtonText}>Отмена</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveModalButton, loading && styles.saveModalButtonDisabled]}
+                  onPress={handleSave}
+                  disabled={loading}
+                >
+                  <Text style={styles.saveModalButtonText}>{loading ? 'Сохранение...' : 'Сохранить'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -371,6 +379,7 @@ const styles = StyleSheet.create({
   deleteButton: { backgroundColor: '#3F1D1D' },
   iconButtonText: { fontSize: 15 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalAvoiding: { width: '100%' },
   modalContent: {
     backgroundColor: '#18181B',
     padding: 24,

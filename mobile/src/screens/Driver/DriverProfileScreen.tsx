@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,7 +27,7 @@ interface Car {
 
 interface Document {
   id: string;
-  type: 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'TAXI_LICENSE' | 'OTHER';
+  type: 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'TAXI_LICENSE' | 'COURIER_ID' | 'OTHER';
   url: string;
   approved: boolean;
 }
@@ -48,6 +50,7 @@ const DOCUMENT_TYPES = {
   DRIVER_LICENSE: 'Водительское удостоверение',
   CAR_REGISTRATION: 'СТС',
   TAXI_LICENSE: 'Лицензия на такси',
+  COURIER_ID: 'ID курьера',
   OTHER: 'Другой документ',
 };
 
@@ -67,14 +70,23 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const approvedDocuments = profile?.documents?.filter((doc) => doc.approved) ?? [];
   const hasApprovedLicense = approvedDocuments.some((doc) => doc.type === 'DRIVER_LICENSE');
   const hasApprovedRegistration = approvedDocuments.some((doc) => doc.type === 'CAR_REGISTRATION');
+  const hasApprovedCourierId = approvedDocuments.some((doc) => doc.type === 'COURIER_ID');
   const hasCarInfo = !!(profile?.car?.make && profile?.car?.model && profile?.car?.color && profile?.car?.plateNumber);
+  const isCourierCar = courierTransportType === 'CAR';
 
-  const nextSteps = [
+  const taxiNextSteps = [
     profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
     profile?.status === 'REJECTED' ? 'Проверьте документы и данные автомобиля, затем загрузите их заново.' : null,
     !hasCarInfo ? 'Заполните марку, модель, цвет и номер автомобиля.' : null,
     !hasApprovedLicense ? 'Загрузите водительское удостоверение и дождитесь проверки.' : null,
     !hasApprovedRegistration ? 'Загрузите СТС и дождитесь проверки.' : null,
+  ].filter(Boolean) as string[];
+
+  const courierNextSteps = [
+    profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
+    !profile?.supportsCourier ? 'Включите курьерский режим ниже.' : null,
+    !hasApprovedCourierId ? 'Загрузите ID курьера и дождитесь проверки.' : null,
+    isCourierCar && !hasCarInfo ? 'Для автокурьера заполните марку, модель, цвет и номер автомобиля.' : null,
   ].filter(Boolean) as string[];
 
   useEffect(() => {
@@ -171,7 +183,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   const getDocumentStatus = (doc: Document) => (doc.approved ? 'Одобрено' : 'Ожидает проверки');
 
-  const pickAndUploadDocument = async (docType: 'DRIVER_LICENSE' | 'CAR_REGISTRATION') => {
+  const pickAndUploadDocument = async (docType: 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'COURIER_ID') => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permissionResult.status !== 'granted') {
@@ -223,12 +235,17 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>← Назад</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Профиль водителя</Text>
+        <Text style={styles.headerTitle}>Профиль водитель/курьер</Text>
         <View style={styles.statusBadge}>
           <Text style={styles.statusBadgeText}>{getStatusText(profile?.status || 'PENDING')}</Text>
         </View>
@@ -246,22 +263,37 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {profile ? (
-        <View style={[styles.section, styles.statusSection, profile.status === 'APPROVED' ? styles.readySection : styles.warningSection]}>
-          <Text style={styles.sectionTitle}>Статус выхода на линию</Text>
-          <Text style={styles.statusSummary}>
-            {profile.status === 'APPROVED' && hasCarInfo && hasApprovedLicense && hasApprovedRegistration
-              ? 'Все готово. Можно выходить на линию.'
-              : profile.status === 'REJECTED'
-                ? 'Профиль отклонен. Исправьте данные и загрузите документы заново.'
-                : 'Профиль еще не готов к выходу на линию. Ниже видно, чего не хватает.'}
-          </Text>
-          {nextSteps.map((step) => (
-            <View key={step} style={styles.nextStepRow}>
-              <Text style={styles.nextStepBullet}>•</Text>
-              <Text style={styles.nextStepText}>{step}</Text>
-            </View>
-          ))}
-        </View>
+        <>
+          <View style={[styles.section, styles.statusSection, profile.status === 'APPROVED' && hasCarInfo && hasApprovedLicense && hasApprovedRegistration ? styles.readySection : styles.warningSection]}>
+            <Text style={styles.sectionTitle}>Выход на линию как такси</Text>
+            <Text style={styles.statusSummary}>
+              {profile.status === 'APPROVED' && hasCarInfo && hasApprovedLicense && hasApprovedRegistration
+                ? 'Такси-режим готов. Можно выходить на линию как водитель.'
+                : 'Для такси нужны одобренный профиль, автомобиль, водительские права и СТС.'}
+            </Text>
+            {taxiNextSteps.map((step) => (
+              <View key={`taxi-${step}`} style={styles.nextStepRow}>
+                <Text style={styles.nextStepBullet}>•</Text>
+                <Text style={styles.nextStepText}>{step}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={[styles.section, styles.statusSection, profile.status === 'APPROVED' && hasApprovedCourierId && (!isCourierCar || hasCarInfo) ? styles.readySection : styles.warningSection]}>
+            <Text style={styles.sectionTitle}>Выход на линию как курьер</Text>
+            <Text style={styles.statusSummary}>
+              {profile.status === 'APPROVED' && hasApprovedCourierId && (!isCourierCar || hasCarInfo)
+                ? 'Курьерский режим готов. Можно выходить на линию в выбранном типе доставки.'
+                : 'Для курьера нужен ID курьера. Для автокурьера дополнительно нужен автомобиль.'}
+            </Text>
+            {courierNextSteps.map((step) => (
+              <View key={`courier-${step}`} style={styles.nextStepRow}>
+                <Text style={styles.nextStepBullet}>•</Text>
+                <Text style={styles.nextStepText}>{step}</Text>
+              </View>
+            ))}
+          </View>
+        </>
       ) : null}
 
       <View style={styles.section}>
@@ -296,6 +328,15 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               {uploadingDoc === 'CAR_REGISTRATION' ? 'Загрузка...' : 'СТС'}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.secondaryButton, uploadingDoc === 'COURIER_ID' && styles.secondaryButtonDisabled]}
+            onPress={() => pickAndUploadDocument('COURIER_ID')}
+            disabled={uploadingDoc !== null}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {uploadingDoc === 'COURIER_ID' ? 'Загрузка...' : 'ID курьера'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {profile?.documents && profile.documents.length > 0 ? (
@@ -315,7 +356,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Чек-лист для выхода на линию</Text>
+        <Text style={styles.sectionTitle}>Чек-лист такси</Text>
         <View style={styles.checklist}>
           <View style={styles.checkItem}>
             <Text style={styles.checkIcon}>{profile?.status === 'APPROVED' ? '✓' : '•'}</Text>
@@ -337,7 +378,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Режимы водителя</Text>
+        <Text style={styles.sectionTitle}>Режимы водитель/курьер</Text>
         <View style={styles.checklist}>
           <View style={styles.checkItem}>
             <Text style={styles.checkIcon}>{profile?.supportsTaxi ? '✓' : '•'}</Text>
@@ -350,6 +391,10 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.checkItem}>
             <Text style={styles.checkIcon}>{profile?.supportsCourier ? '✓' : '•'}</Text>
             <Text style={styles.checkText}>Курьер {profile?.supportsCourier ? `включен (${profile?.courierTransportType || 'FOOT'})` : 'выключен'}</Text>
+          </View>
+          <View style={styles.checkItem}>
+            <Text style={styles.checkIcon}>{hasApprovedCourierId ? '✓' : '•'}</Text>
+            <Text style={styles.checkText}>ID курьера {hasApprovedCourierId ? 'одобрен' : 'не загружен или не одобрен'}</Text>
           </View>
           <View style={styles.checkItem}>
             <Text style={styles.checkIcon}>•</Text>
@@ -393,6 +438,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
