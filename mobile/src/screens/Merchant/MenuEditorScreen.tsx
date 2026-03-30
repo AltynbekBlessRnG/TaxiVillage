@@ -20,6 +20,7 @@ export const MenuEditorScreen: React.FC<Props> = () => {
   const [itemName, setItemName] = useState('');
   const [itemDescription, setItemDescription] = useState('');
   const [itemPrice, setItemPrice] = useState('');
+  const [itemImageUrl, setItemImageUrl] = useState('');
 
   const loadProfile = useCallback(
     () => apiClient.get('/merchants/profile/me').then((response) => setMerchant(response.data)),
@@ -61,10 +62,12 @@ export const MenuEditorScreen: React.FC<Props> = () => {
       name: itemName,
       description: itemDescription || undefined,
       price: Number(itemPrice),
+      imageUrl: itemImageUrl || undefined,
     });
     setItemName('');
     setItemDescription('');
     setItemPrice('');
+    setItemImageUrl('');
     await loadProfile();
   };
 
@@ -110,6 +113,13 @@ export const MenuEditorScreen: React.FC<Props> = () => {
           placeholder="Цена"
           placeholderTextColor="#71717A"
           keyboardType="numeric"
+        />
+        <TextInput
+          value={itemImageUrl}
+          onChangeText={setItemImageUrl}
+          style={styles.input}
+          placeholder="Ссылка на фото блюда"
+          placeholderTextColor="#71717A"
         />
         <PrimaryButton title="Добавить блюдо" onPress={() => createItem().catch(() => null)} />
       </ServiceCard>

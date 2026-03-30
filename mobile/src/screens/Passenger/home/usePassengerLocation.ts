@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import { apiClient } from '../../../api/client';
 
@@ -9,10 +9,15 @@ export function usePassengerLocation(params: {
   onResolvedCurrentLocation?: (coords: { lat: number; lng: number }) => Promise<void> | void;
 }) {
   const { onResolvedCurrentLocation } = params;
+  const onResolvedCurrentLocationRef = useRef(onResolvedCurrentLocation);
   const [userProfile, setUserProfile] = useState<UserProfile>(null);
   const [profileReady, setProfileReady] = useState(false);
   const [userLocation, setUserLocation] = useState<Coord>(null);
   const [mapCenter, setMapCenter] = useState<Coord>(null);
+
+  useEffect(() => {
+    onResolvedCurrentLocationRef.current = onResolvedCurrentLocation;
+  }, [onResolvedCurrentLocation]);
 
   useEffect(() => {
     const init = async () => {
@@ -41,11 +46,11 @@ export function usePassengerLocation(params: {
 
       setUserLocation(coords);
       setMapCenter(coords);
-      await onResolvedCurrentLocation?.(coords);
+      await onResolvedCurrentLocationRef.current?.(coords);
     };
 
     init().catch(() => {});
-  }, [onResolvedCurrentLocation]);
+  }, []);
 
   return {
     userProfile,

@@ -9,7 +9,10 @@ export default {
     "userInterfaceStyle": "dark",
     "scheme": "taxivillage",
     "extra": {
-      "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
+      "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY,
+      "eas": {
+        "projectId": process.env.EXPO_PUBLIC_EAS_PROJECT_ID
+      }
     },
     "ios": {
       "bundleIdentifier": "com.taxivillage.app",
@@ -45,7 +48,8 @@ export default {
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "expo-notifications"
     ]
   }
 };

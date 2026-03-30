@@ -1,0 +1,13 @@
+-- AlterTable
+ALTER TABLE "IntercityOrder"
+ADD COLUMN "stops" JSONB,
+ADD COLUMN "womenOnly" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "baggageRequired" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "noAnimals" BOOLEAN NOT NULL DEFAULT false;
+
+-- AlterTable
+ALTER TABLE "IntercityTrip"
+ADD COLUMN "stops" JSONB,
+ADD COLUMN "womenOnly" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "baggageSpace" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "allowAnimals" BOOLEAN NOT NULL DEFAULT true;

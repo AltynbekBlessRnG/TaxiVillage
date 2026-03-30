@@ -7,11 +7,21 @@ interface DriverSideMenuProps {
   isOpen: boolean;
   onClose: () => void;
   profile: { fullName?: string; phone?: string; balance?: number; rating?: number } | null;
+  unreadNotificationsCount?: number;
+  unreadMessagesCount?: number;
   onNavigate: (screen: string) => void;
   onLogout: () => void;
 }
 
-export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({ isOpen, onClose, profile, onNavigate, onLogout }) => {
+export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
+  isOpen,
+  onClose,
+  profile,
+  unreadNotificationsCount = 0,
+  unreadMessagesCount = 0,
+  onNavigate,
+  onLogout,
+}) => {
   const slideAnim = useRef(new Animated.Value(-width)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -60,6 +70,30 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({ isOpen, onClose,
         </View>
 
         <View style={styles.menuItems}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('Notifications')}>
+            <View style={styles.menuItemRow}>
+              <Text style={styles.menuItemText}>🔔 Уведомления</Text>
+              {unreadNotificationsCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('Messages')}>
+            <View style={styles.menuItemRow}>
+              <Text style={styles.menuItemText}>💬 Сообщения</Text>
+              {unreadMessagesCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('DriverProfile')}>
             <Text style={styles.menuItemText}>👤 Мой профиль</Text>
           </TouchableOpacity>
@@ -92,7 +126,18 @@ const styles = StyleSheet.create({
   statValueYellow: { color: '#F59E0B', fontSize: 18, fontWeight: '700' },
   menuItems: { padding: 20, flex: 1 },
   menuItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#18181B' },
+  menuItemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   menuItemText: { color: '#E2E8F0', fontSize: 16, fontWeight: '500' },
+  badge: {
+    minWidth: 26,
+    height: 26,
+    borderRadius: 13,
+    paddingHorizontal: 8,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   logoutBtn: { margin: 20, marginBottom: 40, padding: 16, backgroundColor: '#7F1D1D', borderRadius: 12, alignItems: 'center' },
   logoutText: { color: '#FCA5A5', fontSize: 16, fontWeight: '600' },
 });

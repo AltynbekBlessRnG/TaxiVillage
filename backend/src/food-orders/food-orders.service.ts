@@ -10,10 +10,17 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { FoodOrdersGateway } from './food-orders.gateway';
+import { resolveFoodPromo } from './food-promos';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class FoodOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly foodOrdersGateway: FoodOrdersGateway,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async createOrderForPassenger(
     userId: string,
@@ -23,6 +30,7 @@ export class FoodOrdersService {
       comment?: string;
       items: Array<{ menuItemId: string; qty: number }>;
       paymentMethod?: 'CARD' | 'CASH';
+      promoCode?: string;
     },
   ) {
     const passenger = await this.prisma.passengerProfile.findUnique({
@@ -61,10 +69,15 @@ export class FoodOrdersService {
       };
     });
 
-    const total = cartItems.reduce(
+    const subtotal = cartItems.reduce(
       (sum, item) => sum + Number(item.menuItem.price) * item.qty,
       0,
     );
+    const appliedPromo = resolveFoodPromo(data.promoCode, merchant.id, subtotal);
+    if (data.promoCode && !appliedPromo) {
+      throw new BadRequestException('Промокод недействителен для этого заказа');
+    }
+    const total = Math.max(subtotal - (appliedPromo?.discountAmount || 0), 0);
 
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.foodOrder.create({
@@ -101,7 +114,60 @@ export class FoodOrdersService {
       return created;
     });
 
-    return this.getOrderByIdForUser(userId, UserRole.PASSENGER, order.id);
+    const fullOrder = await this.getOrderByIdForUser(userId, UserRole.PASSENGER, order.id);
+    const payload = {
+      ...fullOrder,
+      promoCode: appliedPromo?.code || null,
+      discountAmount: appliedPromo?.discountAmount || 0,
+    };
+    this.foodOrdersGateway.emitOrderCreated(payload);
+    await this.notificationsService.sendPush(fullOrder.merchant?.user?.pushToken, {
+      title: 'Новый заказ еды',
+      body: `Поступил новый заказ в ${merchant.name}`,
+      data: {
+        type: 'FOOD_ORDER_CREATED',
+        orderId: fullOrder.id,
+      },
+    });
+    return payload;
+  }
+
+  validatePromoCode(data: { merchantId: string; promoCode: string; items: Array<{ menuItemId: string; qty: number }> }) {
+    return this.prisma.merchant.findUnique({
+      where: { id: data.merchantId },
+      include: {
+        menuCategories: {
+          include: {
+            items: true,
+          },
+        },
+      },
+    }).then((merchant) => {
+      if (!merchant) {
+        throw new NotFoundException('Merchant not found');
+      }
+
+      const menuItems = merchant.menuCategories.flatMap((category) => category.items);
+      const subtotal = data.items.reduce((sum, item) => {
+        const menuItem = menuItems.find((candidate) => candidate.id === item.menuItemId);
+        if (!menuItem || !menuItem.isAvailable) {
+          throw new BadRequestException('Одно из блюд недоступно');
+        }
+        return sum + Number(menuItem.price) * item.qty;
+      }, 0);
+
+      const appliedPromo = resolveFoodPromo(data.promoCode, merchant.id, subtotal);
+      if (!appliedPromo) {
+        throw new BadRequestException('Промокод недействителен');
+      }
+
+      return {
+        code: appliedPromo.code,
+        subtotal,
+        discountAmount: appliedPromo.discountAmount,
+        total: Math.max(subtotal - appliedPromo.discountAmount, 0),
+      };
+    });
   }
 
   async getOrdersForUser(userId: string, role: UserRole) {
@@ -215,7 +281,56 @@ export class FoodOrdersService {
       });
     });
 
-    return this.getOrderByIdForUser(userId, UserRole.MERCHANT, orderId);
+    const updatedOrder = await this.getOrderByIdForUser(userId, UserRole.MERCHANT, orderId);
+    this.foodOrdersGateway.emitOrderUpdated(updatedOrder);
+    await this.sendOrderStatusNotification(updatedOrder);
+    return updatedOrder;
+  }
+
+  private async sendOrderStatusNotification(order: Awaited<ReturnType<FoodOrdersService['getOrderByIdForUser']>>) {
+    const pushToken = order.passenger?.user?.pushToken;
+
+    const messages: Partial<Record<FoodOrderStatus, { title: string; body: string }>> = {
+      [FoodOrderStatus.ACCEPTED]: {
+        title: 'Заказ принят',
+        body: 'Заведение подтвердило ваш заказ.',
+      },
+      [FoodOrderStatus.PREPARING]: {
+        title: 'Заказ готовят',
+        body: 'На кухне уже начали готовить ваш заказ.',
+      },
+      [FoodOrderStatus.READY_FOR_PICKUP]: {
+        title: 'Заказ готов',
+        body: 'Заказ готов и ожидает передачи курьеру.',
+      },
+      [FoodOrderStatus.ON_DELIVERY]: {
+        title: 'Заказ в пути',
+        body: 'Курьер уже везет ваш заказ.',
+      },
+      [FoodOrderStatus.DELIVERED]: {
+        title: 'Заказ доставлен',
+        body: 'Приятного аппетита.',
+      },
+      [FoodOrderStatus.CANCELED]: {
+        title: 'Заказ отменен',
+        body: 'К сожалению, заказ был отменен.',
+      },
+    };
+
+    const message = messages[order.status];
+    if (!message) {
+      return;
+    }
+
+    await this.notificationsService.sendPush(pushToken, {
+      title: message.title,
+      body: message.body,
+      data: {
+        type: 'FOOD_ORDER_STATUS',
+        orderId: order.id,
+        status: order.status,
+      },
+    });
   }
 
   private assertAllowedTransition(from: FoodOrderStatus, to: FoodOrderStatus) {
@@ -241,7 +356,11 @@ export class FoodOrdersService {
           user: true,
         },
       },
-      merchant: true,
+      merchant: {
+        include: {
+          user: true,
+        },
+      },
       items: true,
       statusHistory: {
         orderBy: { createdAt: 'asc' as const },

@@ -12,9 +12,10 @@ import { ChatService } from './chat.service';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from '../auth/auth.service';
 import { Server, Socket } from 'socket.io';
+import { RedisService } from '../redis/redis.service';
 
 @WebSocketGateway({
-  namespace: '/chat',
+  namespace: '/app',
   cors: {
     origin: '*',
   },
@@ -28,13 +29,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly chatService: ChatService,
     private readonly jwtService: JwtService,
+    private readonly redisService: RedisService,
   ) {}
 
   async handleConnection(client: Socket) {
     const token = client.handshake.auth?.token;
     if (!token) {
       this.logger.warn('Chat socket connection rejected: no token');
-      client.disconnect();
+      this.rejectUnauthorized(client);
       return;
     }
 
@@ -45,14 +47,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
       const userId = payload.sub;
       (client as any).userId = userId;
+      await this.redisService.setUserPresence(userId, 'app', client.id);
       this.logger.log(`Chat client connected: ${client.id} (user: ${userId})`);
     } catch (error) {
       this.logger.warn('Chat socket connection rejected: invalid token');
-      client.disconnect();
+      this.rejectUnauthorized(client);
     }
   }
 
   handleDisconnect(client: Socket) {
+    void this.redisService.removeSocketPresence(client.id);
     this.logger.log(`Chat client disconnected: ${client.id}`);
   }
 
@@ -95,5 +99,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.error(`Failed to send message:`, error);
       client.emit('error', { message: 'Failed to send message' });
     }
+  }
+
+  private rejectUnauthorized(client: Socket) {
+    client.emit('error', { code: 'UNAUTHORIZED', message: 'UNAUTHORIZED' });
+    client.disconnect();
   }
 }

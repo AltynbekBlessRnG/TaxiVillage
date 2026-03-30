@@ -1,11 +1,22 @@
-import React, { useRef, useState } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, 
-  PanResponder, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Alert 
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import BottomSheet, {
+  BottomSheetTextInput,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
 
 interface Props {
-  translateY: Animated.Value;
+  translateY: unknown;
   serviceType?: 'taxi' | 'courier';
   fromAddress: string;
   toAddress: string;
@@ -20,8 +31,7 @@ interface Props {
   stops: Array<{ address: string; lat: number; lng: number }>;
   onAddStop: () => void;
   isAddStopDisabled?: boolean;
-  // Добавляем пропс для удаления остановки
-  onRemoveStop?: (index: number) => void; 
+  onRemoveStop?: (index: number) => void;
   itemDescription?: string;
   setItemDescription?: (t: string) => void;
   packageWeight?: string;
@@ -31,22 +41,31 @@ interface Props {
 }
 
 export const ConfirmationSheet: React.FC<Props> = ({
-  translateY, serviceType = 'taxi', fromAddress, toAddress, price, setPrice, onOrder, onEditAddress, onSwipeDown, loading, comment, setComment, stops, onAddStop, isAddStopDisabled, onRemoveStop, itemDescription, setItemDescription, packageWeight, setPackageWeight, packageSize, setPackageSize
+  serviceType = 'taxi',
+  fromAddress,
+  toAddress,
+  price,
+  setPrice,
+  onOrder,
+  onEditAddress,
+  onSwipeDown,
+  loading,
+  comment,
+  setComment,
+  stops,
+  onAddStop,
+  isAddStopDisabled,
+  onRemoveStop,
+  itemDescription,
+  setItemDescription,
+  packageWeight,
+  setPackageWeight,
+  packageSize,
+  setPackageSize,
 }) => {
-  // Стейты для модалки комментария
   const [isCommentModalVisible, setCommentModalVisible] = useState(false);
   const [tempComment, setTempComment] = useState(comment);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 10,
-      onPanResponderMove: (_, g) => { if (g.dy > 0) translateY.setValue(g.dy); },
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > 150) onSwipeDown();
-        else Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
-      },
-    })
-  ).current;
+  const snapPoints = useMemo(() => (serviceType === 'courier' ? ['60%'] : ['52%']), [serviceType]);
 
   const handleSaveComment = () => {
     setComment(tempComment);
@@ -54,118 +73,136 @@ export const ConfirmationSheet: React.FC<Props> = ({
   };
 
   const handleStopPress = (index: number, address: string) => {
-    Alert.alert(
-      "Удалить заезд?",
-      address,
-      [
-        { text: "Отмена", style: "cancel" },
-        { text: "Удалить", style: "destructive", onPress: () => onRemoveStop && onRemoveStop(index) }
-      ]
-    );
+    Alert.alert('Удалить заезд?', address, [
+      { text: 'Отмена', style: 'cancel' },
+      { text: 'Удалить', style: 'destructive', onPress: () => onRemoveStop?.(index) },
+    ]);
   };
 
   return (
-    <Animated.View style={[styles.fullOverlay, { transform: [{ translateY }] }]} pointerEvents="box-none">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
-        <View style={styles.expoMatteSheet}>
-          <View {...panResponder.panHandlers} style={styles.swipeArea}><View style={styles.expoHandle} /></View>
-          
-          <View style={styles.addressBox}>
-            {/* ОТКУДА */}
-            <TouchableOpacity style={styles.expoRow} onPress={onEditAddress}>
-              <View style={styles.dotBlueSmall} />
-              <View style={styles.addressContainer}>
-                <Text style={styles.expoAddressText} numberOfLines={1}>{fromAddress}</Text>
-                {comment ? <Text style={styles.commentText} numberOfLines={1}>{comment}</Text> : null}
-              </View>
-              <TouchableOpacity style={styles.expoActionBtn} onPress={() => { setTempComment(comment); setCommentModalVisible(true); }}>
-                <Text style={styles.expoActionText}>Комментарий</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-            
-            <View style={styles.zincDivider} />
-            
-            {/* КУДА И ОСТАНОВКИ */}
-            <View style={styles.expoRow}>
-              <View style={styles.squareRedSmall} />
-              <TouchableOpacity style={styles.addressContainer} onPress={onEditAddress}>
-                <Text style={styles.expoAddressText} numberOfLines={1}>{toAddress || (serviceType === 'courier' ? 'Куда доставить?' : 'Куда едем?')}</Text>
-                
-                {/* Рендерим остановки как кликабельный текст */}
-                {serviceType === 'taxi' && stops.map((stop, index) => (
-                  <TouchableOpacity key={index} onPress={() => handleStopPress(index, stop.address)}>
-                    <Text style={styles.stopsText} numberOfLines={1}>
-                      Заезд: {stop.address}
+    <>
+      <View style={styles.fullOverlay} pointerEvents="box-none">
+        <BottomSheet
+          index={0}
+          snapPoints={snapPoints}
+          enablePanDownToClose
+          onClose={onSwipeDown}
+          handleIndicatorStyle={styles.handle}
+          backgroundStyle={styles.sheetBackground}
+          keyboardBehavior="interactive"
+          keyboardBlurBehavior="restore"
+          android_keyboardInputMode="adjustResize"
+        >
+          <BottomSheetView style={styles.sheetContent}>
+            <View style={styles.addressBox}>
+              <TouchableOpacity style={styles.row} onPress={onEditAddress}>
+                <View style={styles.dotBlueSmall} />
+                <View style={styles.addressContainer}>
+                  <Text style={styles.addressText} numberOfLines={1}>
+                    {fromAddress}
+                  </Text>
+                  {comment ? (
+                    <Text style={styles.commentText} numberOfLines={1}>
+                      {comment}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </TouchableOpacity>
-              
-              {/* Плюсик исчезает, если остановок уже 3 */}
-              {serviceType === 'taxi' && stops.length < 3 && (
+                  ) : null}
+                </View>
                 <TouchableOpacity
-                  style={[styles.expoActionBtn, isAddStopDisabled && styles.expoActionBtnDisabled]}
-                  onPress={onAddStop}
-                  disabled={isAddStopDisabled}
+                  style={styles.actionBtn}
+                  onPress={() => {
+                    setTempComment(comment);
+                    setCommentModalVisible(true);
+                  }}
                 >
-                  <Text style={styles.expoActionText}>+</Text>
+                  <Text style={styles.actionText}>Комментарий</Text>
                 </TouchableOpacity>
-              )}
-            </View>
-          </View>
+              </TouchableOpacity>
 
-          {serviceType === 'courier' ? (
-            <View style={styles.courierFields}>
-              <TextInput
-                style={styles.courierInput}
-                placeholder="Что доставить?"
-                placeholderTextColor="#71717A"
-                value={itemDescription}
-                onChangeText={(text) => setItemDescription?.(text)}
-              />
-              <View style={styles.courierRow}>
-                <TextInput
-                  style={[styles.courierInput, styles.courierInputHalf]}
-                  placeholder="Вес"
-                  placeholderTextColor="#71717A"
-                  value={packageWeight}
-                  onChangeText={(text) => setPackageWeight?.(text)}
-                />
-                <TextInput
-                  style={[styles.courierInput, styles.courierInputHalf]}
-                  placeholder="Размер"
-                  placeholderTextColor="#71717A"
-                  value={packageSize}
-                  onChangeText={(text) => setPackageSize?.(text)}
-                />
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <View style={styles.squareRedSmall} />
+                <TouchableOpacity style={styles.addressContainer} onPress={onEditAddress}>
+                  <Text style={styles.addressText} numberOfLines={1}>
+                    {toAddress || (serviceType === 'courier' ? 'Куда доставить?' : 'Куда едем?')}
+                  </Text>
+                  {serviceType === 'taxi' &&
+                    stops.map((stop, index) => (
+                      <TouchableOpacity key={`${stop.address}-${index}`} onPress={() => handleStopPress(index, stop.address)}>
+                        <Text style={styles.stopsText} numberOfLines={1}>
+                          Заезд: {stop.address}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                </TouchableOpacity>
+
+                {serviceType === 'taxi' && stops.length < 3 ? (
+                  <TouchableOpacity
+                    style={[styles.actionBtn, isAddStopDisabled && styles.actionBtnDisabled]}
+                    onPress={onAddStop}
+                    disabled={isAddStopDisabled}
+                  >
+                    <Text style={styles.actionText}>+</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
-          ) : null}
 
-          <View style={styles.priceRow}>
-            <Text style={styles.currencyIcon}>₸</Text>
-            <TextInput
-              style={styles.priceInput} 
-              placeholder={serviceType === 'courier' ? 'Цена доставки' : 'Ваша цена'} 
-              placeholderTextColor="#71717A" 
-              keyboardType="numeric" 
-              value={price} 
-              onChangeText={setPrice} 
-            />
-          </View>
+            {serviceType === 'courier' ? (
+              <View style={styles.courierFields}>
+                <BottomSheetTextInput
+                  style={styles.courierInput}
+                  placeholder="Что доставить?"
+                  placeholderTextColor="#71717A"
+                  value={itemDescription}
+                  onChangeText={(text) => setItemDescription?.(text)}
+                />
+                <View style={styles.courierRow}>
+                  <BottomSheetTextInput
+                    style={[styles.courierInput, styles.courierInputHalf]}
+                    placeholder="Вес"
+                    placeholderTextColor="#71717A"
+                    value={packageWeight}
+                    onChangeText={(text) => setPackageWeight?.(text)}
+                  />
+                  <BottomSheetTextInput
+                    style={[styles.courierInput, styles.courierInputHalf]}
+                    placeholder="Размер"
+                    placeholderTextColor="#71717A"
+                    value={packageSize}
+                    onChangeText={(text) => setPackageSize?.(text)}
+                  />
+                </View>
+              </View>
+            ) : null}
 
-          <TouchableOpacity style={styles.expoFinalBtn} onPress={onOrder} disabled={loading}>
-            {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.expoFinalBtnText}>Заказать</Text>}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+            <View style={styles.priceRow}>
+              <Text style={styles.currencyIcon}>₸</Text>
+              <BottomSheetTextInput
+                style={styles.priceInput}
+                placeholder={serviceType === 'courier' ? 'Цена доставки' : 'Ваша цена'}
+                placeholderTextColor="#71717A"
+                keyboardType="numeric"
+                value={price}
+                onChangeText={setPrice}
+              />
+            </View>
 
-      {/* МОДАЛКА ДЛЯ КОММЕНТАРИЯ */}
+            <TouchableOpacity style={styles.finalBtn} onPress={onOrder} disabled={loading}>
+              {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.finalBtnText}>Заказать</Text>}
+            </TouchableOpacity>
+          </BottomSheetView>
+        </BottomSheet>
+      </View>
+
       <Modal visible={isCommentModalVisible} transparent animationType="fade">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Комментарий водителю</Text>
-            <TextInput
+            <BottomSheetTextInput
               style={styles.modalInput}
               placeholder="Например: черный забор, подъезд 3"
               placeholderTextColor="#71717A"
@@ -185,32 +222,49 @@ export const ConfirmationSheet: React.FC<Props> = ({
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </Animated.View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  fullOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 600, justifyContent: 'flex-end' },
-  expoMatteSheet: { backgroundColor: '#121212', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 50, borderWidth: 1, borderColor: '#27272A' },
-  swipeArea: { width: '100%', alignItems: 'center', paddingBottom: 20 },
-  expoHandle: { width: 40, height: 4, backgroundColor: '#27272A', borderRadius: 2 },
-  addressBox: { backgroundColor: '#18181B', borderRadius: 20, padding: 10, borderWidth: 1, borderColor: '#27272A' },
-  expoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 10 },
+  fullOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 600,
+    pointerEvents: 'box-none',
+  },
+  sheetBackground: {
+    backgroundColor: '#121212',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  handle: {
+    backgroundColor: '#27272A',
+    width: 42,
+  },
+  sheetContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 42,
+  },
+  addressBox: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 10 },
   addressContainer: { flex: 1 },
   dotBlueSmall: { width: 8, height: 8, backgroundColor: '#3B82F6', borderRadius: 4, marginRight: 15 },
   squareRedSmall: { width: 8, height: 8, backgroundColor: '#EF4444', marginRight: 15 },
-  expoAddressText: { color: '#E4E4E7', fontSize: 15 },
+  addressText: { color: '#E4E4E7', fontSize: 15 },
   commentText: { color: '#71717A', fontSize: 12, marginTop: 4 },
   stopsText: { color: '#71717A', fontSize: 12, marginTop: 4 },
-  expoActionBtn: { backgroundColor: '#1C1C1E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginLeft: 10 },
-  expoActionBtnDisabled: { opacity: 0.4 },
-  expoActionText: { color: '#A1A1AA', fontSize: 12, fontWeight: '600' },
-  zincDivider: { height: 1, backgroundColor: '#27272A', marginHorizontal: 10 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#18181B', height: 64, borderRadius: 20, marginTop: 20, paddingHorizontal: 20, borderWidth: 1, borderColor: '#27272A' },
-  currencyIcon: { color: '#3B82F6', fontSize: 22, fontWeight: '900', marginRight: 15 },
-  priceInput: { flex: 1, color: '#fff', fontSize: 20, fontWeight: '700' },
-  expoFinalBtn: { backgroundColor: '#F4F4F5', height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginTop: 25 },
-  expoFinalBtnText: { color: '#000', fontSize: 18, fontWeight: '900' },
+  actionBtn: { backgroundColor: '#1C1C1E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginLeft: 10 },
+  actionBtnDisabled: { opacity: 0.4 },
+  actionText: { color: '#A1A1AA', fontSize: 12, fontWeight: '600' },
+  divider: { height: 1, backgroundColor: '#27272A', marginHorizontal: 10 },
   courierFields: { marginTop: 14, gap: 10 },
   courierRow: { flexDirection: 'row', gap: 10 },
   courierInput: {
@@ -224,12 +278,56 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   courierInputHalf: { flex: 1 },
-  
-  // Стили модалки
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#18181B', width: '100%', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#27272A' },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    height: 64,
+    borderRadius: 20,
+    marginTop: 20,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  currencyIcon: { color: '#3B82F6', fontSize: 22, fontWeight: '900', marginRight: 15 },
+  priceInput: { flex: 1, color: '#fff', fontSize: 20, fontWeight: '700' },
+  finalBtn: {
+    backgroundColor: '#F4F4F5',
+    height: 60,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 25,
+  },
+  finalBtnText: { color: '#000', fontSize: 18, fontWeight: '900' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#18181B',
+    width: '100%',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
   modalTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 15 },
-  modalInput: { backgroundColor: '#09090B', color: '#fff', borderRadius: 12, padding: 15, fontSize: 16, minHeight: 80, textAlignVertical: 'top', borderWidth: 1, borderColor: '#27272A', marginBottom: 20 },
+  modalInput: {
+    backgroundColor: '#09090B',
+    color: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 16,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginBottom: 20,
+  },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
   modalBtnCancel: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 10 },
   modalBtnCancelText: { color: '#71717A', fontSize: 16, fontWeight: '600' },

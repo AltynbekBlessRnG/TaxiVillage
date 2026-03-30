@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { AdminAuthSession } from '../auth';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import { API_URL } from '../api/config';
 
 interface Props {
   onLoggedIn(session: AdminAuthSession): void;

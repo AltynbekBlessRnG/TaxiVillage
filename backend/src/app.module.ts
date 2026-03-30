@@ -16,12 +16,15 @@ import { CouriersModule } from './couriers/couriers.module';
 import { MerchantsModule } from './merchants/merchants.module';
 import { FoodOrdersModule } from './food-orders/food-orders.module';
 import { IntercityTripsModule } from './intercity-trips/intercity-trips.module';
+import { IntercityChatModule } from './intercity-chat/intercity-chat.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    RedisModule,
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -38,7 +41,7 @@ import { IntercityTripsModule } from './intercity-trips/intercity-trips.module';
     MerchantsModule,
     FoodOrdersModule,
     IntercityTripsModule,
-    // GraphQLModule мы временно убрали, чтобы сервер запустился
+    IntercityChatModule,
   ],
 })
 export class AppModule {}

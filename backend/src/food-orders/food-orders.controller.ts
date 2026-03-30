@@ -30,6 +30,23 @@ class CreateFoodOrderDto {
   @ValidateNested({ each: true })
   @Type(() => FoodOrderItemDto)
   items!: FoodOrderItemDto[];
+
+  @IsOptional()
+  @IsString()
+  promoCode?: string;
+}
+
+class ValidatePromoCodeDto {
+  @IsString()
+  merchantId!: string;
+
+  @IsString()
+  promoCode!: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FoodOrderItemDto)
+  items!: FoodOrderItemDto[];
 }
 
 class UpdateFoodOrderStatusDto {
@@ -45,6 +62,13 @@ export class FoodOrdersController {
   @UseGuards(AuthGuard('jwt'))
   getMyOrders(@Req() req: any) {
     return this.foodOrdersService.getOrdersForUser(req.user.userId, req.user.role);
+  }
+
+  @Post('validate-promo')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  validatePromo(@Body() dto: ValidatePromoCodeDto) {
+    return this.foodOrdersService.validatePromoCode(dto);
   }
 
   @Post()

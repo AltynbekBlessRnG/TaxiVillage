@@ -53,4 +53,16 @@ export class ChatController {
     await this.chatService.markMessagesAsRead(userId, rideId);
     return { success: true };
   }
+
+  @Get('unread-count')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  async getUnreadCount(@Req() req: any) {
+    return this.chatService.getUnreadCount(req.user.userId);
+  }
+
+  @Get('threads')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  async getThreads(@Req() req: any) {
+    return this.chatService.getThreads(req.user.userId);
+  }
 }

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AdminAuthSession, clearAdminAuth, createAdminClient, saveAdminAuth } from '../auth';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import { API_URL } from '../api/config';
 
 interface Props {
   session: AdminAuthSession;

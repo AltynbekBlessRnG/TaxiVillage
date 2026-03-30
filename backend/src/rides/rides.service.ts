@@ -11,6 +11,7 @@ import { Prisma, RideStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RidesGateway } from './rides.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RedisService } from '../redis/redis.service';
 
 function haversineDistance(
   lat1: number,
@@ -32,6 +33,12 @@ function haversineDistance(
 }
 
 type RideRecord = Awaited<ReturnType<RidesService['loadRideRecord']>>;
+type RideAssignmentRecord = {
+  id: string;
+  status: RideStatus;
+  passenger?: { userId: string } | null;
+  driver?: { userId: string } | null;
+};
 
 interface OfferState {
   driverId: string;
@@ -52,6 +59,7 @@ export class RidesService implements OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly ridesGateway: RidesGateway,
     private readonly notificationsService: NotificationsService,
+    private readonly redisService: RedisService,
   ) {}
 
   onModuleDestroy() {
@@ -191,6 +199,8 @@ export class RidesService implements OnModuleDestroy {
       hasRoute: hasFrom && hasTo,
     };
 
+    await this.syncRideAssignments(rideWithUsers);
+
     this.ridesGateway.emitRideCreated(ridePayload as any);
     await this.findAndOfferRideToDriver(ridePayload);
 
@@ -249,6 +259,50 @@ export class RidesService implements OnModuleDestroy {
     return this.loadRideRecord(rideId);
   }
 
+  async getCurrentRideForPassenger(userId: string) {
+    const activeStatuses = this.activeRideStatuses();
+    const passenger = await this.prisma.passengerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!passenger) {
+      throw new NotFoundException('Passenger profile not found');
+    }
+
+    const assignment = await this.redisService.getActiveAssignment('ride', userId);
+    if (assignment?.entityId) {
+      const ride = await this.prisma.ride.findUnique({
+        where: { id: assignment.entityId },
+        include: this.getRideInclude(),
+      });
+
+      if (ride && ride.passengerId === passenger.id && this.isActiveRideStatus(ride.status)) {
+        return ride;
+      }
+
+      await this.redisService.clearActiveAssignment('ride', userId);
+    }
+
+    const ride = await this.prisma.ride.findFirst({
+      where: {
+        passengerId: passenger.id,
+        status: {
+          in: activeStatuses,
+        },
+      },
+      include: this.getRideInclude(),
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (ride) {
+      await this.syncRideAssignments(ride);
+    } else {
+      await this.redisService.clearActiveAssignment('ride', userId);
+    }
+
+    return ride;
+  }
+
   async cancelRideByPassenger(userId: string, rideId: string) {
     const passenger = await this.prisma.passengerProfile.findUnique({
       where: { userId },
@@ -286,6 +340,7 @@ export class RidesService implements OnModuleDestroy {
     });
 
     const rideWithUsers = await this.loadRideRecord(rideId);
+    await this.syncRideAssignments(rideWithUsers);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
     await this.notifyOfferedDriverAboutCancellation(clearedOfferState, rideWithUsers);
     await this.sendPassengerRideNotification(rideWithUsers);
@@ -359,6 +414,7 @@ export class RidesService implements OnModuleDestroy {
     this.clearOfferState(rideId);
 
     const rideWithUsers = await this.loadRideRecord(rideId);
+    await this.syncRideAssignments(rideWithUsers);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
     await this.sendPassengerRideNotification(rideWithUsers);
 
@@ -558,6 +614,7 @@ export class RidesService implements OnModuleDestroy {
     await this.clearOfferState(rideId);
 
     const rideWithUsers = await this.loadRideRecord(rideId);
+    await this.syncRideAssignments(rideWithUsers);
     this.ridesGateway.emitRideUpdated(rideWithUsers as any);
     await this.sendPassengerRideNotification(rideWithUsers);
 
@@ -733,6 +790,7 @@ export class RidesService implements OnModuleDestroy {
       }
 
       const rideWithUsers = await this.loadRideRecord(rideId);
+      await this.syncRideAssignments(rideWithUsers);
       this.ridesGateway.emitRideUpdated(rideWithUsers as any);
       await this.notifyOfferedDriverAboutCancellation(clearedOfferState, rideWithUsers);
       await this.sendPassengerRideNotification(rideWithUsers);
@@ -850,6 +908,42 @@ export class RidesService implements OnModuleDestroy {
     } satisfies Prisma.RideInclude;
   }
 
+  private activeRideStatuses() {
+    return [
+      RideStatus.SEARCHING_DRIVER,
+      RideStatus.DRIVER_ASSIGNED,
+      RideStatus.ON_THE_WAY,
+      RideStatus.DRIVER_ARRIVED,
+      RideStatus.IN_PROGRESS,
+    ] as RideStatus[];
+  }
+
+  private isActiveRideStatus(status: RideStatus) {
+    return this.activeRideStatuses().includes(status);
+  }
+
+  private async syncRideAssignments(ride: RideAssignmentRecord) {
+    const passengerUserId = ride.passenger?.userId;
+    const driverUserId = ride.driver?.userId;
+    const isActive = this.isActiveRideStatus(ride.status);
+
+    if (passengerUserId) {
+      if (isActive) {
+        await this.redisService.setActiveAssignment('ride', passengerUserId, ride.id, ride.status);
+      } else {
+        await this.redisService.clearActiveAssignment('ride', passengerUserId);
+      }
+    }
+
+    if (driverUserId) {
+      if (isActive) {
+        await this.redisService.setActiveAssignment('ride', driverUserId, ride.id, ride.status);
+      } else {
+        await this.redisService.clearActiveAssignment('ride', driverUserId);
+      }
+    }
+  }
+
   private async sendPassengerRideNotification(ride: RideRecord) {
     const pushToken = ride.passenger?.user?.pushToken;
 
@@ -888,6 +982,9 @@ export class RidesService implements OnModuleDestroy {
   ) {
     const hasCoordinates = fromLat !== 0 || fromLng !== 0;
     const delta = 0.3;
+    const nearbyUserIds = hasCoordinates
+      ? await this.redisService.findNearbyUsers('driver', fromLat, fromLng, 10, 100)
+      : [];
 
     const baseWhere: Prisma.DriverProfileWhereInput = {
       status: 'APPROVED',
@@ -903,16 +1000,22 @@ export class RidesService implements OnModuleDestroy {
     const localizedWhere = hasCoordinates
       ? {
           ...baseWhere,
-          lat: {
-            not: null,
-            gte: fromLat - delta,
-            lte: fromLat + delta,
-          },
-          lng: {
-            not: null,
-            gte: fromLng - delta,
-            lte: fromLng + delta,
-          },
+          ...(nearbyUserIds.length > 0
+            ? {
+                userId: { in: nearbyUserIds },
+              }
+            : {
+                lat: {
+                  not: null,
+                  gte: fromLat - delta,
+                  lte: fromLat + delta,
+                },
+                lng: {
+                  not: null,
+                  gte: fromLng - delta,
+                  lte: fromLng + delta,
+                },
+              }),
         }
       : baseWhere;
 
@@ -928,6 +1031,20 @@ export class RidesService implements OnModuleDestroy {
       });
     }
 
-    return drivers;
+    const cachedLocations = await this.redisService.getCachedLocations(
+      'driver',
+      drivers.map((driver) => driver.userId),
+    );
+
+    return drivers.map((driver) => {
+      const cached = cachedLocations.get(driver.userId);
+      return cached
+        ? {
+            ...driver,
+            lat: cached.lat,
+            lng: cached.lng,
+          }
+        : driver;
+    });
   }
 }

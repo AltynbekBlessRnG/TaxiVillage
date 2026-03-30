@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../../api/client';
 import { loadAuth } from '../../../storage/authStorage';
 import { createRidesSocket } from '../../../api/socket';
@@ -19,6 +19,10 @@ export function usePassengerRideState(params: {
   onReturnedToIdle?: () => void;
 }) {
   const { onBecameActive, onReturnedToIdle } = params;
+  const currentRideIdRef = useRef<string | null>(null);
+  const activeRideIdRef = useRef<string | null>(null);
+  const onBecameActiveRef = useRef(onBecameActive);
+  const onReturnedToIdleRef = useRef(onReturnedToIdle);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
   const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [activeRide, setActiveRide] = useState<any>(null);
@@ -26,6 +30,7 @@ export function usePassengerRideState(params: {
   const [activeRideRoute, setActiveRideRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
   const [socketState, setSocketState] = useState<'connected' | 'reconnecting' | 'disconnected'>('disconnected');
+  const [incomingChatToast, setIncomingChatToast] = useState<{ id: string; text: string } | null>(null);
 
   const clearRideState = useCallback(() => {
     setCurrentRideId(null);
@@ -36,19 +41,33 @@ export function usePassengerRideState(params: {
     setEtaSeconds(null);
   }, []);
 
+  useEffect(() => {
+    currentRideIdRef.current = currentRideId;
+  }, [currentRideId]);
+
+  useEffect(() => {
+    activeRideIdRef.current = activeRideId;
+  }, [activeRideId]);
+
+  useEffect(() => {
+    onBecameActiveRef.current = onBecameActive;
+  }, [onBecameActive]);
+
+  useEffect(() => {
+    onReturnedToIdleRef.current = onReturnedToIdle;
+  }, [onReturnedToIdle]);
+
   const refreshActiveRide = useCallback(async () => {
     try {
-      const res = await apiClient.get('/rides/my');
-      const active = res.data.find((ride: any) => ACTIVE_RIDE_STATUSES.includes(ride.status));
+      const res = await apiClient.get('/rides/current');
+      const active = res.data && ACTIVE_RIDE_STATUSES.includes(res.data.status) ? res.data : null;
       setActiveRideId(active?.id ?? null);
       setCurrentRideId((prev) => (!prev ? active?.id ?? null : active?.id === prev ? prev : active?.id ?? null));
 
       if (active?.id) {
-        const rideRes = await apiClient.get(`/rides/${active.id}`).catch(() => ({ data: active }));
-        const fullRide = rideRes.data ?? active;
-        setActiveRide(fullRide);
-        if (fullRide?.driver?.lat && fullRide?.driver?.lng) {
-          setDriverLocation({ lat: fullRide.driver.lat, lng: fullRide.driver.lng });
+        setActiveRide(active);
+        if (active?.driver?.lat && active?.driver?.lng) {
+          setDriverLocation({ lat: active.driver.lat, lng: active.driver.lng });
         }
       } else {
         clearRideState();
@@ -83,12 +102,12 @@ export function usePassengerRideState(params: {
           return;
         }
 
-        if (updatedRide.id === currentRideId || updatedRide.id === activeRideId) {
+        if (updatedRide.id === currentRideIdRef.current || updatedRide.id === activeRideIdRef.current) {
           if (updatedRide.status === 'DRIVER_ASSIGNED' || updatedRide.status === 'ON_THE_WAY') {
             setCurrentRideId(updatedRide.id);
             setActiveRideId(updatedRide.id);
             await refreshActiveRide();
-            onBecameActive?.();
+            onBecameActiveRef.current?.();
             return;
           }
 
@@ -98,7 +117,7 @@ export function usePassengerRideState(params: {
               type: NOTIFICATION_TYPES.DRIVER_ARRIVED,
               rideId: updatedRide.id,
             });
-            onBecameActive?.();
+            onBecameActiveRef.current?.();
             return;
           }
 
@@ -108,13 +127,13 @@ export function usePassengerRideState(params: {
               rideId: updatedRide.id,
             });
             clearRideState();
-            onReturnedToIdle?.();
+            onReturnedToIdleRef.current?.();
             return;
           }
 
           if (updatedRide.status === 'COMPLETED') {
             clearRideState();
-            onReturnedToIdle?.();
+            onReturnedToIdleRef.current?.();
             return;
           }
 
@@ -126,9 +145,25 @@ export function usePassengerRideState(params: {
         if (!mounted) {
           return;
         }
-        if (payload.rideId === currentRideId || payload.rideId === activeRideId) {
+        if (payload.rideId === currentRideIdRef.current || payload.rideId === activeRideIdRef.current) {
           setDriverLocation({ lat: payload.lat, lng: payload.lng });
         }
+      });
+
+      socket.on('message:sent', (message: { id: string; rideId?: string; senderType?: string; content?: string }) => {
+        if (!mounted) {
+          return;
+        }
+
+        const isCurrentRide = message.rideId === currentRideIdRef.current || message.rideId === activeRideIdRef.current;
+        if (!isCurrentRide || message.senderType !== 'DRIVER' || !message.content?.trim()) {
+          return;
+        }
+
+        setIncomingChatToast({
+          id: message.id,
+          text: message.content.trim(),
+        });
       });
     };
 
@@ -137,7 +172,7 @@ export function usePassengerRideState(params: {
       mounted = false;
       socket?.disconnect();
     };
-  }, [activeRideId, clearRideState, currentRideId, onBecameActive, onReturnedToIdle, refreshActiveRide]);
+  }, [clearRideState, refreshActiveRide]);
 
   useEffect(() => {
     if (!activeRide) {
@@ -198,6 +233,8 @@ export function usePassengerRideState(params: {
     activeRideRoute,
     etaSeconds,
     socketState,
+    incomingChatToast,
+    setIncomingChatToast,
     refreshActiveRide,
     clearRideState,
   };

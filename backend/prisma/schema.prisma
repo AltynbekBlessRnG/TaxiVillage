@@ -24,9 +24,9 @@ model User {
 
   passenger PassengerProfile?
   driver    DriverProfile?
-  courier   CourierProfile?
   merchant  Merchant?
-  intercityDriver IntercityDriverProfile?
+  sentChatMessages ChatMessage[] @relation("SentChatMessages")
+  receivedChatMessages ChatMessage[] @relation("ReceivedChatMessages")
 }
 
 /// Профиль пассажира
@@ -43,8 +43,6 @@ model PassengerProfile {
   intercityOrders IntercityOrder[] @relation("PassengerIntercityOrders")
   intercityBookings IntercityBooking[] @relation("PassengerIntercityBookings")
   favoriteAddresses FavoriteAddress[]
-  sentMessages     Message[]     @relation("SentPassengerMessages")
-  receivedMessages Message[]     @relation("ReceivedPassengerMessages")
 }
 
 /// Профиль водителя
@@ -65,34 +63,16 @@ model DriverProfile {
   lat          Float?
   lng          Float?
   lastRideFinishedAt DateTime?
+  lastCourierOrderFinishedAt DateTime?
   balance      Decimal       @default(0) @db.Decimal(10, 2)
   rating       Float         @default(5.0)
 
   car          Car?
   rides        Ride[]        @relation("DriverRides")
+  courierOrders CourierOrder[] @relation("CourierOrders")
+  intercityOrders IntercityOrder[] @relation("IntercityDriverOrders")
   intercityTrips IntercityTrip[] @relation("DriverIntercityTrips")
   documents    DriverDocument[]
-  sentMessages Message[]     @relation("SentDriverMessages")
-  receivedMessages Message[] @relation("ReceivedDriverMessages")
-}
-
-/// Профиль курьера
-model CourierProfile {
-  id           String        @id @default(cuid())
-  userId       String        @unique
-  user         User          @relation(fields: [userId], references: [id])
-
-  fullName     String?
-  status       DriverStatus  @default(APPROVED)
-  isOnline     Boolean       @default(false)
-
-  lat          Float?
-  lng          Float?
-  lastOrderFinishedAt DateTime?
-  balance      Decimal       @default(0) @db.Decimal(10, 2)
-  rating       Float         @default(5.0)
-
-  orders       CourierOrder[] @relation("CourierOrders")
 }
 
 /// Заведение / merchant profile
@@ -109,29 +89,12 @@ model Merchant {
   rating      Float         @default(5.0)
   isOpen      Boolean       @default(true)
   tone        String?       @default("#7C2D12")
+  coverImageUrl String?
 
   menuCategories MenuCategory[]
   foodOrders     FoodOrder[] @relation("MerchantFoodOrders")
 }
 
-/// Профиль междугороднего водителя
-model IntercityDriverProfile {
-  id           String        @id @default(cuid())
-  userId       String        @unique
-  user         User          @relation(fields: [userId], references: [id])
-
-  fullName     String?
-  status       DriverStatus  @default(APPROVED)
-  isOnline     Boolean       @default(false)
-  rating       Float         @default(5.0)
-
-  carMake      String?
-  carModel     String?
-  carColor     String?
-  plateNumber  String?
-
-  orders       IntercityOrder[] @relation("IntercityDriverOrders")
-}
 
 /// Автомобиль водителя
 model Car {
@@ -214,7 +177,7 @@ model Ride {
   driverRating     Int?
 
   statusHistory    RideStatusHistory[]
-  messages        Message[]
+  messages        ChatMessage[]
 }
 
 /// Остановка поездки
@@ -364,29 +327,32 @@ model FavoriteAddress {
   @@unique([passengerId, name])
 }
 
-/// Сообщения в чате между водителем и пассажиром
-model Message {
-  id          String   @id @default(cuid())
-  rideId      String
-  ride        Ride     @relation(fields: [rideId], references: [id])
-  
-  // Отправитель - может быть пассажир или водитель
-  senderId    String
-  senderType  MessageSender
-  sender      PassengerProfile? @relation("SentPassengerMessages", fields: [senderId], references: [id], map: "Message_senderId_passenger_fkey")
-  driverSender DriverProfile? @relation("SentDriverMessages", fields: [senderId], references: [id], map: "Message_senderId_driver_fkey")
-  
-  // Получатель - может быть пассажир или водитель
-  receiverId  String
-  receiverType MessageSender
-  receiver    PassengerProfile? @relation("ReceivedPassengerMessages", fields: [receiverId], references: [id], map: "Message_receiverId_passenger_fkey")
-  driverReceiver DriverProfile? @relation("ReceivedDriverMessages", fields: [receiverId], references: [id], map: "Message_receiverId_driver_fkey")
-  
-  content     String
-  createdAt   DateTime @default(now())
-  readAt      DateTime?
-  
+model ChatMessage {
+  id                 String            @id @default(cuid())
+  createdAt          DateTime          @default(now())
+  readAt             DateTime?
+
+  rideId             String?
+  ride               Ride?             @relation(fields: [rideId], references: [id])
+
+  intercityOrderId   String?
+  intercityOrder     IntercityOrder?   @relation("IntercityOrderMessages", fields: [intercityOrderId], references: [id])
+
+  intercityBookingId String?
+  intercityBooking   IntercityBooking? @relation("IntercityBookingMessages", fields: [intercityBookingId], references: [id])
+
+  senderUserId       String
+  senderUser         User              @relation("SentChatMessages", fields: [senderUserId], references: [id])
+  receiverUserId     String
+  receiverUser       User              @relation("ReceivedChatMessages", fields: [receiverUserId], references: [id])
+
+  senderType         MessageSender
+  receiverType       MessageSender
+  content            String
+
   @@index([rideId, createdAt])
+  @@index([intercityOrderId, createdAt])
+  @@index([intercityBookingId, createdAt])
 }
 
 /// Курьерский заказ
@@ -399,7 +365,7 @@ model CourierOrder {
   passenger        PassengerProfile    @relation("PassengerCourierOrders", fields: [passengerId], references: [id])
 
   courierId        String?
-  courier          CourierProfile?     @relation("CourierOrders", fields: [courierId], references: [id])
+  courier          DriverProfile?      @relation("CourierOrders", fields: [courierId], references: [id])
 
   status           CourierOrderStatus  @default(SEARCHING_COURIER)
   paymentMethod    PaymentMethod       @default(CARD)
@@ -514,7 +480,7 @@ model IntercityOrder {
   passenger         PassengerProfile     @relation("PassengerIntercityOrders", fields: [passengerId], references: [id])
 
   driverId          String?
-  driver            IntercityDriverProfile? @relation("IntercityDriverOrders", fields: [driverId], references: [id])
+  driver            DriverProfile?     @relation("IntercityDriverOrders", fields: [driverId], references: [id])
 
   status            IntercityOrderStatus @default(SEARCHING_DRIVER)
   paymentMethod     PaymentMethod        @default(CARD)
@@ -526,8 +492,13 @@ model IntercityOrder {
   baggage           String?
   comment           String?
   price             Decimal              @db.Decimal(10, 2)
+  stops             Json?
+  womenOnly         Boolean              @default(false)
+  baggageRequired   Boolean              @default(false)
+  noAnimals         Boolean              @default(false)
 
   statusHistory     IntercityOrderStatusHistory[]
+  messages          ChatMessage[]        @relation("IntercityOrderMessages")
 }
 
 model IntercityOrderStatusHistory {
@@ -553,6 +524,10 @@ model IntercityTrip {
   pricePerSeat      Decimal              @db.Decimal(10, 2)
   seatCapacity      Int
   comment           String?
+  stops             Json?
+  womenOnly         Boolean              @default(false)
+  baggageSpace      Boolean              @default(true)
+  allowAnimals      Boolean              @default(true)
 
   carMake           String?
   carModel          String?
@@ -581,6 +556,7 @@ model IntercityBooking {
   totalPrice        Decimal               @db.Decimal(10, 2)
   comment           String?
   status            IntercityBookingStatus @default(CONFIRMED)
+  messages          ChatMessage[]         @relation("IntercityBookingMessages")
 }
 
 model IntercityTripStatusHistory {
@@ -591,4 +567,3 @@ model IntercityTripStatusHistory {
   status            IntercityTripStatus
   createdAt         DateTime             @default(now())
 }
-

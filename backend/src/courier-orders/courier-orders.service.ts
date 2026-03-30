@@ -15,6 +15,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CourierOrdersGateway } from './courier-orders.gateway';
+import { RedisService } from '../redis/redis.service';
 
 function haversineDistance(
   lat1: number,
@@ -36,6 +37,12 @@ function haversineDistance(
 }
 
 type CourierOrderRecord = Awaited<ReturnType<CourierOrdersService['loadOrderRecord']>>;
+type CourierAssignmentRecord = {
+  id: string;
+  status: CourierOrderStatus;
+  passenger?: { userId: string } | null;
+  courier?: { userId: string } | null;
+};
 
 interface OfferState {
   courierId: string;
@@ -63,6 +70,7 @@ export class CourierOrdersService implements OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly courierOrdersGateway: CourierOrdersGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   onModuleDestroy() {
@@ -167,6 +175,7 @@ export class CourierOrdersService implements OnModuleDestroy {
     }
 
     const orderRecord = await this.loadOrderRecord(createdOrder.id);
+    await this.syncOrderAssignments(orderRecord);
     this.courierOrdersGateway.emitOrderCreated(orderRecord as any);
     await this.findAndOfferOrderToCourier(orderRecord);
     return orderRecord;
@@ -188,10 +197,10 @@ export class CourierOrdersService implements OnModuleDestroy {
     }
 
     if (role === UserRole.COURIER || role === UserRole.DRIVER) {
-      const courier = await this.prisma.courierProfile.findUnique({
+      const courier = await this.prisma.driverProfile.findUnique({
         where: { userId },
       });
-      if (!courier) {
+      if (!courier?.supportsCourier) {
         return [];
       }
       return this.prisma.courierOrder.findMany({
@@ -214,12 +223,27 @@ export class CourierOrdersService implements OnModuleDestroy {
   async getCurrentOrderForPassenger(userId: string) {
     const passenger = await this.prisma.passengerProfile.findUnique({
       where: { userId },
+      select: { id: true },
     });
     if (!passenger) {
       throw new NotFoundException('Passenger profile not found');
     }
 
-    return this.prisma.courierOrder.findFirst({
+    const assignment = await this.redisService.getActiveAssignment('courier-order', userId);
+    if (assignment?.entityId) {
+      const order = await this.prisma.courierOrder.findUnique({
+        where: { id: assignment.entityId },
+        include: this.getOrderInclude(),
+      });
+
+      if (order && order.passengerId === passenger.id && this.isActiveOrderStatus(order.status)) {
+        return order;
+      }
+
+      await this.redisService.clearActiveAssignment('courier-order', userId);
+    }
+
+    const order = await this.prisma.courierOrder.findFirst({
       where: {
         passengerId: passenger.id,
         status: {
@@ -229,6 +253,14 @@ export class CourierOrdersService implements OnModuleDestroy {
       include: this.getOrderInclude(),
       orderBy: { createdAt: 'desc' },
     });
+
+    if (order) {
+      await this.syncOrderAssignments(order);
+    } else {
+      await this.redisService.clearActiveAssignment('courier-order', userId);
+    }
+
+    return order;
   }
 
   async getOrderByIdForUser(userId: string, role: UserRole, orderId: string) {
@@ -238,11 +270,11 @@ export class CourierOrdersService implements OnModuleDestroy {
   }
 
   async getAvailableOrdersForCourier(userId: string) {
-    const courier = await this.prisma.courierProfile.findUnique({
+    const courier = await this.prisma.driverProfile.findUnique({
       where: { userId },
     });
-    if (!courier) {
-      throw new NotFoundException('Courier profile not found');
+    if (!courier?.supportsCourier) {
+      throw new NotFoundException('Courier driver profile not found');
     }
 
     const orders = await this.prisma.courierOrder.findMany({
@@ -296,6 +328,7 @@ export class CourierOrdersService implements OnModuleDestroy {
     });
 
     const updated = await this.loadOrderRecord(orderId);
+    await this.syncOrderAssignments(updated);
     this.courierOrdersGateway.emitOrderUpdated(updated as any);
     await this.notifyOfferedCourierAboutCancellation(clearedOffer, updated);
     await this.sendPassengerOrderNotification(updated);
@@ -348,6 +381,7 @@ export class CourierOrdersService implements OnModuleDestroy {
     this.clearOfferState(orderId);
 
     const updated = await this.loadOrderRecord(orderId);
+    await this.syncOrderAssignments(updated);
     this.courierOrdersGateway.emitOrderUpdated(updated as any);
     await this.sendPassengerOrderNotification(updated);
     return updated;
@@ -416,14 +450,15 @@ export class CourierOrdersService implements OnModuleDestroy {
       });
 
       if (status === CourierOrderStatus.DELIVERED) {
-        await tx.courierProfile.update({
+        await tx.driverProfile.update({
           where: { id: courier.id },
-          data: { lastOrderFinishedAt: now },
+          data: { lastCourierOrderFinishedAt: now },
         });
       }
     });
 
     const updated = await this.loadOrderRecord(orderId);
+    await this.syncOrderAssignments(updated);
     this.courierOrdersGateway.emitOrderUpdated(updated as any);
     await this.sendPassengerOrderNotification(updated);
     return updated;
@@ -454,6 +489,10 @@ export class CourierOrdersService implements OnModuleDestroy {
     if (!allowedTransitions[from].includes(to)) {
       throw new BadRequestException(`Cannot change courier order status from ${from} to ${to}`);
     }
+  }
+
+  private isActiveOrderStatus(status: CourierOrderStatus) {
+    return (this.ACTIVE_ORDER_STATUSES as readonly CourierOrderStatus[]).includes(status);
   }
 
   private async findAndOfferOrderToCourier(
@@ -552,6 +591,7 @@ export class CourierOrdersService implements OnModuleDestroy {
         },
       });
       const updated = await this.loadOrderRecord(orderId);
+      await this.syncOrderAssignments(updated);
       this.courierOrdersGateway.emitOrderUpdated(updated as any);
       await this.notifyOfferedCourierAboutCancellation(clearedOffer, updated);
       await this.sendPassengerOrderNotification(updated);
@@ -575,7 +615,7 @@ export class CourierOrdersService implements OnModuleDestroy {
       return;
     }
 
-    const courier = await this.prisma.courierProfile.findUnique({
+    const courier = await this.prisma.driverProfile.findUnique({
       where: { id: offerState.courierId },
       select: { userId: true },
     });
@@ -603,7 +643,7 @@ export class CourierOrdersService implements OnModuleDestroy {
     }
 
     if (role === UserRole.COURIER || role === UserRole.DRIVER) {
-      const courier = await this.prisma.courierProfile.findUnique({
+      const courier = await this.prisma.driverProfile.findUnique({
         where: { userId },
         select: { id: true },
       });
@@ -630,11 +670,11 @@ export class CourierOrdersService implements OnModuleDestroy {
   }
 
   private async requireCourierProfile(userId: string) {
-    const courier = await this.prisma.courierProfile.findUnique({
+    const courier = await this.prisma.driverProfile.findUnique({
       where: { userId },
     });
-    if (!courier) {
-      throw new NotFoundException('Courier profile not found');
+    if (!courier?.supportsCourier) {
+      throw new NotFoundException('Courier driver profile not found');
     }
     return courier;
   }
@@ -655,6 +695,38 @@ export class CourierOrdersService implements OnModuleDestroy {
         orderBy: { createdAt: 'asc' as const },
       },
     } satisfies Prisma.CourierOrderInclude;
+  }
+
+  private async syncOrderAssignments(order: CourierAssignmentRecord) {
+    const passengerUserId = order.passenger?.userId;
+    const courierUserId = order.courier?.userId;
+    const isActive = this.isActiveOrderStatus(order.status);
+
+    if (passengerUserId) {
+      if (isActive) {
+        await this.redisService.setActiveAssignment(
+          'courier-order',
+          passengerUserId,
+          order.id,
+          order.status,
+        );
+      } else {
+        await this.redisService.clearActiveAssignment('courier-order', passengerUserId);
+      }
+    }
+
+    if (courierUserId) {
+      if (isActive) {
+        await this.redisService.setActiveAssignment(
+          'courier-order',
+          courierUserId,
+          order.id,
+          order.status,
+        );
+      } else {
+        await this.redisService.clearActiveAssignment('courier-order', courierUserId);
+      }
+    }
   }
 
   private async sendPassengerOrderNotification(order: CourierOrderRecord) {
@@ -708,9 +780,14 @@ export class CourierOrdersService implements OnModuleDestroy {
   ) {
     const hasCoordinates = pickupLat !== 0 || pickupLng !== 0;
     const delta = 0.3;
-    const baseWhere: Prisma.CourierProfileWhereInput = {
+    const nearbyUserIds = hasCoordinates
+      ? await this.redisService.findNearbyUsers('courier', pickupLat, pickupLng, 10, 100)
+      : [];
+    const baseWhere: Prisma.DriverProfileWhereInput = {
       status: 'APPROVED',
       isOnline: true,
+      supportsCourier: true,
+      driverMode: 'COURIER',
       lat: { not: null },
       lng: { not: null },
       id: { notIn: Array.from(excludedCourierIds) },
@@ -719,23 +796,43 @@ export class CourierOrdersService implements OnModuleDestroy {
     const localizedWhere = hasCoordinates
       ? {
           ...baseWhere,
-          lat: { not: null, gte: pickupLat - delta, lte: pickupLat + delta },
-          lng: { not: null, gte: pickupLng - delta, lte: pickupLng + delta },
+          ...(nearbyUserIds.length > 0
+            ? {
+                userId: { in: nearbyUserIds },
+              }
+            : {
+                lat: { not: null, gte: pickupLat - delta, lte: pickupLat + delta },
+                lng: { not: null, gte: pickupLng - delta, lte: pickupLng + delta },
+              }),
         }
       : baseWhere;
 
-    let couriers = await this.prisma.courierProfile.findMany({
+    let couriers = await this.prisma.driverProfile.findMany({
       where: localizedWhere,
       include: { user: true },
     });
 
     if (couriers.length === 0 && hasCoordinates) {
-      couriers = await this.prisma.courierProfile.findMany({
+      couriers = await this.prisma.driverProfile.findMany({
         where: baseWhere,
         include: { user: true },
       });
     }
 
-    return couriers;
+    const cachedLocations = await this.redisService.getCachedLocations(
+      'courier',
+      couriers.map((courier) => courier.userId),
+    );
+
+    return couriers.map((courier) => {
+      const cached = cachedLocations.get(courier.userId);
+      return cached
+        ? {
+            ...courier,
+            lat: cached.lat,
+            lng: cached.lng,
+          }
+        : courier;
+    });
   }
 }

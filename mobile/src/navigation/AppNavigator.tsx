@@ -6,8 +6,6 @@ import { RegisterScreen } from '../screens/Auth/RegisterScreen';
 import { PassengerHomeScreen } from '../screens/Passenger/PassengerHomeScreen';
 import { RideStatusScreen } from '../screens/Passenger/RideStatusScreen';
 import { FavoriteAddressesScreen } from '../screens/Passenger/FavoriteAddressesScreen';
-import { CourierHomeScreen } from '../screens/Passenger/CourierHomeScreen';
-import { CourierStatusScreen } from '../screens/Passenger/CourierStatusScreen';
 import { FoodHomeScreen } from '../screens/Passenger/FoodHomeScreen';
 import { RestaurantScreen } from '../screens/Passenger/RestaurantScreen';
 import { CartScreen } from '../screens/Passenger/CartScreen';
@@ -17,20 +15,21 @@ import { IntercityHomeScreen } from '../screens/Passenger/IntercityHomeScreen';
 import { IntercityOffersScreen } from '../screens/Passenger/IntercityOffersScreen';
 import { IntercityBookingScreen } from '../screens/Passenger/IntercityBookingScreen';
 import { IntercityTripStatusScreen } from '../screens/Passenger/IntercityTripStatusScreen';
+import { IntercityOrderStatusScreen } from '../screens/Passenger/IntercityOrderStatusScreen';
+import { IntercityChatScreen } from '../screens/Passenger/IntercityChatScreen';
 import { DriverHomeScreen } from '../screens/Driver/DriverHomeScreen';
 import { DriverProfileScreen } from '../screens/Driver/DriverProfileScreen';
 import { DriverRideScreen } from '../screens/Driver/DriverRideScreen';
-import { CourierWorkerHomeScreen } from '../screens/Courier/CourierWorkerHomeScreen';
 import { CourierOrderScreen } from '../screens/Courier/CourierOrderScreen';
-import { CourierProfileScreen } from '../screens/Courier/CourierProfileScreen';
 import { MerchantDashboardScreen } from '../screens/Merchant/MerchantDashboardScreen';
 import { MerchantOrdersScreen } from '../screens/Merchant/MerchantOrdersScreen';
 import { MenuEditorScreen } from '../screens/Merchant/MenuEditorScreen';
-import { IntercityDriverHomeScreen } from '../screens/IntercityDriver/IntercityDriverHomeScreen';
 import { IntercityTripScreen } from '../screens/IntercityDriver/IntercityTripScreen';
-import { IntercityDriverProfileScreen } from '../screens/IntercityDriver/IntercityDriverProfileScreen';
+import { IntercityRequestsScreen } from '../screens/IntercityDriver/IntercityRequestsScreen';
 import { RideHistoryScreen } from '../screens/RideHistoryScreen';
 import { ChatScreen } from '../screens/Passenger/ChatScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { MessagesScreen } from '../screens/MessagesScreen';
 import { loadAuth } from '../storage/authStorage';
 import { setAuthToken } from '../api/client';
 import { registerPushToken } from '../utils/notifications';
@@ -39,8 +38,6 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   PassengerHome: { selectedAddress?: { address: string; lat: number; lng: number } };
-  CourierHome: undefined;
-  CourierStatus: { orderId: string };
   FoodHome: undefined;
   Restaurant: { restaurantId: string; restaurantName: string };
   Cart: {
@@ -56,7 +53,18 @@ export type RootStackParamList = {
   };
   FoodOrderStatus: { orderId: string };
   IntercityHome: undefined;
-  IntercityOffers: { fromCity: string; toCity: string; date: string; seats: string; baggage: string };
+  IntercityOffers: {
+    fromCity: string;
+    toCity: string;
+    date: string;
+    seats: string;
+    baggage: string;
+    minPrice: string;
+    maxPrice: string;
+    womenOnly: boolean;
+    baggageRequired: boolean;
+    noAnimals: boolean;
+  };
   IntercityBooking: {
     tripId: string;
     fromCity: string;
@@ -67,24 +75,29 @@ export type RootStackParamList = {
     pricePerSeat: string;
     seatCapacity: number;
     seatsRemaining: number;
+    stops: string[];
+    womenOnly: boolean;
+    baggageSpace: boolean;
+    allowAnimals: boolean;
   };
   IntercityTripStatus: { bookingId: string };
+  IntercityOrderStatus: { orderId: string };
+  IntercityChat: { threadType: 'ORDER' | 'BOOKING'; threadId: string; title?: string };
   FavoriteAddresses: undefined;
-  RideStatus: { rideId: string };
+  RideDetails: { rideId: string };
   ChatScreen: { rideId: string };
   DriverHome: undefined;
   DriverProfile: undefined;
   DriverRide: { rideId: string };
-  CourierWorkerHome: undefined;
   CourierOrder: { orderId?: string } | undefined;
-  CourierProfile: undefined;
   MerchantDashboard: undefined;
   MerchantOrders: undefined;
   MenuEditor: undefined;
-  IntercityDriverHome: undefined;
   IntercityTrip: { tripId?: string } | undefined;
-  IntercityDriverProfile: undefined;
+  IntercityRequests: undefined;
   RideHistory: undefined;
+  Notifications: undefined;
+  Messages: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -138,8 +151,6 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="PassengerHome" component={PassengerHomeScreen} />
-      <Stack.Screen name="CourierHome" component={CourierHomeScreen} />
-      <Stack.Screen name="CourierStatus" component={CourierStatusScreen} />
       <Stack.Screen
         name="FoodHome"
         component={FoodHomeScreen}
@@ -157,28 +168,37 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="IntercityOffers" component={IntercityOffersScreen} />
       <Stack.Screen name="IntercityBooking" component={IntercityBookingScreen} />
       <Stack.Screen name="IntercityTripStatus" component={IntercityTripStatusScreen} />
+      <Stack.Screen name="IntercityOrderStatus" component={IntercityOrderStatusScreen} />
+      <Stack.Screen name="IntercityChat" component={IntercityChatScreen} />
       <Stack.Screen
         name="FavoriteAddresses"
         component={FavoriteAddressesScreen}
         options={{ presentation: 'modal', animation: 'fade_from_bottom' }}
       />
-      <Stack.Screen name="RideStatus" component={RideStatusScreen} />
+      <Stack.Screen name="RideDetails" component={RideStatusScreen} />
       <Stack.Screen name="ChatScreen" component={ChatScreen} />
       <Stack.Screen name="DriverHome" component={DriverHomeScreen} />
       <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
       <Stack.Screen name="DriverRide" component={DriverRideScreen} />
-      <Stack.Screen name="CourierWorkerHome" component={CourierWorkerHomeScreen} />
       <Stack.Screen name="CourierOrder" component={CourierOrderScreen} />
-      <Stack.Screen name="CourierProfile" component={CourierProfileScreen} />
       <Stack.Screen name="MerchantDashboard" component={MerchantDashboardScreen} />
       <Stack.Screen name="MerchantOrders" component={MerchantOrdersScreen} />
       <Stack.Screen name="MenuEditor" component={MenuEditorScreen} />
-      <Stack.Screen name="IntercityDriverHome" component={IntercityDriverHomeScreen} />
       <Stack.Screen name="IntercityTrip" component={IntercityTripScreen} />
-      <Stack.Screen name="IntercityDriverProfile" component={IntercityDriverProfileScreen} />
+      <Stack.Screen name="IntercityRequests" component={IntercityRequestsScreen} />
       <Stack.Screen
         name="RideHistory"
         component={RideHistoryScreen}
+        options={{ presentation: 'modal', animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ presentation: 'modal', animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Messages"
+        component={MessagesScreen}
         options={{ presentation: 'modal', animation: 'fade_from_bottom' }}
       />
     </Stack.Navigator>

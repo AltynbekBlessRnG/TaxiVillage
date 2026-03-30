@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../../api/client';
 import { loadAuth } from '../../../storage/authStorage';
 import { createCourierOrdersSocket } from '../../../api/socket';
@@ -11,6 +11,11 @@ export function usePassengerCourierState(params: {
   onForceCourierMode?: () => void;
 }) {
   const { onBecameActive, onReturnedToIdle, onForceCourierMode } = params;
+  const activeCourierOrderIdRef = useRef<string | null>(null);
+  const activeCourierOrderRef = useRef<any>(null);
+  const onBecameActiveRef = useRef(onBecameActive);
+  const onReturnedToIdleRef = useRef(onReturnedToIdle);
+  const onForceCourierModeRef = useRef(onForceCourierMode);
   const [activeCourierOrderId, setActiveCourierOrderId] = useState<string | null>(null);
   const [activeCourierOrder, setActiveCourierOrder] = useState<any>(null);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -22,6 +27,26 @@ export function usePassengerCourierState(params: {
     setCourierLocation(null);
     setActiveCourierRoute([]);
   }, []);
+
+  useEffect(() => {
+    activeCourierOrderIdRef.current = activeCourierOrderId;
+  }, [activeCourierOrderId]);
+
+  useEffect(() => {
+    activeCourierOrderRef.current = activeCourierOrder;
+  }, [activeCourierOrder]);
+
+  useEffect(() => {
+    onBecameActiveRef.current = onBecameActive;
+  }, [onBecameActive]);
+
+  useEffect(() => {
+    onReturnedToIdleRef.current = onReturnedToIdle;
+  }, [onReturnedToIdle]);
+
+  useEffect(() => {
+    onForceCourierModeRef.current = onForceCourierMode;
+  }, [onForceCourierMode]);
 
   const refreshActiveCourierOrder = useCallback(async () => {
     try {
@@ -49,15 +74,15 @@ export function usePassengerCourierState(params: {
       }
 
       socket = createCourierOrdersSocket(auth.accessToken);
-      if (activeCourierOrderId) {
-        socket.emit('join:courier-order', activeCourierOrderId);
+      if (activeCourierOrderIdRef.current) {
+        socket.emit('join:courier-order', activeCourierOrderIdRef.current);
       }
 
       socket.on('courier-order:updated', (updatedOrder: any) => {
         if (!mounted) {
           return;
         }
-        if (updatedOrder.id === activeCourierOrderId || updatedOrder.id === activeCourierOrder?.id) {
+        if (updatedOrder.id === activeCourierOrderIdRef.current || updatedOrder.id === activeCourierOrderRef.current?.id) {
           setActiveCourierOrder(updatedOrder);
           setActiveCourierOrderId(updatedOrder.id);
           if (updatedOrder?.courier?.lat && updatedOrder?.courier?.lng) {
@@ -70,13 +95,13 @@ export function usePassengerCourierState(params: {
             updatedOrder.status === 'TO_RECIPIENT' ||
             updatedOrder.status === 'SEARCHING_COURIER'
           ) {
-            onForceCourierMode?.();
-            onBecameActive?.();
+            onForceCourierModeRef.current?.();
+            onBecameActiveRef.current?.();
           }
 
           if (updatedOrder.status === 'DELIVERED' || updatedOrder.status === 'CANCELED') {
             clearCourierState();
-            onReturnedToIdle?.();
+            onReturnedToIdleRef.current?.();
           }
         }
       });
@@ -85,7 +110,7 @@ export function usePassengerCourierState(params: {
         if (!mounted) {
           return;
         }
-        if (payload.orderId === activeCourierOrderId || payload.orderId === activeCourierOrder?.id) {
+        if (payload.orderId === activeCourierOrderIdRef.current || payload.orderId === activeCourierOrderRef.current?.id) {
           setCourierLocation({ lat: payload.lat, lng: payload.lng });
         }
       });
@@ -96,7 +121,7 @@ export function usePassengerCourierState(params: {
       mounted = false;
       socket?.disconnect();
     };
-  }, [activeCourierOrder?.id, activeCourierOrderId, clearCourierState, onBecameActive, onForceCourierMode, onReturnedToIdle]);
+  }, [clearCourierState, refreshActiveCourierOrder]);
 
   useEffect(() => {
     if (!activeCourierOrder) {

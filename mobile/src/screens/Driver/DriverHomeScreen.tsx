@@ -38,9 +38,11 @@ import { resetCourierLocationTrackingState, sendCourierLocationUpdate } from '..
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
-import { InlineLabel, PrimaryButton, SecondaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
+import { InlineLabel, PrimaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
 import { getGoogleDirections } from '../../utils/googleMaps';
 import { resolveRideRoute } from '../../utils/rideRoute';
+import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
+import { useMessagesSummary } from '../../hooks/useMessagesSummary';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
 type SocketState = 'connected' | 'reconnecting' | 'disconnected';
@@ -72,12 +74,15 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [socketState, setSocketState] = useState<SocketState>('disconnected');
   const [intercityTrips, setIntercityTrips] = useState<any[]>([]);
   const [currentIntercityTrip, setCurrentIntercityTrip] = useState<any>(null);
+  const [intercityPassengerOrders, setIntercityPassengerOrders] = useState<any[]>([]);
   const [currentCourierOrder, setCurrentCourierOrder] = useState<any>(null);
   const [availableCourierOrders, setAvailableCourierOrders] = useState<any[]>([]);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [courierRoute, setCourierRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [driverRoute, setDriverRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [metrics, setMetrics] = useState<any>(null);
+  const { unreadCount: unreadNotificationsCount } = useNotificationsInbox();
+  const { unreadCount: unreadMessagesCount, refresh: refreshMessagesSummary } = useMessagesSummary();
 
   const mapRef = useRef<MapView>(null);
 
@@ -106,15 +111,18 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     if (profileRes.data?.supportsIntercity) {
-      const [currentTripRes, myTripsRes] = await Promise.all([
+      const [currentTripRes, myTripsRes, passengerOrdersRes] = await Promise.all([
         apiClient.get('/intercity-trips/current').catch(() => ({ data: null })),
         apiClient.get('/intercity-trips/my').catch(() => ({ data: [] })),
+        apiClient.get('/intercity-orders/available').catch(() => ({ data: [] })),
       ]);
       setCurrentIntercityTrip(currentTripRes.data);
       setIntercityTrips(Array.isArray(myTripsRes.data) ? myTripsRes.data : []);
+      setIntercityPassengerOrders(Array.isArray(passengerOrdersRes.data) ? passengerOrdersRes.data : []);
     } else {
       setCurrentIntercityTrip(null);
       setIntercityTrips([]);
+      setIntercityPassengerOrders([]);
     }
 
     if (profileRes.data?.supportsCourier) {
@@ -142,7 +150,8 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     loadDriverShell().catch(() => {});
-  }, [isFocused, loadDriverShell]);
+    refreshMessagesSummary().catch(() => {});
+  }, [isFocused, loadDriverShell, refreshMessagesSummary]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -784,31 +793,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         accentColor="#38BDF8"
         eyebrow="Driver mode"
         title="Межгород"
-        subtitle="Один водительский аккаунт, отдельный режим рейсов и бронирований."
+        subtitle="Межгород как маркетплейс: можно публиковать свои рейсы и смотреть заявки пассажиров."
         backLabel="На главную"
         onBack={() => switchDriverMode(profile?.supportsTaxi ? 'TAXI' : 'COURIER')}
       >
-        {profile?.supportsTaxi ? (
-          <ServiceCard compact>
-            <InlineLabel label="Режим" value="Межгород" accentColor="#38BDF8" />
-            <View style={styles.modeButtons}>
-              <PrimaryButton title="Такси" onPress={() => switchDriverMode('TAXI')} accentColor="#F4F4F5" />
-              <PrimaryButton title="Межгород" onPress={() => switchDriverMode('INTERCITY')} accentColor="#38BDF8" />
-            </View>
-          </ServiceCard>
-        ) : null}
-
-        <ServiceCard>
-          <InlineLabel label="Водитель" value={profile?.fullName || profile?.user?.phone || 'Водитель'} />
-          <InlineLabel label="Статус" value={profile?.isOnline ? 'На линии' : 'Не на линии'} accentColor="#38BDF8" />
-          <InlineLabel label="Доступные режимы" value={profile?.supportsTaxi ? 'Такси + Межгород' : 'Только межгород'} />
-          <PrimaryButton
-            title={profile?.isOnline ? 'Уйти с линии' : 'Выйти на линию'}
-            onPress={() => toggleOnline(!profile?.isOnline)}
-            accentColor="#38BDF8"
-          />
-        </ServiceCard>
-
         {currentIntercityTrip ? (
           <ServiceCard>
             <Text style={styles.intercityTitle}>Активный рейс</Text>
@@ -822,6 +810,24 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             />
           </ServiceCard>
         ) : null}
+
+        <ServiceCard>
+          <Text style={styles.intercityTitle}>Заявки пассажиров</Text>
+          <InlineLabel label="Доступно сейчас" value={String(intercityPassengerOrders.length)} accentColor="#38BDF8" />
+          <InlineLabel
+            label="Ближайшая"
+            value={
+              intercityPassengerOrders[0]
+                ? `${intercityPassengerOrders[0].fromCity} -> ${intercityPassengerOrders[0].toCity}`
+                : 'Пока нет свежих заявок'
+            }
+          />
+          <PrimaryButton
+            title="Открыть заявки"
+            onPress={() => navigation.navigate('IntercityRequests')}
+            accentColor="#38BDF8"
+          />
+        </ServiceCard>
 
         <ServiceCard compact>
           <Text style={styles.intercityTitle}>Мои рейсы</Text>
@@ -840,8 +846,6 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         </ServiceCard>
 
         <PrimaryButton title="Создать поездку" onPress={() => navigation.navigate('IntercityTrip', {})} accentColor="#38BDF8" />
-        <SecondaryButton title="Профиль водителя" onPress={() => navigation.navigate('DriverProfile')} />
-        <SecondaryButton title="Выйти" onPress={handleLogout} />
       </ServiceScreen>
     );
   }
@@ -956,6 +960,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
       <TouchableOpacity style={styles.burgerBtn} onPress={() => setIsMenuOpen(true)}>
         <Text style={styles.iconText}>☰</Text>
+        {unreadNotificationsCount > 0 ? (
+          <View style={styles.burgerBadge}>
+            <Text style={styles.burgerBadgeText}>
+              {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+            </Text>
+          </View>
+        ) : null}
       </TouchableOpacity>
 
       <View style={styles.toggleContainer}>
@@ -1004,6 +1015,8 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         profile={profile}
+        unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
         onNavigate={(screen) => {
           setIsMenuOpen(false);
           navigation.navigate(screen as never);
@@ -1036,6 +1049,19 @@ const styles = StyleSheet.create({
     borderColor: '#27272A',
     zIndex: 10,
   },
+  burgerBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  burgerBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   toggleContainer: {
     position: 'absolute',
     top: 50,

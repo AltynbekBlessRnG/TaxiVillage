@@ -2,8 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import type { Socket } from 'socket.io-client';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { createFoodOrdersSocket } from '../../api/socket';
+import { loadAuth } from '../../storage/authStorage';
 import {
   InlineLabel,
   PrimaryButton,
@@ -42,10 +45,42 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
   useFocusEffect(
     useCallback(() => {
       loadOrder();
-      const intervalId = setInterval(loadOrder, 5000);
-      return () => clearInterval(intervalId);
+      return undefined;
     }, [loadOrder]),
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    let socket: Socket | null = null;
+
+    const setupSocket = async () => {
+      const auth = await loadAuth();
+      if (!auth?.accessToken || !isMounted) {
+        return;
+      }
+
+      socket = createFoodOrdersSocket(auth.accessToken);
+
+      socket.on('connect', () => {
+        socket?.emit('join:food-order', route.params.orderId);
+      });
+
+      socket.on('food-order:updated', (nextOrder: any) => {
+        if (!isMounted || nextOrder?.id !== route.params.orderId) {
+          return;
+        }
+        setOrder(nextOrder);
+        setLoading(false);
+      });
+    };
+
+    setupSocket().catch(() => null);
+
+    return () => {
+      isMounted = false;
+      socket?.disconnect();
+    };
+  }, [route.params.orderId]);
 
   if (loading) {
     return (

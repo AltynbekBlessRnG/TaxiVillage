@@ -35,6 +35,10 @@ class UpdateMerchantProfileDto {
   tone?: string;
 
   @IsOptional()
+  @IsString()
+  coverImageUrl?: string;
+
+  @IsOptional()
   @IsBoolean()
   isOpen?: boolean;
 }
@@ -58,6 +62,10 @@ class CreateMenuItemDto {
   @Type(() => Number)
   @IsNumber()
   price!: number;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 }
 
 @Controller('merchants')

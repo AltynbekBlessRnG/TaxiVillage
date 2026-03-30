@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { API_URL } from './api/config';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const STORAGE_KEY = 'taxivillage_admin_auth';
 
 export interface AdminAuthSession {

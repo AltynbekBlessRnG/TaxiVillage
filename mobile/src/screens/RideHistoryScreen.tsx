@@ -91,17 +91,27 @@ export const RideHistoryScreen: React.FC<Props> = ({ navigation }) => {
     const priceStr = price != null ? `${Math.round(Number(price))} ₸` : '';
     const isActiveRide = ['SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'ON_THE_WAY', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(item.status);
 
+    const onPress = () => {
+      if (role === 'DRIVER') {
+        if (isActiveRide) {
+          navigation.navigate('DriverRide', { rideId: item.id });
+        }
+        return;
+      }
+
+      if (isActiveRide) {
+        navigation.navigate('PassengerHome', {});
+        return;
+      }
+
+      navigation.navigate('RideDetails', { rideId: item.id });
+    };
+
     return (
       <TouchableOpacity
         style={styles.item}
-        activeOpacity={isActiveRide ? 0.85 : 1}
-        onPress={() => {
-          if (!isActiveRide) {
-            return;
-          }
-
-          navigation.navigate(role === 'DRIVER' ? 'DriverRide' : 'RideStatus', { rideId: item.id });
-        }}
+        activeOpacity={0.85}
+        onPress={onPress}
       >
         <Text style={styles.route}>{item.fromAddress} → {item.toAddress}</Text>
         <View style={styles.row}>
@@ -109,7 +119,15 @@ export const RideHistoryScreen: React.FC<Props> = ({ navigation }) => {
           {priceStr ? <Text style={styles.price}>{priceStr}</Text> : null}
         </View>
         <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
-        {isActiveRide ? <Text style={styles.openRideHint}>Открыть активную поездку</Text> : null}
+        <Text style={styles.openRideHint}>
+          {role === 'DRIVER'
+            ? isActiveRide
+              ? 'Открыть активную поездку'
+              : 'Поездка завершена'
+            : isActiveRide
+              ? 'Открыть активную поездку'
+              : 'Открыть детали поездки'}
+        </Text>
       </TouchableOpacity>
     );
   };

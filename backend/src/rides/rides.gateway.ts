@@ -10,6 +10,7 @@ import { ForbiddenException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 interface RidePayload {
   id: string;
@@ -24,7 +25,7 @@ interface RidePayload {
 }
 
 @WebSocketGateway({
-  namespace: '/rides',
+  namespace: '/app',
   cors: { origin: '*' },
 })
 export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -36,13 +37,14 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly redisService: RedisService,
   ) {}
 
   async handleConnection(client: import('socket.io').Socket) {
     const token = client.handshake.auth?.token;
     if (!token) {
       this.logger.warn('Socket connection rejected: no token');
-      client.disconnect();
+      this.rejectUnauthorized(client);
       return;
     }
     try {
@@ -54,14 +56,16 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const room = `user:${userId}`;
       await client.join(room);
       (client as any).userId = userId;
+      await this.redisService.setUserPresence(userId, 'app', client.id);
       this.logger.log(`Client ${client.id} joined room ${room}`);
     } catch {
       this.logger.warn('Socket connection rejected: invalid token');
-      client.disconnect();
+      this.rejectUnauthorized(client);
     }
   }
 
   handleDisconnect(client: import('socket.io').Socket) {
+    void this.redisService.removeSocketPresence(client.id);
     this.logger.log(`Client ${client.id} disconnected`);
   }
 
@@ -126,5 +130,10 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitRideOffer(driverUserId: string, ride: RidePayload) {
     const room = `user:${driverUserId}`;
     this.server.to(room).emit('ride:offer', ride);
+  }
+
+  private rejectUnauthorized(client: import('socket.io').Socket) {
+    client.emit('error', { code: 'UNAUTHORIZED', message: 'UNAUTHORIZED' });
+    client.disconnect();
   }
 }

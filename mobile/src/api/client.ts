@@ -72,13 +72,17 @@ export async function logout(): Promise<void> {
   } catch {
     // Ignore logout failures and clear the local session anyway.
   } finally {
-    await stopDriverBackgroundTracking().catch(() => {});
-    await clearAuth();
-    setAuthToken(null);
+    await resetAuthSession();
   }
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function resetAuthSession(): Promise<void> {
+  await stopDriverBackgroundTracking().catch(() => {});
+  await clearAuth();
+  setAuthToken(null);
+}
+
+export async function refreshAccessToken(): Promise<string | null> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       const auth = await loadAuth();

@@ -70,6 +70,11 @@ class SetCourierCapabilityDto {
   courierTransportType!: CourierTransportType;
 }
 
+class UpdateDriverProfileDto {
+  @IsString()
+  fullName!: string;
+}
+
 // ИЗМЕНЕНО: Простая настройка для хранения файла в буфере
 const uploadOpts = {
   storage: memoryStorage(),
@@ -112,6 +117,14 @@ export class DriversController {
   getProfile(@Req() req: any) {
     const userId: string = req.user.userId;
     return this.driversService.getProfile(userId);
+  }
+
+  @Patch('profile')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  updateProfile(@Body() dto: UpdateDriverProfileDto, @Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.driversService.updateProfile(userId, dto);
   }
 
   @Get('metrics')

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -59,20 +60,24 @@ export class MerchantsService {
       etaMinutes?: number;
       minOrder?: number;
       tone?: string;
+      coverImageUrl?: string;
       isOpen?: boolean;
     },
   ) {
+    const updateData: Prisma.MerchantUpdateInput = {
+      name: data.name,
+      cuisine: data.cuisine,
+      description: data.description,
+      etaMinutes: data.etaMinutes,
+      minOrder: data.minOrder,
+      tone: data.tone,
+      coverImageUrl: data.coverImageUrl,
+      isOpen: data.isOpen,
+    };
+
     return this.prisma.merchant.update({
       where: { userId },
-      data: {
-        name: data.name,
-        cuisine: data.cuisine,
-        description: data.description,
-        etaMinutes: data.etaMinutes,
-        minOrder: data.minOrder,
-        tone: data.tone,
-        isOpen: data.isOpen,
-      },
+      data: updateData,
     });
   }
 
@@ -100,6 +105,7 @@ export class MerchantsService {
       name: string;
       description?: string;
       price: number;
+      imageUrl?: string;
     },
   ) {
     const merchant = await this.prisma.merchant.findUnique({
@@ -122,6 +128,7 @@ export class MerchantsService {
         name: data.name,
         description: data.description || null,
         price: data.price,
+        imageUrl: data.imageUrl || null,
       },
     });
   }

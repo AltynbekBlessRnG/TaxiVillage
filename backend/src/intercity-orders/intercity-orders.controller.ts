@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AuthGuard } from '@nestjs/passport';
 import { IntercityOrderStatus, UserRole } from '@prisma/client/index';
@@ -37,6 +37,26 @@ class CreateIntercityOrderDto {
   @IsOptional()
   @IsString()
   driverId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  stops?: string[];
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  womenOnly?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  baggageRequired?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  noAnimals?: boolean;
 }
 
 class UpdateIntercityOrderStatusDto {
@@ -49,16 +69,27 @@ export class IntercityOrdersController {
   constructor(private readonly intercityOrdersService: IntercityOrdersService) {}
 
   @Get('my')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
   getMyOrders(@Req() req: any) {
-    return this.intercityOrdersService.getOrdersForUser(req.user.userId, req.user.role);
+    return this.intercityOrdersService.getOrdersForPassenger(req.user.userId);
+  }
+
+  @Get('driver/my')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  getMyDriverOrders(@Req() req: any) {
+    return this.intercityOrdersService.getOrdersForDriver(req.user.userId);
   }
 
   @Get('available')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.DRIVER_INTERCITY)
+  @Roles(UserRole.DRIVER)
   available(@Req() req: any) {
-    return this.intercityOrdersService.listAvailableDriverOffers(req.user.userId);
+    return this.intercityOrdersService.listAvailableDriverOffers(req.user.userId, {
+      fromCity: req.query?.fromCity,
+      toCity: req.query?.toCity,
+    });
   }
 
   @Post()
@@ -71,23 +102,45 @@ export class IntercityOrdersController {
     });
   }
 
+  @Get('driver/:id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  getByIdForDriver(@Param('id') id: string, @Req() req: any) {
+    return this.intercityOrdersService.getOrderByIdForDriver(req.user.userId, id);
+  }
+
   @Get(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
   getById(@Param('id') id: string, @Req() req: any) {
-    return this.intercityOrdersService.getOrderByIdForUser(req.user.userId, req.user.role, id);
+    return this.intercityOrdersService.getOrderByIdForPassenger(req.user.userId, id);
   }
 
   @Post(':id/accept')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.DRIVER_INTERCITY)
+  @Roles(UserRole.DRIVER)
   accept(@Param('id') id: string, @Req() req: any) {
     return this.intercityOrdersService.acceptOrder(req.user.userId, id);
   }
 
   @Post(':id/status')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.DRIVER_INTERCITY)
+  @Roles(UserRole.DRIVER)
   updateStatus(@Param('id') id: string, @Body() dto: UpdateIntercityOrderStatusDto, @Req() req: any) {
     return this.intercityOrdersService.updateOrderStatus(req.user.userId, id, dto.status);
+  }
+
+  @Post(':id/cancel')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  cancelByPassenger(@Param('id') id: string, @Req() req: any) {
+    return this.intercityOrdersService.cancelOrderByPassenger(req.user.userId, id);
+  }
+
+  @Post(':id/driver-cancel')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  cancelByDriver(@Param('id') id: string, @Req() req: any) {
+    return this.intercityOrdersService.cancelOrderByDriver(req.user.userId, id);
   }
 }

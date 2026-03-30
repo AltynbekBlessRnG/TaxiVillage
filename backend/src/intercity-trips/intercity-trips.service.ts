@@ -6,37 +6,101 @@ import {
 } from '@nestjs/common';
 import {
   DriverMode,
+  IntercityOrderStatus,
   IntercityBookingStatus,
   IntercityBookingType,
   IntercityTripStatus,
   Prisma,
 } from '@prisma/client/index';
 import { PrismaService } from '../prisma/prisma.service';
+import { IntercityGateway } from './intercity.gateway';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class IntercityTripsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly intercityGateway: IntercityGateway,
+    private readonly redisService: RedisService,
+  ) {}
 
-  async listPublicTrips(filters: { fromCity?: string; toCity?: string }) {
+  async listPublicTrips(filters: {
+    fromCity?: string;
+    toCity?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    seatsRequired?: number;
+    baggageRequired?: boolean;
+    womenOnly?: boolean;
+    noAnimals?: boolean;
+  }) {
     const trips = await this.prisma.intercityTrip.findMany({
       where: {
         status: IntercityTripStatus.PLANNED,
         fromCity: filters.fromCity ? { contains: filters.fromCity, mode: 'insensitive' } : undefined,
         toCity: filters.toCity ? { contains: filters.toCity, mode: 'insensitive' } : undefined,
         departureAt: { gte: new Date() },
+        womenOnly: filters.womenOnly ? true : undefined,
+        baggageSpace: filters.baggageRequired ? true : undefined,
+        allowAnimals: filters.noAnimals ? false : undefined,
+        pricePerSeat: {
+          gte: typeof filters.minPrice === 'number' ? filters.minPrice : undefined,
+          lte: typeof filters.maxPrice === 'number' ? filters.maxPrice : undefined,
+        },
       },
       include: this.publicTripInclude(),
       orderBy: [{ departureAt: 'asc' }, { createdAt: 'desc' }],
     });
 
-    return trips.map((trip) => {
+    return trips
+      .map((trip) => {
       const seatsUsed = trip.bookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
       return {
         ...trip,
         seatsRemaining: Math.max(trip.seatCapacity - seatsUsed, 0),
         bookings: undefined,
       };
+      })
+      .filter((trip) =>
+        typeof filters.seatsRequired === 'number' ? trip.seatsRemaining >= filters.seatsRequired : true,
+      );
+  }
+
+  async listPopularRoutes() {
+    const [trips, orders] = await Promise.all([
+      this.prisma.intercityTrip.findMany({
+        where: {
+          departureAt: { gte: new Date() },
+          status: { in: [IntercityTripStatus.PLANNED, IntercityTripStatus.BOARDING] },
+        },
+        select: { fromCity: true, toCity: true },
+        take: 200,
+      }),
+      this.prisma.intercityOrder.findMany({
+        where: {
+          departureAt: { gte: new Date() },
+          status: { in: [IntercityOrderStatus.SEARCHING_DRIVER, IntercityOrderStatus.CONFIRMED] },
+        },
+        select: { fromCity: true, toCity: true },
+        take: 200,
+      }),
+    ]);
+
+    const routeCounts = new Map<string, { fromCity: string; toCity: string; demand: number }>();
+
+    [...trips, ...orders].forEach((route) => {
+      const key = `${route.fromCity}::${route.toCity}`;
+      const current = routeCounts.get(key);
+      if (current) {
+        current.demand += 1;
+      } else {
+        routeCounts.set(key, { fromCity: route.fromCity, toCity: route.toCity, demand: 1 });
+      }
     });
+
+    return Array.from(routeCounts.values())
+      .sort((a, b) => b.demand - a.demand || a.toCity.localeCompare(b.toCity))
+      .slice(0, 8);
   }
 
   async listMyTrips(userId: string) {
@@ -50,7 +114,31 @@ export class IntercityTripsService {
 
   async getCurrentTrip(userId: string) {
     const driver = await this.requireDriver(userId);
-    return this.prisma.intercityTrip.findFirst({
+    const activeStatuses: IntercityTripStatus[] = [
+      IntercityTripStatus.PLANNED,
+      IntercityTripStatus.BOARDING,
+      IntercityTripStatus.IN_PROGRESS,
+    ];
+    const assignment = await this.redisService.getActiveAssignment('intercity-trip', userId);
+
+    if (assignment?.entityId) {
+      const tripFromRedis = await this.prisma.intercityTrip.findUnique({
+        where: { id: assignment.entityId },
+        include: this.driverTripInclude(),
+      });
+
+      if (
+        tripFromRedis &&
+        tripFromRedis.driverId === driver.id &&
+        activeStatuses.includes(tripFromRedis.status)
+      ) {
+        return tripFromRedis;
+      }
+
+      await this.redisService.clearActiveAssignment('intercity-trip', userId);
+    }
+
+    const trip = await this.prisma.intercityTrip.findFirst({
       where: {
         driverId: driver.id,
         status: {
@@ -60,6 +148,14 @@ export class IntercityTripsService {
       include: this.driverTripInclude(),
       orderBy: [{ departureAt: 'asc' }, { createdAt: 'desc' }],
     });
+
+    if (trip?.id) {
+      await this.redisService.setActiveAssignment('intercity-trip', userId, trip.id, trip.status);
+    } else {
+      await this.redisService.clearActiveAssignment('intercity-trip', userId);
+    }
+
+    return trip;
   }
 
   async createTrip(
@@ -71,6 +167,10 @@ export class IntercityTripsService {
       pricePerSeat: number;
       seatCapacity: number;
       comment?: string;
+      stops?: string[];
+      womenOnly?: boolean;
+      baggageSpace?: boolean;
+      allowAnimals?: boolean;
     },
   ) {
     const driver = await this.requireDriver(userId, true);
@@ -97,6 +197,10 @@ export class IntercityTripsService {
           pricePerSeat: new Prisma.Decimal(data.pricePerSeat),
           seatCapacity: data.seatCapacity,
           comment: data.comment || null,
+          stops: data.stops?.length ? data.stops : undefined,
+          womenOnly: data.womenOnly ?? false,
+          baggageSpace: data.baggageSpace ?? true,
+          allowAnimals: data.allowAnimals ?? true,
           carMake: driver.car?.make || null,
           carModel: driver.car?.model || null,
           carColor: driver.car?.color || null,
@@ -120,7 +224,9 @@ export class IntercityTripsService {
       return created;
     });
 
-    return this.getTripForDriver(userId, trip.id);
+    const fullTrip = await this.getTripForDriver(userId, trip.id);
+    await this.redisService.setActiveAssignment('intercity-trip', userId, fullTrip.id, fullTrip.status);
+    return fullTrip;
   }
 
   async getTripForDriver(userId: string, tripId: string) {
@@ -228,6 +334,7 @@ export class IntercityTripsService {
       include: this.passengerBookingInclude(),
     });
 
+    this.intercityGateway.emitBookingUpdated(booking);
     return booking;
   }
 
@@ -299,7 +406,27 @@ export class IntercityTripsService {
       }
     });
 
-    return this.getTripForDriver(userId, tripId);
+    const updatedTrip = await this.getTripForDriver(userId, tripId);
+    this.intercityGateway.emitTripUpdated(updatedTrip);
+
+    const finishedTripStatuses: IntercityTripStatus[] = [
+      IntercityTripStatus.COMPLETED,
+      IntercityTripStatus.CANCELED,
+    ];
+
+    if (finishedTripStatuses.includes(updatedTrip.status)) {
+      await this.redisService.clearActiveAssignment('intercity-trip', userId);
+    } else {
+      await this.redisService.setActiveAssignment('intercity-trip', userId, updatedTrip.id, updatedTrip.status);
+    }
+
+    const affectedBookings = await this.prisma.intercityBooking.findMany({
+      where: { tripId },
+      include: this.passengerBookingInclude(),
+    });
+    affectedBookings.forEach((booking) => this.intercityGateway.emitBookingUpdated(booking));
+
+    return updatedTrip;
   }
 
   private async requirePassenger(userId: string) {

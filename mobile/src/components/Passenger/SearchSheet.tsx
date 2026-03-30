@@ -1,19 +1,24 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  Animated, Dimensions, FlatList, ActivityIndicator 
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  FlatList,
+  ActivityIndicator,
 } from 'react-native';
+import BottomSheet, { BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
 import {
   formatGooglePredictionAddress,
   getGooglePlaceDetails,
+  reverseGeocodeWithGoogle,
   searchGooglePlaces,
 } from '../../utils/googleMaps';
 import { loadRecentAddresses, saveRecentAddress, type RecentAddress } from '../../storage/recentAddresses';
-
-const { height } = Dimensions.get('window');
 
 interface GooglePlacePrediction {
   place_id: string;
@@ -31,7 +36,7 @@ interface Props {
   setFromAddress: (t: string) => void;
   toAddress: string;
   setToAddress: (t: string) => void;
-  isStopSelectionMode: boolean; // <-- НОВЫЙ ПРОПС
+  isStopSelectionMode: boolean;
   userLocation?: { lat: number; lng: number } | null;
   onClose: () => void;
   onMapPick: (field: 'from' | 'to' | 'stop') => void;
@@ -42,26 +47,38 @@ interface Props {
   title?: string;
 }
 
-export const SearchSheet: React.FC<Props> = ({ 
-  anim, mode, fromAddress, setFromAddress, toAddress, setToAddress, isStopSelectionMode, userLocation, onClose, onMapPick, onSubmit, onAddressSelect, fromPlaceholder = 'Откуда?', toPlaceholder = 'Куда?', title
+export const SearchSheet: React.FC<Props> = ({
+  anim: _anim,
+  mode,
+  fromAddress,
+  setFromAddress,
+  toAddress,
+  setToAddress,
+  isStopSelectionMode,
+  userLocation,
+  onClose,
+  onMapPick,
+  onSubmit,
+  onAddressSelect,
+  fromPlaceholder = 'Откуда?',
+  toPlaceholder = 'Куда?',
+  title,
 }) => {
   const [searchResults, setSearchResults] = useState<GooglePlacePrediction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeField, setActiveField] = useState<'from' | 'to' | null>(null);
   const [recentAddresses, setRecentAddresses] = useState<RecentAddress[]>([]);
-  
-  // Отдельный стейт для текста остановки
   const [stopAddress, setStopAddress] = useState('');
-
-  const toInputRef = useRef<TextInput>(null);
+  const toInputRef = useRef<any>(null);
+  const snapPoints = useMemo(() => ['72%'], []);
 
   useEffect(() => {
     if (mode === 'stop') {
       setStopAddress('');
       setSearchQuery('');
       setActiveField('to');
-      setTimeout(() => toInputRef.current?.focus(), 300);
+      setTimeout(() => toInputRef.current?.focus?.(), 250);
     }
   }, [mode]);
 
@@ -84,7 +101,7 @@ export const SearchSheet: React.FC<Props> = ({
     try {
       const data = await searchGooglePlaces(query, userLocation);
       setSearchResults(data);
-    } catch (error) {
+    } catch {
       setSearchResults([]);
     } finally {
       setLoading(false);
@@ -93,39 +110,45 @@ export const SearchSheet: React.FC<Props> = ({
 
   const debouncedFetchSearchResults = useCallback(
     (query: string) => {
-      const timeoutId = setTimeout(() => fetchSearchResults(query), 800);
+      const timeoutId = setTimeout(() => fetchSearchResults(query), 500);
       return () => clearTimeout(timeoutId);
     },
-    [fetchSearchResults]
+    [fetchSearchResults],
   );
 
-  useEffect(() => {
-    return debouncedFetchSearchResults(searchQuery);
-  }, [searchQuery, debouncedFetchSearchResults]);
+  useEffect(() => debouncedFetchSearchResults(searchQuery), [searchQuery, debouncedFetchSearchResults]);
+
+  const completeAddressSelection = async (
+    field: 'from' | 'to',
+    address: string,
+    lat: number,
+    lng: number,
+  ) => {
+    onAddressSelect(field, address, lat, lng);
+    await saveRecentAddress(address, lat, lng);
+    setSearchQuery('');
+    setSearchResults([]);
+    setActiveField(null);
+
+    if (field === 'to' && !isStopSelectionMode) {
+      setTimeout(onSubmit, 100);
+    } else if (field === 'from') {
+      if (!toAddress.trim()) {
+        setTimeout(() => toInputRef.current?.focus?.(), 100);
+      } else {
+        setTimeout(onSubmit, 100);
+      }
+    } else if (isStopSelectionMode) {
+      setTimeout(onSubmit, 100);
+    }
+  };
 
   const handleAddressSelect = async (feature: GooglePlacePrediction, field: 'from' | 'to') => {
     setLoading(true);
     try {
       const location = await getGooglePlaceDetails(feature.place_id);
       const shortAddress = formatGooglePredictionAddress(feature);
-
-      onAddressSelect(field, shortAddress, location.lat, location.lng);
-      await saveRecentAddress(shortAddress, location.lat, location.lng);
-      setSearchResults([]);
-      setSearchQuery('');
-      setActiveField(null);
-
-      if (field === 'to' && !isStopSelectionMode) {
-        setTimeout(onSubmit, 100);
-      } else if (field === 'from') {
-        if (!toAddress.trim()) {
-          setTimeout(() => toInputRef.current?.focus(), 100);
-        } else {
-          setTimeout(onSubmit, 100);
-        }
-      }
-    } catch (error) {
-      setSearchResults([]);
+      await completeAddressSelection(field, shortAddress, location.lat, location.lng);
     } finally {
       setLoading(false);
     }
@@ -136,52 +159,50 @@ export const SearchSheet: React.FC<Props> = ({
       return;
     }
 
-    onAddressSelect(activeField, item.address, item.lat, item.lng);
-    setSearchQuery('');
-    setSearchResults([]);
-    setActiveField(null);
+    await completeAddressSelection(activeField, item.address, item.lat, item.lng);
+  };
 
-    if (activeField === 'to' && !isStopSelectionMode) {
-      setTimeout(onSubmit, 100);
-    } else if (activeField === 'from') {
-      if (!toAddress.trim()) {
-        setTimeout(() => toInputRef.current?.focus(), 100);
-      } else {
-        setTimeout(onSubmit, 100);
-      }
-    } else if (isStopSelectionMode) {
-      setTimeout(onSubmit, 100);
+  const handleUseCurrentLocation = async () => {
+    if (!activeField || !userLocation) {
+      return;
     }
-  };
 
-  const handleFromChange = (text: string) => {
-    setFromAddress(text);
-    if (activeField === 'from') setSearchQuery(text);
-  };
-
-  const handleToChange = (text: string) => {
-    if (isStopSelectionMode) {
-      setStopAddress(text);
-      setSearchQuery(text);
-    } else {
-      setToAddress(text);
-      setSearchQuery(text);
+    setLoading(true);
+    try {
+      const address = await reverseGeocodeWithGoogle(userLocation.lat, userLocation.lng);
+      await completeAddressSelection(activeField, address, userLocation.lat, userLocation.lng);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleFromSubmit = () => {
-    if (toAddress.trim().length > 0) onSubmit();
-    else toInputRef.current?.focus();
+    if (toAddress.trim().length > 0) {
+      onSubmit();
+    } else {
+      toInputRef.current?.focus?.();
+    }
   };
 
-  // Если клиент ввел текст остановки и нажал "Готово" на клавиатуре (без выбора из списка)
   const handleToSubmit = () => {
     if (isStopSelectionMode && stopAddress.trim()) {
       Alert.alert('Выберите адрес', 'Выберите адрес из подсказок Google или укажите точку на карте.');
       return;
     }
-
     onSubmit();
+  };
+
+  const renderCurrentLocationButton = () => {
+    if (!activeField || !userLocation) {
+      return null;
+    }
+
+    return (
+      <TouchableOpacity style={styles.currentLocationButton} onPress={() => void handleUseCurrentLocation()}>
+        <Text style={styles.currentLocationTitle}>📍 Текущее местоположение</Text>
+        <Text style={styles.currentLocationSubtitle}>Определить адрес по вашей геопозиции</Text>
+      </TouchableOpacity>
+    );
   };
 
   const renderSuggestionItem = ({ item }: { item: GooglePlacePrediction }) => {
@@ -206,107 +227,171 @@ export const SearchSheet: React.FC<Props> = ({
   const shouldShowRecent = activeField && searchQuery.trim().length < 3;
 
   return (
-    <Animated.View style={[styles.zincSearchSheet, { transform: [{ translateY: anim }] }]}>
-      <KeyboardAvoidingView
-        style={styles.sheetFlex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+    <View style={styles.overlay} pointerEvents="box-none">
+      <BottomSheet
+        index={0}
+        snapPoints={snapPoints}
+        enablePanDownToClose
+        onClose={onClose}
+        handleIndicatorStyle={styles.handle}
+        backgroundStyle={styles.sheetBackground}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
       >
-        <View style={styles.sheetHeader}>
-          <TouchableOpacity onPress={onClose}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
-          <Text style={styles.sheetTitle}>{title ?? (mode === 'stop' ? 'Добавить заезд' : 'Маршрут')}</Text>
-          <View style={{ width: 20 }} />
-        </View>
-        
-        <View style={styles.zincInputContainer}>
-          {mode === 'route' && (
-            <>
+        <BottomSheetView style={styles.sheetContent}>
+          <KeyboardAvoidingView
+            style={styles.sheetFlex}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+          >
+            <View style={styles.sheetHeader}>
+              <TouchableOpacity onPress={onClose}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+              <Text style={styles.sheetTitle}>
+                {title ?? (mode === 'stop' ? 'Добавить заезд' : 'Маршрут')}
+              </Text>
+              <View style={{ width: 20 }} />
+            </View>
+
+            <View style={styles.inputContainer}>
+              {mode === 'route' ? (
+                <>
+                  <View style={styles.inputRow}>
+                    <BottomSheetTextInput
+                      style={[styles.inputField, styles.inputFieldFlex]}
+                      value={fromAddress}
+                      onChangeText={(text) => {
+                        setFromAddress(text);
+                        if (activeField === 'from') {
+                          setSearchQuery(text);
+                        }
+                      }}
+                      onFocus={() => {
+                        setActiveField('from');
+                        setSearchQuery(fromAddress);
+                      }}
+                      placeholder={fromPlaceholder}
+                      placeholderTextColor="#52525B"
+                      returnKeyType={toAddress.trim() ? 'done' : 'next'}
+                      onSubmitEditing={handleFromSubmit}
+                      blurOnSubmit={false}
+                    />
+                    <TouchableOpacity style={styles.mapPickButton} onPress={() => onMapPick('from')}>
+                      <Text style={styles.mapPickButtonText}>Карта</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.divider} />
+                </>
+              ) : null}
+
               <View style={styles.inputRow}>
-                <TextInput 
-                  style={[styles.darkInputField, styles.inputFieldFlex]} 
-                  value={fromAddress} 
-                  onChangeText={handleFromChange}
-                  onFocus={() => { setActiveField('from'); setSearchQuery(fromAddress); }}
-                  placeholder={fromPlaceholder}
+                <BottomSheetTextInput
+                  ref={toInputRef}
+                  style={[styles.inputField, styles.inputFieldFlex]}
+                  placeholder={mode === 'stop' ? 'Адрес заезда...' : toPlaceholder}
                   placeholderTextColor="#52525B"
-                  returnKeyType={toAddress.trim() ? "done" : "next"}
-                  onSubmitEditing={handleFromSubmit}
-                  blurOnSubmit={false}
+                  value={mode === 'stop' ? stopAddress : toAddress}
+                  onChangeText={(text) => {
+                    if (isStopSelectionMode) {
+                      setStopAddress(text);
+                    } else {
+                      setToAddress(text);
+                    }
+                    setSearchQuery(text);
+                  }}
+                  onFocus={() => {
+                    setActiveField('to');
+                    setSearchQuery(mode === 'stop' ? stopAddress : toAddress);
+                  }}
+                  returnKeyType="done"
+                  onSubmitEditing={handleToSubmit}
                 />
-                <TouchableOpacity style={styles.mapPickButton} onPress={() => onMapPick('from')}>
+                <TouchableOpacity style={styles.mapPickButton} onPress={() => onMapPick(mode === 'stop' ? 'stop' : 'to')}>
                   <Text style={styles.mapPickButtonText}>Карта</Text>
                 </TouchableOpacity>
               </View>
-              
-              <View style={styles.zincDivider} />
-            </>
-          )}
-          
-          <View style={styles.inputRow}>
-            <TextInput 
-              ref={toInputRef}
-              style={[styles.darkInputField, styles.inputFieldFlex]} 
-              placeholder={mode === 'stop' ? "Адрес заезда..." : toPlaceholder} 
-              placeholderTextColor="#52525B" 
-              value={mode === 'stop' ? stopAddress : toAddress} 
-              onChangeText={handleToChange}
-              onFocus={() => { setActiveField('to'); setSearchQuery(mode === 'stop' ? stopAddress : toAddress); }}
-              returnKeyType="done"
-              onSubmitEditing={handleToSubmit}
-            />
-            <TouchableOpacity style={styles.mapPickButton} onPress={() => onMapPick(mode === 'stop' ? 'stop' : 'to')}>
-              <Text style={styles.mapPickButtonText}>Карта</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </View>
 
-        {activeField && (
-          <View style={styles.suggestionsContainer}>
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color="#3B82F6" size="small" />
-                <Text style={styles.loadingText}>Поиск адресов...</Text>
+            {activeField ? (
+              <View style={styles.suggestionsContainer}>
+                {loading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color="#3B82F6" size="small" />
+                    <Text style={styles.loadingText}>Поиск адресов...</Text>
+                  </View>
+                ) : shouldShowRecent ? (
+                  <FlatList
+                    data={recentAddresses}
+                    renderItem={renderRecentItem}
+                    keyExtractor={(item) => `${item.address}-${item.savedAt}`}
+                    style={styles.suggestionsList}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    ListHeaderComponent={renderCurrentLocationButton}
+                    ListEmptyComponent={<Text style={styles.noResultsText}>Недавних адресов пока нет</Text>}
+                  />
+                ) : (
+                  <FlatList
+                    data={searchResults}
+                    renderItem={renderSuggestionItem}
+                    keyExtractor={(item) => item.place_id}
+                    style={styles.suggestionsList}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    ListHeaderComponent={renderCurrentLocationButton}
+                    ListEmptyComponent={
+                      searchQuery.length >= 3 ? (
+                        <Text style={styles.noResultsText}>Адреса не найдены</Text>
+                      ) : null
+                    }
+                  />
+                )}
               </View>
-            ) : shouldShowRecent ? (
-              <FlatList
-                data={recentAddresses}
-                renderItem={renderRecentItem}
-                keyExtractor={(item) => `${item.address}-${item.savedAt}`}
-                style={styles.suggestionsList}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                ListEmptyComponent={<Text style={styles.noResultsText}>Недавних адресов пока нет</Text>}
-              />
-            ) : (
-              <FlatList
-                data={searchResults}
-                renderItem={renderSuggestionItem}
-                keyExtractor={(item) => item.place_id}
-                style={styles.suggestionsList}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                ListEmptyComponent={
-                  searchQuery.length >= 3 ? <Text style={styles.noResultsText}>Адреса не найдены</Text> : null
-                }
-              />
-            )}
-          </View>
-        )}
-      </KeyboardAvoidingView>
-    </Animated.View>
+            ) : null}
+          </KeyboardAvoidingView>
+        </BottomSheetView>
+      </BottomSheet>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  zincSearchSheet: { position: 'absolute', width: '100%', height: height, backgroundColor: '#09090B', borderTopLeftRadius: 32, borderTopRightRadius: 32, zIndex: 500, padding: 24, borderWidth: 1, borderColor: '#27272A' },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 500,
+    pointerEvents: 'box-none',
+  },
+  sheetBackground: {
+    backgroundColor: '#09090B',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  handle: {
+    backgroundColor: '#27272A',
+    width: 42,
+  },
+  sheetContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 28,
+  },
   sheetFlex: { flex: 1 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
   sheetTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
   closeBtn: { color: '#71717A', fontSize: 24 },
-  zincInputContainer: { backgroundColor: '#18181B', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#27272A' },
+  inputContainer: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   inputFieldFlex: { flex: 1 },
-  darkInputField: { height: 50, color: '#fff', fontSize: 16 },
+  inputField: { height: 50, color: '#fff', fontSize: 16 },
   mapPickButton: {
     minWidth: 74,
     height: 38,
@@ -317,10 +402,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   mapPickButtonText: { color: '#09090B', fontSize: 13, fontWeight: '800' },
-  zincDivider: { height: 1, backgroundColor: '#27272A', marginVertical: 4 },
-  suggestionsContainer: { backgroundColor: '#18181B', borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: '#27272A', maxHeight: 250 },
+  divider: { height: 1, backgroundColor: '#27272A', marginVertical: 4 },
+  suggestionsContainer: {
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    maxHeight: 320,
+  },
   suggestionsList: { paddingHorizontal: 12 },
   suggestionItem: { paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#27272A' },
+  currentLocationButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272A',
+  },
+  currentLocationTitle: { color: '#F4F4F5', fontSize: 15, fontWeight: '700' },
+  currentLocationSubtitle: { color: '#71717A', fontSize: 12, marginTop: 4 },
   suggestionText: { color: '#E4E4E7', fontSize: 15, fontWeight: '500' },
   suggestionSubText: { color: '#71717A', fontSize: 12, marginTop: 4 },
   loadingContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20 },

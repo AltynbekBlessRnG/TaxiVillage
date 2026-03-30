@@ -1,14 +1,16 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
-  NotFoundException,
   Logger,
+  NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { CourierOrderStatus, DriverStatus } from '@prisma/client/index';
+import { CourierOrderStatus, DriverMode, DriverStatus } from '@prisma/client/index';
 import { PrismaService } from '../prisma/prisma.service';
 import { CourierOrdersGateway } from '../courier-orders/courier-orders.gateway';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class CouriersService implements OnModuleInit, OnModuleDestroy {
@@ -25,11 +27,12 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly courierOrdersGateway: CourierOrdersGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   onModuleInit() {
     this.locationBatchTimer = setInterval(() => {
-      this.flushLocationBatch();
+      void this.flushLocationBatch();
     }, this.BATCH_INTERVAL);
 
     this.cacheCleanupTimer = setInterval(() => {
@@ -49,17 +52,17 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
   }
 
   private cleanupOldCacheEntries() {
-    const now = new Date();
+    const now = Date.now();
     const staleTime = 120000;
 
     for (const [userId, location] of this.locationCache.entries()) {
-      if (now.getTime() - location.lastUpdate.getTime() > staleTime) {
+      if (now - location.lastUpdate.getTime() > staleTime) {
         this.locationCache.delete(userId);
       }
     }
 
     for (const [userId, activeOrder] of this.activeOrderCache.entries()) {
-      if (Date.now() - activeOrder.checkedAt > staleTime) {
+      if (now - activeOrder.checkedAt > staleTime) {
         this.activeOrderCache.delete(userId);
       }
     }
@@ -77,20 +80,14 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
     }));
 
     try {
-      await this.prisma.$transaction([
-        ...updates.map(({ userId, lat, lng }) =>
-          this.prisma.courierProfile.update({
+      await this.prisma.$transaction(
+        updates.map(({ userId, lat, lng }) =>
+          this.prisma.driverProfile.update({
             where: { userId },
             data: { lat, lng },
           }),
         ),
-        ...updates.map(({ userId, lat, lng }) =>
-          this.prisma.driverProfile.updateMany({
-            where: { userId },
-            data: { lat, lng },
-          }),
-        ),
-      ]);
+      );
       this.logger.log(`Batch updated ${updates.length} courier locations`);
     } catch (error) {
       this.logger.error('Failed to batch update courier locations:', error);
@@ -105,19 +102,28 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
       return cached.orderId;
     }
 
-    const courier = await this.prisma.courierProfile.findUnique({
+    const assignment = await this.redisService.getActiveAssignment('courier-order', userId);
+    if (assignment?.entityId) {
+      this.activeOrderCache.set(userId, {
+        orderId: assignment.entityId,
+        checkedAt: Date.now(),
+      });
+      return assignment.entityId;
+    }
+
+    const driver = await this.prisma.driverProfile.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, supportsCourier: true },
     });
 
-    if (!courier) {
+    if (!driver?.supportsCourier) {
       this.activeOrderCache.set(userId, { orderId: null, checkedAt: Date.now() });
       return null;
     }
 
     const currentOrder = await this.prisma.courierOrder.findFirst({
       where: {
-        courierId: courier.id,
+        courierId: driver.id,
         status: {
           in: [
             CourierOrderStatus.TO_PICKUP,
@@ -136,47 +142,44 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
     return orderId;
   }
 
-  private async requireCourierProfile(userId: string) {
-    const courier = await this.prisma.courierProfile.findUnique({
+  private async requireCourierDriverProfile(userId: string) {
+    const driver = await this.prisma.driverProfile.findUnique({
       where: { userId },
+      include: { user: true, car: true, documents: true },
     });
-    if (!courier) {
-      throw new NotFoundException('Профиль курьера не найден');
+    if (!driver) {
+      throw new NotFoundException('Профиль водителя не найден');
     }
-    return courier;
+    if (!driver.supportsCourier) {
+      throw new ForbiddenException('Курьерский режим недоступен для этого профиля');
+    }
+    return driver;
   }
 
   async setOnlineStatus(userId: string, isOnline: boolean) {
-    const courier = await this.requireCourierProfile(userId);
-    if (isOnline && courier.status !== DriverStatus.APPROVED) {
+    const driver = await this.requireCourierDriverProfile(userId);
+    if (driver.driverMode !== DriverMode.COURIER) {
+      throw new BadRequestException('Сначала переключитесь в курьерский режим');
+    }
+    if (isOnline && driver.status !== DriverStatus.APPROVED) {
       throw new BadRequestException('Курьер не одобрен администратором');
     }
-    const updated = await this.prisma.courierProfile.update({
+    return this.prisma.driverProfile.update({
       where: { userId },
       data: { isOnline },
     });
-    await this.prisma.driverProfile.updateMany({
-      where: { userId },
-      data: { isOnline },
-    });
-    return updated;
   }
 
   async updateLocation(userId: string, lat: number, lng: number) {
     this.locationCache.set(userId, { lat, lng, lastUpdate: new Date() });
+    await this.redisService.cacheLocation('courier', userId, lat, lng);
 
     const activeOrderId = await this.getActiveOrder(userId);
     if (activeOrderId) {
-      await this.prisma.$transaction([
-        this.prisma.courierProfile.update({
-          where: { userId },
-          data: { lat, lng },
-        }),
-        this.prisma.driverProfile.updateMany({
-          where: { userId },
-          data: { lat, lng },
-        }),
-      ]);
+      await this.prisma.driverProfile.update({
+        where: { userId },
+        data: { lat, lng },
+      });
       this.courierOrdersGateway.emitCourierMoved(activeOrderId, lat, lng);
     }
 
@@ -184,11 +187,46 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getCurrentOrderForCourier(userId: string) {
-    const courier = await this.requireCourierProfile(userId);
+    const driver = await this.requireCourierDriverProfile(userId);
+    const activeStatuses: CourierOrderStatus[] = [
+      CourierOrderStatus.TO_PICKUP,
+      CourierOrderStatus.COURIER_ARRIVED,
+      CourierOrderStatus.TO_RECIPIENT,
+      CourierOrderStatus.PICKED_UP,
+      CourierOrderStatus.DELIVERING,
+    ];
+
+    const assignment = await this.redisService.getActiveAssignment('courier-order', userId);
+    if (assignment?.entityId) {
+      const orderFromRedis = await this.prisma.courierOrder.findUnique({
+        where: { id: assignment.entityId },
+        include: {
+          passenger: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+
+      if (
+        orderFromRedis &&
+        orderFromRedis.courierId === driver.id &&
+        activeStatuses.includes(orderFromRedis.status)
+      ) {
+        this.activeOrderCache.set(userId, {
+          orderId: orderFromRedis.id,
+          checkedAt: Date.now(),
+        });
+        return orderFromRedis;
+      }
+
+      await this.redisService.clearActiveAssignment('courier-order', userId);
+    }
 
     const order = await this.prisma.courierOrder.findFirst({
       where: {
-        courierId: courier.id,
+        courierId: driver.id,
         status: {
           in: [
             CourierOrderStatus.TO_PICKUP,
@@ -214,17 +252,16 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
       checkedAt: Date.now(),
     });
 
+    if (order?.id) {
+      await this.redisService.setActiveAssignment('courier-order', userId, order.id, order.status);
+    } else {
+      await this.redisService.clearActiveAssignment('courier-order', userId);
+    }
+
     return order;
   }
 
   async getProfile(userId: string) {
-    const courier = await this.prisma.courierProfile.findUnique({
-      where: { userId },
-      include: { user: true },
-    });
-    if (!courier) {
-      throw new NotFoundException('Courier profile not found');
-    }
-    return courier;
+    return this.requireCourierDriverProfile(userId);
   }
 }

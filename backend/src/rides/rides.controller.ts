@@ -79,6 +79,13 @@ export class RidesController {
     return this.ridesService.getRidesForUser(userId, role);
   }
 
+  @Get('current')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  getCurrentRide(@Req() req: any) {
+    return this.ridesService.getCurrentRideForPassenger(req.user.userId);
+  }
+
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.PASSENGER)

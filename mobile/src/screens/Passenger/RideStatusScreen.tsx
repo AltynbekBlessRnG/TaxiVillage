@@ -19,8 +19,9 @@ import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { sendLocalNotification } from '../../utils/notifications';
 import { resolveRideRoute } from '../../utils/rideRoute';
+import { useThreadUnread } from '../../hooks/useThreadUnread';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'RideStatus'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'RideDetails'>;
 
 interface RideStop {
   address: string;
@@ -62,6 +63,7 @@ const ACTIVE_CANCELABLE_STATUSES = ['SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'ON_T
 
 export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
   const { rideId } = route.params;
+  const { rideUnreadById, refresh: refreshThreadUnread } = useThreadUnread();
   const [status, setStatus] = useState<string>('');
   const [ride, setRide] = useState<RideData | null>(null);
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -178,6 +180,10 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
       socket?.disconnect();
     };
   }, [navigation, rideId, showCompletionModal]);
+
+  useEffect(() => {
+    refreshThreadUnread().catch(() => {});
+  }, [refreshThreadUnread, rideId]);
 
   useEffect(() => {
     if (!ride) {
@@ -404,6 +410,13 @@ export const RideStatusScreen: React.FC<Props> = ({ route, navigation }) => {
           {ride?.driver ? (
             <TouchableOpacity style={styles.chatBtn} onPress={() => navigation.navigate('ChatScreen', { rideId })}>
               <Text style={styles.chatBtnText}>Чат с водителем</Text>
+              {(rideUnreadById[rideId] ?? 0) > 0 ? (
+                <View style={styles.chatBadge}>
+                  <Text style={styles.chatBadgeText}>
+                    {rideUnreadById[rideId] > 99 ? '99+' : rideUnreadById[rideId]}
+                  </Text>
+                </View>
+              ) : null}
             </TouchableOpacity>
           ) : null}
         </View>
@@ -559,6 +572,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   chatBtnText: { color: '#000', fontSize: 16, fontWeight: '800' },
+  chatBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
 });

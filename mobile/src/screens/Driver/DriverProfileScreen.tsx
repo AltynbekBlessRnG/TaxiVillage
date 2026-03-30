@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -44,20 +47,109 @@ interface DriverProfileData {
   courierTransportType?: 'CAR' | 'BIKE' | 'FOOT' | null;
   car?: Car;
   documents?: Document[];
+  user?: { phone?: string };
 }
 
 const DOCUMENT_TYPES = {
   DRIVER_LICENSE: 'Водительское удостоверение',
   CAR_REGISTRATION: 'СТС',
-  TAXI_LICENSE: 'Лицензия на такси',
+  TAXI_LICENSE: 'Лицензия такси',
   COURIER_ID: 'ID курьера',
   OTHER: 'Другой документ',
-};
+} as const;
+
+const TRANSPORT_LABELS = {
+  FOOT: 'Пеший',
+  BIKE: 'Байк',
+  CAR: 'Авто',
+} as const;
+
+const ReadinessCard: React.FC<{
+  title: string;
+  subtitle: string;
+  ready: boolean;
+  accent: string;
+  steps: string[];
+  badge: string;
+}> = ({ title, subtitle, ready, accent, steps, badge }) => (
+  <View
+    style={[
+      styles.readinessCard,
+      ready ? styles.readinessCardReady : styles.readinessCardPending,
+      { borderColor: ready ? accent : '#27272A' },
+    ]}
+  >
+    <View style={styles.readinessHeader}>
+      <View>
+        <Text style={styles.readinessTitle}>{title}</Text>
+        <Text style={styles.readinessSubtitle}>{subtitle}</Text>
+      </View>
+      <View style={[styles.readinessBadge, ready && { backgroundColor: accent }]}>
+        <Text style={[styles.readinessBadgeText, ready && styles.readinessBadgeTextReady]}>{badge}</Text>
+      </View>
+    </View>
+    {steps.length === 0 ? (
+      <Text style={styles.readyText}>Все готово. Можно выходить на линию в этом режиме.</Text>
+    ) : (
+      steps.map((step) => (
+        <View key={`${title}-${step}`} style={styles.stepRow}>
+          <Text style={styles.stepDot}>•</Text>
+          <Text style={styles.stepText}>{step}</Text>
+        </View>
+      ))
+    )}
+  </View>
+);
+
+const StatCard: React.FC<{ label: string; value: string; accent?: string }> = ({
+  label,
+  value,
+  accent = '#F4F4F5',
+}) => (
+  <View style={styles.statCard}>
+    <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
+
+const PillButton: React.FC<{
+  title: string;
+  active?: boolean;
+  onPress: () => void;
+  disabled?: boolean;
+}> = ({ title, active = false, onPress, disabled = false }) => (
+  <TouchableOpacity
+    style={[styles.pillButton, active && styles.pillButtonActive, disabled && styles.disabledButton]}
+    onPress={onPress}
+    disabled={disabled}
+  >
+    <Text style={[styles.pillButtonText, active && styles.pillButtonTextActive]}>{title}</Text>
+  </TouchableOpacity>
+);
+
+const UploadAction: React.FC<{
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+}> = ({ title, subtitle, onPress, disabled = false, busy = false }) => (
+  <TouchableOpacity
+    style={[styles.uploadAction, disabled && styles.disabledButton]}
+    onPress={onPress}
+    disabled={disabled}
+  >
+    <Text style={styles.uploadActionTitle}>{busy ? 'Загрузка...' : title}</Text>
+    <Text style={styles.uploadActionSubtitle}>{subtitle}</Text>
+  </TouchableOpacity>
+);
 
 export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<DriverProfileData | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [fullName, setFullName] = useState('');
   const [carMake, setCarMake] = useState('');
   const [carModel, setCarModel] = useState('');
   const [carColor, setCarColor] = useState('');
@@ -74,20 +166,92 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const hasCarInfo = !!(profile?.car?.make && profile?.car?.model && profile?.car?.color && profile?.car?.plateNumber);
   const isCourierCar = courierTransportType === 'CAR';
 
-  const taxiNextSteps = [
-    profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
-    profile?.status === 'REJECTED' ? 'Проверьте документы и данные автомобиля, затем загрузите их заново.' : null,
-    !hasCarInfo ? 'Заполните марку, модель, цвет и номер автомобиля.' : null,
-    !hasApprovedLicense ? 'Загрузите водительское удостоверение и дождитесь проверки.' : null,
-    !hasApprovedRegistration ? 'Загрузите СТС и дождитесь проверки.' : null,
-  ].filter(Boolean) as string[];
+  const taxiSteps = useMemo(
+    () =>
+      [
+        profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
+        !hasCarInfo ? 'Заполните автомобиль: марка, модель, цвет и номер.' : null,
+        !hasApprovedLicense ? 'Загрузите водительское удостоверение и дождитесь проверки.' : null,
+        !hasApprovedRegistration ? 'Загрузите СТС и дождитесь проверки.' : null,
+      ].filter(Boolean) as string[],
+    [hasApprovedLicense, hasApprovedRegistration, hasCarInfo, profile?.status],
+  );
 
-  const courierNextSteps = [
-    profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
-    !profile?.supportsCourier ? 'Включите курьерский режим ниже.' : null,
-    !hasApprovedCourierId ? 'Загрузите ID курьера и дождитесь проверки.' : null,
-    isCourierCar && !hasCarInfo ? 'Для автокурьера заполните марку, модель, цвет и номер автомобиля.' : null,
-  ].filter(Boolean) as string[];
+  const courierSteps = useMemo(
+    () =>
+      [
+        profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
+        !profile?.supportsCourier ? 'Включите курьерский режим ниже.' : null,
+        !hasApprovedCourierId ? 'Загрузите ID курьера и дождитесь проверки.' : null,
+        isCourierCar && !hasCarInfo ? 'Для автокурьера заполните автомобиль.' : null,
+      ].filter(Boolean) as string[],
+    [hasApprovedCourierId, hasCarInfo, isCourierCar, profile?.status, profile?.supportsCourier],
+  );
+
+  const intercitySteps = useMemo(
+    () =>
+      [
+        profile?.status !== 'APPROVED' ? 'Межгород доступен только после одобрения аккаунта.' : null,
+        !profile?.supportsIntercity ? 'Включите межгородний режим ниже.' : null,
+        !hasCarInfo ? 'Для межгорода нужен автомобиль в профиле.' : null,
+      ].filter(Boolean) as string[],
+    [hasCarInfo, profile?.status, profile?.supportsIntercity],
+  );
+
+  const taxiReady = taxiSteps.length === 0;
+  const courierReady = courierSteps.length === 0;
+  const intercityReady = intercitySteps.length === 0;
+  const urgentTasks = useMemo(() => {
+    if (taxiSteps.length > 0) {
+      return {
+        title: 'Что нужно для такси',
+        step: taxiSteps[0],
+        accent: '#60A5FA',
+      };
+    }
+
+    if (courierSteps.length > 0) {
+      return {
+        title: 'Что нужно для курьера',
+        step: courierSteps[0],
+        accent: '#F59E0B',
+      };
+    }
+
+    if (intercitySteps.length > 0) {
+      return {
+        title: 'Что нужно для межгорода',
+        step: intercitySteps[0],
+        accent: '#38BDF8',
+      };
+    }
+
+    return {
+      title: 'Профиль готов',
+      step: 'Все основные требования закрыты. Можно спокойно работать в нужном режиме.',
+      accent: '#22C55E',
+    };
+  }, [courierSteps, intercitySteps, taxiSteps]);
+  const readinessScore = useMemo(() => {
+    const checks = [
+      profile?.status === 'APPROVED',
+      hasCarInfo,
+      hasApprovedLicense,
+      hasApprovedRegistration,
+      profile?.supportsCourier ? hasApprovedCourierId : true,
+      profile?.supportsIntercity ? hasCarInfo : true,
+    ];
+    const passed = checks.filter(Boolean).length;
+    return Math.round((passed / checks.length) * 100);
+  }, [
+    hasApprovedCourierId,
+    hasApprovedLicense,
+    hasApprovedRegistration,
+    hasCarInfo,
+    profile?.status,
+    profile?.supportsCourier,
+    profile?.supportsIntercity,
+  ]);
 
   useEffect(() => {
     loadProfile();
@@ -99,18 +263,14 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       const res = await apiClient.get('/drivers/profile');
       const data = res.data;
       setProfile(data);
-
-      if (data.car) {
-        setCarMake(data.car.make || '');
-        setCarModel(data.car.model || '');
-        setCarColor(data.car.color || '');
-        setCarPlate(data.car.plateNumber || '');
-      }
-      if (data.courierTransportType) {
-        setCourierTransportType(data.courierTransportType);
-      }
+      setFullName(data.fullName || '');
+      setCarMake(data.car?.make || '');
+      setCarModel(data.car?.model || '');
+      setCarColor(data.car?.color || '');
+      setCarPlate(data.car?.plateNumber || '');
+      setCourierTransportType(data.courierTransportType || 'FOOT');
     } catch {
-      Alert.alert('Ошибка', 'Не удалось загрузить профиль');
+      Alert.alert('Ошибка', 'Не удалось загрузить профиль водителя');
     } finally {
       setLoading(false);
     }
@@ -125,17 +285,35 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     try {
       setSaving(true);
       await apiClient.post('/drivers/car', {
-        make: carMake,
-        model: carModel,
-        color: carColor,
-        plateNumber: carPlate,
+        make: carMake.trim(),
+        model: carModel.trim(),
+        color: carColor.trim(),
+        plateNumber: carPlate.trim().toUpperCase(),
       });
-      Alert.alert('Успешно', 'Информация об автомобиле сохранена');
-      loadProfile();
+      await loadProfile();
+      Alert.alert('Готово', 'Данные автомобиля обновлены');
     } catch (e: any) {
-      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось сохранить');
+      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось сохранить автомобиль');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveBasicProfile = async () => {
+    if (!fullName.trim()) {
+      Alert.alert('Ошибка', 'Укажи имя для профиля');
+      return;
+    }
+
+    try {
+      setSavingProfile(true);
+      await apiClient.patch('/drivers/profile', { fullName: fullName.trim() });
+      await loadProfile();
+      Alert.alert('Готово', 'Имя профиля обновлено');
+    } catch (e: any) {
+      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось обновить имя');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -147,7 +325,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       });
       await loadProfile();
     } catch (e: any) {
-      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось обновить межгородный режим');
+      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось обновить межгород');
     } finally {
       setUpdatingIntercity(false);
     }
@@ -173,17 +351,30 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       case 'APPROVED':
         return 'Одобрен';
       case 'PENDING':
-        return 'На рассмотрении';
+        return 'На проверке';
       case 'REJECTED':
-        return 'Отклонён';
+        return 'Отклонен';
       default:
         return status;
     }
   };
 
-  const getDocumentStatus = (doc: Document) => (doc.approved ? 'Одобрено' : 'Ожидает проверки');
+  const getStatusTone = (status?: string) => {
+    switch (status) {
+      case 'APPROVED':
+        return { bg: '#0F2A1C', fg: '#86EFAC', border: '#14532D' };
+      case 'REJECTED':
+        return { bg: '#2A1215', fg: '#FDA4AF', border: '#7F1D1D' };
+      default:
+        return { bg: '#18181B', fg: '#FCD34D', border: '#3F3F46' };
+    }
+  };
 
-  const pickAndUploadDocument = async (docType: 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'COURIER_ID') => {
+  const getDocumentStatus = (doc: Document) => (doc.approved ? 'Одобрен' : 'На проверке');
+
+  const pickAndUploadDocument = async (
+    docType: 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'COURIER_ID',
+  ) => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permissionResult.status !== 'granted') {
@@ -208,20 +399,15 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
           name: `${docType}_${Date.now()}.jpg`,
         } as any);
 
-        try {
-          await apiClient.post('/drivers/documents', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
-          Alert.alert('Успешно', 'Документ отправлен на проверку');
-          loadProfile();
-        } catch (error: any) {
-          Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить документ');
-        } finally {
-          setUploadingDoc(null);
-        }
+        await apiClient.post('/drivers/documents', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        await loadProfile();
+        Alert.alert('Готово', 'Документ отправлен на проверку');
       }
-    } catch {
-      Alert.alert('Ошибка', 'Не удалось выбрать изображение');
+    } catch (error: any) {
+      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить документ');
+    } finally {
       setUploadingDoc(null);
     }
   };
@@ -234,273 +420,789 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
+  const statusTone = getStatusTone(profile?.status);
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
-    >
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>← Назад</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Профиль водитель/курьер</Text>
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusBadgeText}>{getStatusText(profile?.status || 'PENDING')}</Text>
-        </View>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{Number(profile?.balance || 0).toFixed(0)} ₸</Text>
-          <Text style={styles.statLabel}>Баланс</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{profile?.rating?.toFixed(1) || '5.0'} ★</Text>
-          <Text style={styles.statLabel}>Рейтинг</Text>
-        </View>
-      </View>
-
-      {profile ? (
-        <>
-          <View style={[styles.section, styles.statusSection, profile.status === 'APPROVED' && hasCarInfo && hasApprovedLicense && hasApprovedRegistration ? styles.readySection : styles.warningSection]}>
-            <Text style={styles.sectionTitle}>Выход на линию как такси</Text>
-            <Text style={styles.statusSummary}>
-              {profile.status === 'APPROVED' && hasCarInfo && hasApprovedLicense && hasApprovedRegistration
-                ? 'Такси-режим готов. Можно выходить на линию как водитель.'
-                : 'Для такси нужны одобренный профиль, автомобиль, водительские права и СТС.'}
-            </Text>
-            {taxiNextSteps.map((step) => (
-              <View key={`taxi-${step}`} style={styles.nextStepRow}>
-                <Text style={styles.nextStepBullet}>•</Text>
-                <Text style={styles.nextStepText}>{step}</Text>
-              </View>
-            ))}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+      >
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <Text style={styles.backButtonText}>← Назад</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={[styles.section, styles.statusSection, profile.status === 'APPROVED' && hasApprovedCourierId && (!isCourierCar || hasCarInfo) ? styles.readySection : styles.warningSection]}>
-            <Text style={styles.sectionTitle}>Выход на линию как курьер</Text>
-            <Text style={styles.statusSummary}>
-              {profile.status === 'APPROVED' && hasApprovedCourierId && (!isCourierCar || hasCarInfo)
-                ? 'Курьерский режим готов. Можно выходить на линию в выбранном типе доставки.'
-                : 'Для курьера нужен ID курьера. Для автокурьера дополнительно нужен автомобиль.'}
-            </Text>
-            {courierNextSteps.map((step) => (
-              <View key={`courier-${step}`} style={styles.nextStepRow}>
-                <Text style={styles.nextStepBullet}>•</Text>
-                <Text style={styles.nextStepText}>{step}</Text>
+          <View style={styles.heroCard}>
+            <View style={styles.heroTop}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>
+                  {(profile?.fullName || profile?.user?.phone || 'В')
+                    .trim()
+                    .slice(0, 1)
+                    .toUpperCase()}
+                </Text>
               </View>
-            ))}
-          </View>
-        </>
-      ) : null}
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Мой автомобиль</Text>
-        <TextInput style={styles.input} placeholder="Марка" placeholderTextColor="#71717A" value={carMake} onChangeText={setCarMake} />
-        <TextInput style={styles.input} placeholder="Модель" placeholderTextColor="#71717A" value={carModel} onChangeText={setCarModel} />
-        <TextInput style={styles.input} placeholder="Цвет" placeholderTextColor="#71717A" value={carColor} onChangeText={setCarColor} />
-        <TextInput style={styles.input} placeholder="Номер" placeholderTextColor="#71717A" value={carPlate} onChangeText={setCarPlate} autoCapitalize="characters" />
-        <TouchableOpacity style={styles.primaryButton} onPress={saveCar} disabled={saving}>
-          <Text style={styles.primaryButtonText}>{saving ? 'Сохранение...' : 'Сохранить автомобиль'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Документы</Text>
-        <View style={styles.uploadButtonsContainer}>
-          <TouchableOpacity
-            style={[styles.secondaryButton, uploadingDoc === 'DRIVER_LICENSE' && styles.secondaryButtonDisabled]}
-            onPress={() => pickAndUploadDocument('DRIVER_LICENSE')}
-            disabled={uploadingDoc !== null}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {uploadingDoc === 'DRIVER_LICENSE' ? 'Загрузка...' : 'Водительское удостоверение'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.secondaryButton, uploadingDoc === 'CAR_REGISTRATION' && styles.secondaryButtonDisabled]}
-            onPress={() => pickAndUploadDocument('CAR_REGISTRATION')}
-            disabled={uploadingDoc !== null}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {uploadingDoc === 'CAR_REGISTRATION' ? 'Загрузка...' : 'СТС'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.secondaryButton, uploadingDoc === 'COURIER_ID' && styles.secondaryButtonDisabled]}
-            onPress={() => pickAndUploadDocument('COURIER_ID')}
-            disabled={uploadingDoc !== null}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {uploadingDoc === 'COURIER_ID' ? 'Загрузка...' : 'ID курьера'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {profile?.documents && profile.documents.length > 0 ? (
-          profile.documents.map((doc) => (
-            <View key={doc.id} style={styles.documentCard}>
-              <Text style={styles.documentType}>{DOCUMENT_TYPES[doc.type]}</Text>
-              <Text style={styles.documentStatus}>{getDocumentStatus(doc)}</Text>
+              <View style={styles.heroMain}>
+                <Text style={styles.heroTitle}>
+                  {profile?.fullName || 'Водитель/курьер'}
+                </Text>
+                <Text style={styles.heroSubtitle}>
+                  {profile?.user?.phone || 'Профиль исполнителя'}
+                </Text>
+                <View
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: statusTone.bg, borderColor: statusTone.border },
+                  ]}
+                >
+                  <Text style={[styles.statusPillText, { color: statusTone.fg }]}>
+                    {getStatusText(profile?.status || 'PENDING')}
+                  </Text>
+                </View>
+              </View>
             </View>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>Документы не загружены</Text>
-        )}
 
-        <View style={styles.documentNote}>
-          <Text style={styles.noteText}>Выберите качественные фотографии документов. Их проверит администратор.</Text>
-        </View>
-      </View>
+            <View style={styles.statRow}>
+              <StatCard
+                label="Баланс"
+                value={`${Math.round(Number(profile?.balance || 0))} ₸`}
+                accent="#F4F4F5"
+              />
+              <StatCard
+                label="Рейтинг"
+                value={`${profile?.rating?.toFixed(1) || '5.0'} ★`}
+                accent="#FBBF24"
+              />
+              <StatCard
+                label="Текущий режим"
+                value={
+                  profile?.driverMode === 'INTERCITY'
+                    ? 'Межгород'
+                    : profile?.driverMode === 'COURIER'
+                      ? 'Курьер'
+                      : 'Такси'
+                }
+                accent="#60A5FA"
+              />
+            </View>
+            <View style={styles.progressBlock}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Готовность профиля</Text>
+                <Text style={styles.progressValue}>{readinessScore}%</Text>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${readinessScore}%` }]} />
+              </View>
+            </View>
+          </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Чек-лист такси</Text>
-        <View style={styles.checklist}>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{profile?.status === 'APPROVED' ? '✓' : '•'}</Text>
-            <Text style={styles.checkText}>Аккаунт одобрен администратором</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Что сделать сейчас</Text>
+            <View style={[styles.urgentCard, { borderColor: urgentTasks.accent }]}>
+              <Text style={[styles.urgentTitle, { color: urgentTasks.accent }]}>
+                {urgentTasks.title}
+              </Text>
+              <Text style={styles.urgentStep}>{urgentTasks.step}</Text>
+            </View>
           </View>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{hasCarInfo ? '✓' : '•'}</Text>
-            <Text style={styles.checkText}>Информация об автомобиле заполнена</Text>
-          </View>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{hasApprovedLicense ? '✓' : '•'}</Text>
-            <Text style={styles.checkText}>Водительское удостоверение одобрено</Text>
-          </View>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{hasApprovedRegistration ? '✓' : '•'}</Text>
-            <Text style={styles.checkText}>СТС одобрено</Text>
-          </View>
-        </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Режимы водитель/курьер</Text>
-        <View style={styles.checklist}>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{profile?.supportsTaxi ? '✓' : '•'}</Text>
-            <Text style={styles.checkText}>Такси доступно</Text>
-          </View>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{profile?.supportsIntercity ? '✓' : '•'}</Text>
-            <Text style={styles.checkText}>Межгород {profile?.supportsIntercity ? 'включен' : 'выключен'}</Text>
-          </View>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{profile?.supportsCourier ? '✓' : '•'}</Text>
-            <Text style={styles.checkText}>Курьер {profile?.supportsCourier ? `включен (${profile?.courierTransportType || 'FOOT'})` : 'выключен'}</Text>
-          </View>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>{hasApprovedCourierId ? '✓' : '•'}</Text>
-            <Text style={styles.checkText}>ID курьера {hasApprovedCourierId ? 'одобрен' : 'не загружен или не одобрен'}</Text>
-          </View>
-          <View style={styles.checkItem}>
-            <Text style={styles.checkIcon}>•</Text>
-            <Text style={styles.checkText}>Текущий режим: {profile?.driverMode === 'INTERCITY' ? 'Межгород' : profile?.driverMode === 'COURIER' ? 'Курьер' : 'Такси'}</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.secondaryButton} onPress={toggleIntercity} disabled={updatingIntercity}>
-          <Text style={styles.secondaryButtonText}>
-            {updatingIntercity
-              ? 'Обновление...'
-              : profile?.supportsIntercity
-                ? 'Выключить межгород'
-                : 'Включить межгород'}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.transportRow}>
-          {(['FOOT', 'BIKE', 'CAR'] as const).map((type) => (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Основные данные</Text>
+            <Text style={styles.sectionSubtitle}>
+              Эти данные видят пассажиры в доставке, межгороде и рабочем профиле.
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Как тебя показать в профиле"
+              placeholderTextColor="#71717A"
+              value={fullName}
+              onChangeText={setFullName}
+            />
+
             <TouchableOpacity
-              key={type}
-              style={[styles.transportChip, courierTransportType === type && styles.transportChipActive]}
-              onPress={() => setCourierTransportType(type)}
+              style={[styles.secondaryWideButton, savingProfile && styles.disabledButton]}
+              onPress={saveBasicProfile}
+              disabled={savingProfile}
             >
-              <Text style={[styles.transportChipText, courierTransportType === type && styles.transportChipTextActive]}>
-                {type === 'FOOT' ? 'Пеший' : type === 'BIKE' ? 'Байк' : 'Авто'}
+              <Text style={styles.secondaryWideButtonText}>
+                {savingProfile ? 'Сохраняем...' : 'Сохранить имя профиля'}
               </Text>
             </TouchableOpacity>
-          ))}
-        </View>
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => toggleCourier(courierTransportType)}
-          disabled={updatingCourier}
-        >
-          <Text style={styles.secondaryButtonText}>
-            {updatingCourier
-              ? 'Обновление...'
-              : profile?.supportsCourier
-                ? 'Выключить курьерский режим'
-                : 'Включить курьерский режим'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Готовность к работе</Text>
+            <Text style={styles.sectionSubtitle}>
+              Здесь сразу видно, чего не хватает для выхода на линию в каждом режиме.
+            </Text>
+
+            <ReadinessCard
+              title="Такси"
+              subtitle="Права, СТС и автомобиль"
+              ready={taxiReady}
+              accent="#22C55E"
+              steps={taxiSteps}
+              badge={taxiReady ? 'Готов' : 'Нужно доделать'}
+            />
+
+            <ReadinessCard
+              title="Курьер"
+              subtitle={`Тип доставки: ${TRANSPORT_LABELS[courierTransportType]}`}
+              ready={courierReady}
+              accent="#F59E0B"
+              steps={courierSteps}
+              badge={courierReady ? 'Готов' : 'Нужно доделать'}
+            />
+
+            <ReadinessCard
+              title="Межгород"
+              subtitle="Публикация рейсов и заявки пассажиров"
+              ready={intercityReady}
+              accent="#38BDF8"
+              steps={intercitySteps}
+              badge={intercityReady ? 'Готов' : 'Нужно доделать'}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Режимы работы</Text>
+            <Text style={styles.sectionSubtitle}>
+              Управляй тем, какие сценарии доступны в общем worker-аккаунте.
+            </Text>
+
+            <View style={styles.modeCard}>
+              <Text style={styles.modeTitle}>Такси</Text>
+              <Text style={styles.modeValue}>Всегда доступно для этого профиля</Text>
+            </View>
+
+            <View style={styles.modeCard}>
+              <View style={styles.modeHeader}>
+                <View>
+                  <Text style={styles.modeTitle}>Курьер</Text>
+                  <Text style={styles.modeValue}>
+                    {profile?.supportsCourier
+                      ? `Включен • ${TRANSPORT_LABELS[courierTransportType]}`
+                      : 'Выключен'}
+                  </Text>
+                </View>
+                <PillButton
+                  title={updatingCourier ? 'Обновление...' : profile?.supportsCourier ? 'Выключить' : 'Включить'}
+                  active={Boolean(profile?.supportsCourier)}
+                  onPress={() => toggleCourier(courierTransportType)}
+                  disabled={updatingCourier}
+                />
+              </View>
+
+              <View style={styles.transportRow}>
+                {(['FOOT', 'BIKE', 'CAR'] as const).map((type) => (
+                  <PillButton
+                    key={type}
+                    title={TRANSPORT_LABELS[type]}
+                    active={courierTransportType === type}
+                    onPress={() => setCourierTransportType(type)}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.modeCard}>
+              <View style={styles.modeHeader}>
+                <View>
+                  <Text style={styles.modeTitle}>Межгород</Text>
+                  <Text style={styles.modeValue}>
+                    {profile?.supportsIntercity
+                      ? 'Включен • можно публиковать рейсы'
+                      : 'Выключен'}
+                  </Text>
+                </View>
+                <PillButton
+                  title={
+                    updatingIntercity
+                      ? 'Обновление...'
+                      : profile?.supportsIntercity
+                        ? 'Выключить'
+                        : 'Включить'
+                  }
+                  active={Boolean(profile?.supportsIntercity)}
+                  onPress={toggleIntercity}
+                  disabled={updatingIntercity}
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Автомобиль</Text>
+            <Text style={styles.sectionSubtitle}>
+              Эти данные нужны для такси, автокурьера и межгорода.
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Марка"
+              placeholderTextColor="#71717A"
+              value={carMake}
+              onChangeText={setCarMake}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Модель"
+              placeholderTextColor="#71717A"
+              value={carModel}
+              onChangeText={setCarModel}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Цвет"
+              placeholderTextColor="#71717A"
+              value={carColor}
+              onChangeText={setCarColor}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Номер"
+              placeholderTextColor="#71717A"
+              value={carPlate}
+              onChangeText={setCarPlate}
+              autoCapitalize="characters"
+            />
+
+            <TouchableOpacity
+              style={[styles.primaryButton, saving && styles.disabledButton]}
+              onPress={saveCar}
+              disabled={saving}
+            >
+              <Text style={styles.primaryButtonText}>
+                {saving ? 'Сохраняем...' : 'Сохранить автомобиль'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Документы</Text>
+            <Text style={styles.sectionSubtitle}>
+              Загружай документы здесь. После этого администратор проверит их и одобрит.
+            </Text>
+
+            <View style={styles.uploadGrid}>
+              <UploadAction
+                title="Водительское удостоверение"
+                subtitle="Для режима такси"
+                onPress={() => pickAndUploadDocument('DRIVER_LICENSE')}
+                disabled={uploadingDoc !== null}
+                busy={uploadingDoc === 'DRIVER_LICENSE'}
+              />
+              <UploadAction
+                title="СТС"
+                subtitle="Для такси и авто-режимов"
+                onPress={() => pickAndUploadDocument('CAR_REGISTRATION')}
+                disabled={uploadingDoc !== null}
+                busy={uploadingDoc === 'CAR_REGISTRATION'}
+              />
+              <UploadAction
+                title="ID курьера"
+                subtitle="Для курьерского режима"
+                onPress={() => pickAndUploadDocument('COURIER_ID')}
+                disabled={uploadingDoc !== null}
+                busy={uploadingDoc === 'COURIER_ID'}
+              />
+            </View>
+
+            {profile?.documents?.length ? (
+              <View style={styles.documentsList}>
+                {profile.documents.map((doc) => (
+                  <View key={doc.id} style={styles.documentRow}>
+                    <View style={styles.documentLeft}>
+                      <TouchableOpacity
+                        style={styles.documentPreview}
+                        onPress={() => Linking.openURL(doc.url).catch(() => null)}
+                        activeOpacity={0.85}
+                      >
+                        <Image source={{ uri: doc.url }} style={styles.documentImage} />
+                      </TouchableOpacity>
+                      <View style={styles.documentMeta}>
+                      <Text style={styles.documentName}>{DOCUMENT_TYPES[doc.type]}</Text>
+                      <Text style={styles.documentUrl} numberOfLines={1}>
+                        {doc.url}
+                      </Text>
+                      </View>
+                    </View>
+                    <View
+                      style={[
+                        styles.documentStatusPill,
+                        doc.approved ? styles.documentStatusApproved : styles.documentStatusPending,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.documentStatusText,
+                          doc.approved && styles.documentStatusTextApproved,
+                        ]}
+                      >
+                        {getDocumentStatus(doc)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>Пока нет загруженных документов</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090B' },
-  content: { paddingBottom: 40 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#09090B' },
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, gap: 14 },
-  backButton: { alignSelf: 'flex-start', backgroundColor: '#18181B', borderWidth: 1, borderColor: '#27272A', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
-  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: '#F4F4F5' },
-  statusBadge: { alignSelf: 'flex-start', backgroundColor: '#18181B', borderWidth: 1, borderColor: '#27272A', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14 },
-  statusBadgeText: { color: '#A1A1AA', fontSize: 13, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 12, marginBottom: 16 },
-  statCard: { flex: 1, backgroundColor: '#18181B', padding: 18, borderRadius: 18, alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
-  statValue: { fontSize: 22, fontWeight: '800', color: '#F4F4F5', marginBottom: 4 },
-  statLabel: { fontSize: 12, color: '#71717A', textTransform: 'uppercase' },
-  section: { padding: 16, marginHorizontal: 16, marginBottom: 16, backgroundColor: '#18181B', borderRadius: 18, borderWidth: 1, borderColor: '#27272A' },
-  statusSection: { marginTop: 0 },
-  readySection: { borderColor: '#14532D', backgroundColor: '#0F1C14' },
-  warningSection: { borderColor: '#3F3F46' },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#F4F4F5', marginBottom: 16 },
-  statusSummary: { fontSize: 14, color: '#E4E4E7', lineHeight: 20, marginBottom: 10 },
-  nextStepRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 6 },
-  nextStepBullet: { color: '#A1A1AA', fontSize: 16, marginRight: 8, lineHeight: 20 },
-  nextStepText: { flex: 1, color: '#A1A1AA', fontSize: 13, lineHeight: 20 },
-  input: { backgroundColor: '#09090B', color: '#F4F4F5', paddingHorizontal: 16, paddingVertical: 15, borderRadius: 16, marginBottom: 12, fontSize: 16, borderWidth: 1, borderColor: '#27272A' },
-  primaryButton: { backgroundColor: '#F4F4F5', borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
-  primaryButtonText: { color: '#000000', fontSize: 16, fontWeight: '800' },
-  uploadButtonsContainer: { gap: 12, marginBottom: 16 },
-  secondaryButton: { backgroundColor: '#09090B', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
-  secondaryButtonDisabled: { opacity: 0.6 },
-  secondaryButtonText: { color: '#F4F4F5', fontSize: 14, fontWeight: '700' },
-  documentCard: { backgroundColor: '#09090B', padding: 14, borderRadius: 14, marginBottom: 8, borderWidth: 1, borderColor: '#27272A' },
-  documentType: { fontSize: 14, color: '#F4F4F5', marginBottom: 4, fontWeight: '600' },
-  documentStatus: { fontSize: 12, color: '#A1A1AA' },
-  emptyText: { fontSize: 14, color: '#71717A', textAlign: 'center', paddingVertical: 16 },
-  documentNote: { backgroundColor: '#09090B', padding: 12, borderRadius: 14, marginTop: 12, borderWidth: 1, borderColor: '#27272A' },
-  noteText: { fontSize: 12, color: '#71717A', lineHeight: 18 },
-  checklist: { gap: 12 },
-  checkItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  checkIcon: { fontSize: 18, color: '#F4F4F5', width: 18 },
-  checkText: { fontSize: 14, color: '#F4F4F5', flex: 1 },
-  transportRow: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 12 },
-  transportChip: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#09090B',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#09090B',
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingBottom: 36,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#09090B',
+  },
+  headerRow: {
+    paddingTop: 12,
+    marginBottom: 14,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#18181B',
     borderWidth: 1,
     borderColor: '#27272A',
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  backButtonText: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  heroCard: {
+    backgroundColor: '#111113',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 18,
+    marginBottom: 16,
+  },
+  heroTop: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 18,
   },
-  transportChipActive: {
-    backgroundColor: '#27272A',
+  avatarCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
-  transportChipText: {
+  avatarText: {
+    color: '#F4F4F5',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  heroMain: {
+    flex: 1,
+  },
+  heroTitle: {
+    color: '#F4F4F5',
+    fontSize: 24,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  statusPill: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  statusPillText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  statRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  progressBlock: {
+    marginTop: 16,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  progressLabel: {
     color: '#A1A1AA',
     fontSize: 13,
     fontWeight: '700',
   },
-  transportChipTextActive: {
+  progressValue: {
     color: '#F4F4F5',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#27272A',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#22C55E',
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 14,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  statLabel: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  section: {
+    backgroundColor: '#111113',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    color: '#F4F4F5',
+    fontSize: 19,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  sectionSubtitle: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  urgentCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+  },
+  urgentTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  urgentStep: {
+    color: '#D4D4D8',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  readinessCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+  },
+  readinessCardReady: {
+    backgroundColor: '#0D1510',
+  },
+  readinessCardPending: {
+    backgroundColor: '#18181B',
+  },
+  readinessHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 10,
+  },
+  readinessTitle: {
+    color: '#F4F4F5',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  readinessSubtitle: {
+    color: '#A1A1AA',
+    fontSize: 13,
+  },
+  readinessBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#27272A',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  readinessBadgeText: {
+    color: '#F4F4F5',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  readinessBadgeTextReady: {
+    color: '#04130A',
+  },
+  readyText: {
+    color: '#D4D4D8',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 6,
+  },
+  stepDot: {
+    color: '#A1A1AA',
+    fontSize: 16,
+    lineHeight: 20,
+    marginRight: 8,
+  },
+  stepText: {
+    flex: 1,
+    color: '#A1A1AA',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  modeCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 14,
+    marginBottom: 12,
+  },
+  modeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modeTitle: {
+    color: '#F4F4F5',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  modeValue: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  transportRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  pillButton: {
+    flex: 1,
+    backgroundColor: '#09090B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  pillButtonActive: {
+    backgroundColor: '#27272A',
+    borderColor: '#52525B',
+  },
+  pillButtonText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  pillButtonTextActive: {
+    color: '#F4F4F5',
+  },
+  input: {
+    backgroundColor: '#09090B',
+    color: '#F4F4F5',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    borderRadius: 16,
+    marginBottom: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  primaryButton: {
+    backgroundColor: '#F4F4F5',
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  primaryButtonText: {
+    color: '#09090B',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  secondaryWideButton: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  secondaryWideButtonText: {
+    color: '#F4F4F5',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  uploadGrid: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  uploadAction: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 14,
+  },
+  uploadActionTitle: {
+    color: '#F4F4F5',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  uploadActionSubtitle: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  documentsList: {
+    gap: 10,
+  },
+  documentRow: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  documentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  documentPreview: {
+    width: 58,
+    height: 58,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#09090B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginRight: 12,
+  },
+  documentImage: {
+    width: '100%',
+    height: '100%',
+  },
+  documentMeta: {
+    flex: 1,
+  },
+  documentName: {
+    color: '#F4F4F5',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  documentUrl: {
+    color: '#71717A',
+    fontSize: 12,
+    maxWidth: 200,
+  },
+  documentStatusPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  documentStatusApproved: {
+    backgroundColor: '#0F2A1C',
+    borderColor: '#14532D',
+  },
+  documentStatusPending: {
+    backgroundColor: '#18181B',
+    borderColor: '#3F3F46',
+  },
+  documentStatusText: {
+    color: '#D4D4D8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  documentStatusTextApproved: {
+    color: '#86EFAC',
+  },
+  emptyCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 18,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#71717A',
+    fontSize: 14,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });

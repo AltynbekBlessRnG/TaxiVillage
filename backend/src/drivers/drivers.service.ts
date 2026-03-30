@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger, OnModuleDes
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, CourierOrderStatus, CourierTransportType, DocumentType, DriverMode, DriverStatus, RideStatus } from '@prisma/client/index';
 import { RidesGateway } from '../rides/rides.gateway';
+import { RedisService } from '../redis/redis.service';
 
 /** Haversine distance calculation */
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -26,6 +27,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ridesGateway: RidesGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   private locationCache = new Map<string, { lat: number; lng: number; lastUpdate: Date }>();
@@ -34,9 +36,14 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
   private readonly CACHE_CLEANUP_INTERVAL = 60000; // 1 minute - clean old entries
   private locationBatchTimer?: NodeJS.Timeout;
   private cacheCleanupTimer?: NodeJS.Timeout;
+  private unsubscribeOfflinePresence?: () => void;
 
   // Start location batching on service initialization
   onModuleInit() {
+    this.unsubscribeOfflinePresence = this.redisService.onUserOffline((userId) =>
+      this.handleUserPresenceOffline(userId),
+    );
+
     this.locationBatchTimer = setInterval(() => {
       this.flushLocationBatch();
     }, this.BATCH_INTERVAL);
@@ -48,6 +55,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
 
   // Cleanup on service destruction
   onModuleDestroy() {
+    this.unsubscribeOfflinePresence?.();
     if (this.locationBatchTimer) {
       clearInterval(this.locationBatchTimer);
       this.flushLocationBatch(); // Flush any remaining updates
@@ -109,10 +117,31 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
     this.locationCache.clear();
   }
 
+  private async handleUserPresenceOffline(userId: string) {
+    this.activeRideCache.delete(userId);
+    await Promise.all([
+      this.redisService.clearCachedLocation('driver', userId),
+      this.redisService.clearCachedLocation('courier', userId),
+      this.prisma.driverProfile.updateMany({
+        where: { userId, isOnline: true },
+        data: { isOnline: false },
+      }),
+    ]);
+  }
+
   private async getActiveRideId(userId: string) {
     const cached = this.activeRideCache.get(userId);
     if (cached && Date.now() - cached.checkedAt < this.ACTIVE_RIDE_CACHE_TTL) {
       return cached.rideId;
+    }
+
+    const assignment = await this.redisService.getActiveAssignment('ride', userId);
+    if (assignment?.entityId) {
+      this.activeRideCache.set(userId, {
+        rideId: assignment.entityId,
+        checkedAt: Date.now(),
+      });
+      return assignment.entityId;
     }
 
     const driver = await this.prisma.driverProfile.findUnique({
@@ -158,16 +187,9 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (driver.driverMode === DriverMode.INTERCITY) {
-        return this.prisma.$transaction(async (tx) => {
-          const updatedDriver = await tx.driverProfile.update({
-            where: { userId },
-            data: { isOnline },
-          });
-          await tx.courierProfile.updateMany({
-            where: { userId },
-            data: { isOnline: false },
-          });
-          return updatedDriver;
+        return this.prisma.driverProfile.update({
+          where: { userId },
+          data: { isOnline },
         });
       }
 
@@ -185,16 +207,9 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
-        return this.prisma.$transaction(async (tx) => {
-          const updatedDriver = await tx.driverProfile.update({
-            where: { userId },
-            data: { isOnline },
-          });
-          await tx.courierProfile.updateMany({
-            where: { userId },
-            data: { isOnline },
-          });
-          return updatedDriver;
+        return this.prisma.driverProfile.update({
+          where: { userId },
+          data: { isOnline },
         });
       }
 
@@ -219,23 +234,16 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const driver = await this.prisma.$transaction(async (tx) => {
-      const updatedDriver = await tx.driverProfile.update({
-        where: { userId },
-        data: { isOnline },
-      });
-      await tx.courierProfile.updateMany({
-        where: { userId },
-        data: { isOnline: false },
-      });
-      return updatedDriver;
+    return this.prisma.driverProfile.update({
+      where: { userId },
+      data: { isOnline },
     });
-    return driver;
   }
 
   async updateLocation(userId: string, lat: number, lng: number) {
     // Store in cache instead of immediate DB write
     this.locationCache.set(userId, { lat, lng, lastUpdate: new Date() });
+    await this.redisService.cacheLocation('driver', userId, lat, lng);
 
     const activeRideId = await this.getActiveRideId(userId);
     if (activeRideId) {
@@ -257,6 +265,33 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('Driver profile not found');
     }
 
+    const assignment = await this.redisService.getActiveAssignment('ride', userId);
+    if (assignment?.entityId) {
+      const activeStatuses: RideStatus[] = [
+        RideStatus.DRIVER_ASSIGNED,
+        RideStatus.ON_THE_WAY,
+        RideStatus.DRIVER_ARRIVED,
+        RideStatus.IN_PROGRESS,
+      ];
+      const rideFromRedis = await this.prisma.ride.findUnique({
+        where: { id: assignment.entityId },
+      });
+
+      if (
+        rideFromRedis &&
+        rideFromRedis.driverId === driver.id &&
+        activeStatuses.includes(rideFromRedis.status)
+      ) {
+        this.activeRideCache.set(userId, {
+          rideId: rideFromRedis.id,
+          checkedAt: Date.now(),
+        });
+        return rideFromRedis;
+      }
+
+      await this.redisService.clearActiveAssignment('ride', userId);
+    }
+
     const ride = await this.prisma.ride.findFirst({
       where: {
         driverId: driver.id,
@@ -275,6 +310,12 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       rideId: ride?.id ?? null,
       checkedAt: Date.now(),
     });
+
+    if (ride?.id) {
+      await this.redisService.setActiveAssignment('ride', userId, ride.id, ride.status);
+    } else {
+      await this.redisService.clearActiveAssignment('ride', userId);
+    }
 
     return ride;
   }
@@ -324,6 +365,25 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  async updateProfile(userId: string, data: { fullName: string }) {
+    const fullName = data.fullName?.trim();
+    if (!fullName) {
+      throw new BadRequestException('Имя не может быть пустым');
+    }
+
+    const updatedDriver = await this.prisma.driverProfile.update({
+      where: { userId },
+      data: { fullName },
+      include: {
+        car: true,
+        documents: true,
+        user: true,
+      },
+    });
+
+    return updatedDriver;
+  }
+
   async getProfile(userId: string) {
     const driver = await this.prisma.driverProfile.findUnique({
       where: { userId },
@@ -352,11 +412,6 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('Driver profile not found');
     }
 
-    const courierProfile = await this.prisma.courierProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -377,10 +432,10 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
           estimatedPrice: true,
         },
       }),
-      courierProfile
+      driver.supportsCourier
         ? this.prisma.courierOrder.findMany({
             where: {
-              courierId: courierProfile.id,
+              courierId: driver.id,
               status: CourierOrderStatus.DELIVERED,
               deliveredAt: { gte: periodStart },
             },
@@ -451,28 +506,14 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException('Такси-режим недоступен для этого профиля');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updatedDriver = await tx.driverProfile.update({
-        where: { userId },
-        data: { driverMode },
-        include: {
-          car: true,
-          documents: true,
-          user: true,
-        },
-      });
-
-      await tx.courierProfile.updateMany({
-        where: { userId },
-        data: {
-          isOnline:
-            driverMode === DriverMode.COURIER && updatedDriver.isOnline
-              ? true
-              : false,
-        },
-      });
-
-      return updatedDriver;
+    return this.prisma.driverProfile.update({
+      where: { userId },
+      data: { driverMode },
+      include: {
+        car: true,
+        documents: true,
+        user: true,
+      },
     });
   }
 
@@ -531,38 +572,11 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    if (params.supportsCourier) {
-      const courierProfile = await this.prisma.courierProfile.findUnique({ where: { userId } });
-      if (!courierProfile) {
-        await this.prisma.courierProfile.create({
-          data: {
-            userId,
-            fullName: updated.fullName,
-            status: updated.status,
-            isOnline: false,
-            rating: updated.rating,
-            balance: updated.balance,
-            lat: updated.lat,
-            lng: updated.lng,
-          },
-        });
-      } else {
-        await this.prisma.courierProfile.update({
-          where: { userId },
-          data: {
-            fullName: updated.fullName,
-            status: updated.status,
-            rating: updated.rating,
-            balance: updated.balance,
-          },
-        });
-      }
-    }
-
     return updated;
   }
 
   async getNearbyDrivers(lat: number, lng: number, radius: number) {
+    const nearbyUserIds = await this.redisService.findNearbyUsers('driver', lat, lng, radius, 50);
     const latDelta = radius / 111;
     const lngDelta = radius / (111 * Math.max(Math.cos((lat * Math.PI) / 180), 0.1));
 
@@ -570,24 +584,36 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       where: {
         status: 'APPROVED',
         isOnline: true,
-        lat: { not: null, gte: lat - latDelta, lte: lat + latDelta },
-        lng: { not: null, gte: lng - lngDelta, lte: lng + lngDelta },
+        supportsTaxi: true,
+        driverMode: DriverMode.TAXI,
+        ...(nearbyUserIds.length > 0
+          ? { userId: { in: nearbyUserIds } }
+          : {
+              lat: { not: null, gte: lat - latDelta, lte: lat + latDelta },
+              lng: { not: null, gte: lng - lngDelta, lte: lng + lngDelta },
+            }),
       },
       select: {
         id: true,
+        userId: true,
         fullName: true,
         lat: true,
         lng: true,
       },
     });
 
+    const cachedLocations = await this.redisService.getCachedLocations(
+      'driver',
+      drivers.map((driver) => driver.userId),
+    );
+
     // Filter by distance and return only necessary info
     const nearbyDrivers = drivers
       .map(driver => ({
         id: driver.id,
         fullName: driver.fullName || 'Водитель',
-        lat: driver.lat!,
-        lng: driver.lng!,
+        lat: cachedLocations.get(driver.userId)?.lat ?? driver.lat!,
+        lng: cachedLocations.get(driver.userId)?.lng ?? driver.lng!,
       }))
       .filter(driver => {
         const distance = haversineDistance(lat, lng, driver.lat, driver.lng);

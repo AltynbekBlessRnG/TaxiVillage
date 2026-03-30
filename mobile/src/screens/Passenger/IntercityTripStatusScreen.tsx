@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import type { Socket } from 'socket.io-client';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { createIntercitySocket } from '../../api/intercitySocket';
 import {
   InlineLabel,
   PrimaryButton,
@@ -11,6 +13,8 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { loadAuth } from '../../storage/authStorage';
+import { useThreadUnread } from '../../hooks/useThreadUnread';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityTripStatus'>;
 
@@ -25,6 +29,7 @@ const statusLabels: Record<string, string> = {
 export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread();
 
   const loadOrder = useCallback(() => {
     apiClient
@@ -39,11 +44,42 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
 
   useFocusEffect(
     useCallback(() => {
+      refreshThreadUnread().catch(() => null);
       loadOrder();
-      const intervalId = setInterval(loadOrder, 5000);
-      return () => clearInterval(intervalId);
-    }, [loadOrder]),
+      return undefined;
+    }, [loadOrder, refreshThreadUnread]),
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    let socket: Socket | null = null;
+
+    const setupSocket = async () => {
+      const auth = await loadAuth();
+      if (!auth?.accessToken || !isMounted) {
+        return;
+      }
+
+      socket = createIntercitySocket(auth.accessToken);
+      socket.on('connect', () => {
+        socket?.emit('join:intercity-booking', { bookingId: route.params.bookingId });
+      });
+      socket.on('intercity-booking:updated', (nextOrder: any) => {
+        if (!isMounted || nextOrder?.id !== route.params.bookingId) {
+          return;
+        }
+        setOrder(nextOrder);
+        setLoading(false);
+      });
+    };
+
+    setupSocket().catch(() => null);
+
+    return () => {
+      isMounted = false;
+      socket?.disconnect();
+    };
+  }, [route.params.bookingId]);
 
   if (loading) {
     return (
@@ -81,7 +117,24 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
         <InlineLabel label="4" value="Завершено" />
       </ServiceCard>
 
-        <PrimaryButton title="Вернуться в такси" onPress={() => navigation.navigate('PassengerHome', {})} />
+      {order?.trip?.driver ? (
+        <PrimaryButton
+          title={
+            (intercityUnreadByThread[`BOOKING:${route.params.bookingId}`] ?? 0) > 0
+              ? `Чат с водителем (${Math.min(intercityUnreadByThread[`BOOKING:${route.params.bookingId}`], 99)})`
+              : 'Чат с водителем'
+          }
+          onPress={() =>
+            navigation.navigate('IntercityChat', {
+              threadType: 'BOOKING',
+              threadId: route.params.bookingId,
+              title: 'Чат по бронированию',
+            })
+          }
+        />
+      ) : null}
+
+      <PrimaryButton title="Вернуться в такси" onPress={() => navigation.navigate('PassengerHome', {})} />
     </ServiceScreen>
   );
 };

@@ -13,6 +13,7 @@ import { Server } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/auth.service';
+import { RedisService } from '../redis/redis.service';
 
 interface CourierOrderPayload {
   id: string;
@@ -23,7 +24,7 @@ interface CourierOrderPayload {
 }
 
 @WebSocketGateway({
-  namespace: '/courier-orders',
+  namespace: '/app',
   cors: { origin: '*' },
 })
 export class CourierOrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -35,12 +36,13 @@ export class CourierOrdersGateway implements OnGatewayConnection, OnGatewayDisco
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly redisService: RedisService,
   ) {}
 
   async handleConnection(client: import('socket.io').Socket) {
     const token = client.handshake.auth?.token;
     if (!token) {
-      client.disconnect();
+      this.rejectUnauthorized(client);
       return;
     }
 
@@ -52,13 +54,15 @@ export class CourierOrdersGateway implements OnGatewayConnection, OnGatewayDisco
       const userId = payload.sub;
       await client.join(`user:${userId}`);
       (client as any).userId = userId;
+      await this.redisService.setUserPresence(userId, 'app', client.id);
     } catch {
       this.logger.warn('Courier socket connection rejected: invalid token');
-      client.disconnect();
+      this.rejectUnauthorized(client);
     }
   }
 
   handleDisconnect(client: import('socket.io').Socket) {
+    void this.redisService.removeSocketPresence(client.id);
     this.logger.log(`Courier socket client ${client.id} disconnected`);
   }
 
@@ -110,5 +114,10 @@ export class CourierOrdersGateway implements OnGatewayConnection, OnGatewayDisco
 
   emitCourierMoved(orderId: string, lat: number, lng: number) {
     this.server.to(`courier-order:${orderId}`).emit('courier:moved', { orderId, lat, lng });
+  }
+
+  private rejectUnauthorized(client: import('socket.io').Socket) {
+    client.emit('error', { code: 'UNAUTHORIZED', message: 'UNAUTHORIZED' });
+    client.disconnect();
   }
 }

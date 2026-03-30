@@ -2,8 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import type { Socket } from 'socket.io-client';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { createFoodOrdersSocket } from '../../api/socket';
+import { loadAuth } from '../../storage/authStorage';
 import { InlineLabel, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MerchantOrders'>;
@@ -45,12 +48,37 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       loadOrders().catch(() => null);
-      const intervalId = setInterval(() => {
-        loadOrders().catch(() => null);
-      }, 5000);
-      return () => clearInterval(intervalId);
+      return undefined;
     }, [loadOrders]),
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    let socket: Socket | null = null;
+
+    const setupSocket = async () => {
+      const auth = await loadAuth();
+      if (!auth?.accessToken || !isMounted) {
+        return;
+      }
+
+      socket = createFoodOrdersSocket(auth.accessToken);
+
+      const reloadOrders = () => {
+        loadOrders().catch(() => null);
+      };
+
+      socket.on('food-order:created', reloadOrders);
+      socket.on('food-order:updated', reloadOrders);
+    };
+
+    setupSocket().catch(() => null);
+
+    return () => {
+      isMounted = false;
+      socket?.disconnect();
+    };
+  }, [loadOrders]);
 
   const advanceStatus = async (orderId: string, currentStatus: string) => {
     const nextStatus = nextStatusMap[currentStatus];

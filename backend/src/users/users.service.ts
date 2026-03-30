@@ -46,11 +46,6 @@ export class UsersService {
               courierTransportType: 'FOOT',
             },
           },
-          courier: {
-            create: {
-              fullName: params.fullName,
-            },
-          },
         },
       });
     }
@@ -71,11 +66,6 @@ export class UsersService {
               driverMode: 'COURIER',
               courierTransportType: 'FOOT',
               status: 'APPROVED',
-            },
-          },
-          courier: {
-            create: {
-              fullName: params.fullName,
             },
           },
         },
@@ -114,11 +104,6 @@ export class UsersService {
               driverMode: 'INTERCITY',
             },
           },
-          intercityDriver: {
-            create: {
-              fullName: params.fullName,
-            },
-          },
         },
       });
     }
@@ -146,11 +131,10 @@ export class UsersService {
         driver: {
           include: {
             car: true,
+            documents: true,
           },
         },
-        courier: true,
         merchant: true,
-        intercityDriver: true,
       },
     });
   }
@@ -161,9 +145,7 @@ export class UsersService {
       include: {
         passenger: true,
         driver: true,
-        courier: true,
         merchant: true,
-        intercityDriver: true,
       },
     });
   }
@@ -204,8 +186,7 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        driver: { include: { car: true } },
-        intercityDriver: true,
+        driver: { include: { car: true, documents: true } },
       },
     });
 
@@ -219,10 +200,10 @@ export class UsersService {
         (await tx.driverProfile.create({
           data: {
             userId: user.id,
-            fullName: user.intercityDriver?.fullName ?? undefined,
-            status: user.intercityDriver?.status ?? 'APPROVED',
-            isOnline: user.intercityDriver?.isOnline ?? false,
-            rating: user.intercityDriver?.rating ?? 5,
+            fullName: undefined,
+            status: 'APPROVED',
+            isOnline: false,
+            rating: 5,
             supportsTaxi: false,
             supportsCourier: false,
             supportsIntercity: true,
@@ -233,13 +214,13 @@ export class UsersService {
       await tx.driverProfile.update({
         where: { id: baseDriver.id },
         data: {
-          fullName: baseDriver.fullName ?? user.intercityDriver?.fullName ?? undefined,
-          status: user.intercityDriver?.status ?? baseDriver.status,
-          isOnline: user.intercityDriver?.isOnline ?? baseDriver.isOnline,
-          rating: user.intercityDriver?.rating ?? baseDriver.rating,
+          fullName: baseDriver.fullName ?? undefined,
+          status: baseDriver.status,
+          isOnline: baseDriver.isOnline,
+          rating: baseDriver.rating,
           supportsIntercity: true,
-          supportsCourier: baseDriver.supportsCourier ?? false,
-          supportsTaxi: baseDriver.supportsTaxi ?? false,
+          supportsCourier: baseDriver.supportsCourier,
+          supportsTaxi: baseDriver.supportsTaxi,
           driverMode: 'INTERCITY',
         },
       });
@@ -255,10 +236,8 @@ export class UsersService {
         where: { id: user.id },
         include: {
           passenger: true,
-          driver: true,
-          courier: true,
+          driver: { include: { car: true, documents: true } },
           merchant: true,
-          intercityDriver: true,
         },
       });
     });
@@ -269,7 +248,6 @@ export class UsersService {
       where: { id: userId },
       include: {
         driver: true,
-        courier: true,
       },
     });
 
@@ -283,11 +261,11 @@ export class UsersService {
         (await tx.driverProfile.create({
           data: {
             userId: user.id,
-            fullName: user.courier?.fullName ?? undefined,
-            status: user.courier?.status ?? 'APPROVED',
-            isOnline: user.courier?.isOnline ?? false,
-            rating: user.courier?.rating ?? 5,
-            balance: user.courier?.balance ?? 0,
+            fullName: undefined,
+            status: 'APPROVED',
+            isOnline: false,
+            rating: 5,
+            balance: 0,
             supportsTaxi: false,
             supportsCourier: true,
             supportsIntercity: false,
@@ -299,12 +277,14 @@ export class UsersService {
       await tx.driverProfile.update({
         where: { id: baseDriver.id },
         data: {
-          fullName: baseDriver.fullName ?? user.courier?.fullName ?? undefined,
-          status: user.courier?.status ?? baseDriver.status,
-          isOnline: user.courier?.isOnline ?? baseDriver.isOnline,
-          rating: user.courier?.rating ?? baseDriver.rating,
-          balance: user.courier?.balance ?? baseDriver.balance,
+          fullName: baseDriver.fullName ?? undefined,
+          status: baseDriver.status,
+          isOnline: baseDriver.isOnline,
+          rating: baseDriver.rating,
+          balance: baseDriver.balance,
           supportsCourier: true,
+          supportsTaxi: baseDriver.supportsTaxi,
+          supportsIntercity: baseDriver.supportsIntercity,
           driverMode: 'COURIER',
           courierTransportType: baseDriver.courierTransportType ?? 'FOOT',
         },
@@ -321,10 +301,8 @@ export class UsersService {
         where: { id: user.id },
         include: {
           passenger: true,
-          driver: true,
-          courier: true,
+          driver: { include: { car: true, documents: true } },
           merchant: true,
-          intercityDriver: true,
         },
       });
     });
@@ -335,7 +313,6 @@ export class UsersService {
       where: { id: userId },
       include: {
         driver: true,
-        courier: true,
       },
     });
 
@@ -349,11 +326,11 @@ export class UsersService {
         (await tx.driverProfile.create({
           data: {
             userId: user.id,
-            fullName: user.courier?.fullName ?? undefined,
-            status: user.courier?.status ?? 'APPROVED',
+            fullName: undefined,
+            status: 'APPROVED',
             isOnline: false,
-            rating: user.courier?.rating ?? 5,
-            balance: user.courier?.balance ?? 0,
+            rating: 5,
+            balance: 0,
             supportsTaxi: true,
             supportsCourier: true,
             supportsIntercity: false,
@@ -373,33 +350,12 @@ export class UsersService {
         },
       });
 
-      const courierProfile = await tx.courierProfile.findUnique({
-        where: { userId: user.id },
-      });
-
-      if (!courierProfile) {
-        await tx.courierProfile.create({
-          data: {
-            userId: user.id,
-            fullName: updatedDriver.fullName,
-            status: updatedDriver.status,
-            isOnline: false,
-            rating: updatedDriver.rating,
-            balance: updatedDriver.balance,
-            lat: updatedDriver.lat,
-            lng: updatedDriver.lng,
-          },
-        });
-      }
-
       return tx.user.findUnique({
         where: { id: user.id },
         include: {
           passenger: true,
-          driver: true,
-          courier: true,
+          driver: { include: { car: true, documents: true } },
           merchant: true,
-          intercityDriver: true,
         },
       });
     });

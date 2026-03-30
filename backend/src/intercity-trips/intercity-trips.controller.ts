@@ -1,11 +1,13 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
+  IsArray,
   IsString,
   Min,
 } from 'class-validator';
@@ -41,6 +43,26 @@ class CreateIntercityTripDto {
   @IsOptional()
   @IsString()
   comment?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  stops?: string[];
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  womenOnly?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  baggageSpace?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  allowAnimals?: boolean;
 }
 
 class BookIntercityTripDto {
@@ -62,13 +84,59 @@ class UpdateIntercityTripStatusDto {
   status!: IntercityTripStatus;
 }
 
+class PublicTripsFilterDto {
+  @IsOptional()
+  @IsString()
+  fromCity?: string;
+
+  @IsOptional()
+  @IsString()
+  toCity?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  minPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  seatsRequired?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  baggageRequired?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  womenOnly?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  noAnimals?: boolean;
+}
+
 @Controller('intercity-trips')
 export class IntercityTripsController {
   constructor(private readonly intercityTripsService: IntercityTripsService) {}
 
+  @Get('popular-routes')
+  listPopularRoutes() {
+    return this.intercityTripsService.listPopularRoutes();
+  }
+
   @Get('public')
-  listPublic(@Query('fromCity') fromCity?: string, @Query('toCity') toCity?: string) {
-    return this.intercityTripsService.listPublicTrips({ fromCity, toCity });
+  listPublic(@Query() filters: PublicTripsFilterDto) {
+    return this.intercityTripsService.listPublicTrips(filters);
   }
 
   @Get('my')

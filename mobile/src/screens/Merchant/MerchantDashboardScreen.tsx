@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, ImageBackground, StyleSheet, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -11,11 +11,20 @@ type Props = NativeStackScreenProps<RootStackParamList, 'MerchantDashboard'>;
 export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState('');
+  const [cuisine, setCuisine] = useState('');
+  const [coverImageUrl, setCoverImageUrl] = useState('');
 
   const loadProfile = useCallback(() => {
     apiClient
       .get('/merchants/profile/me')
-      .then((response) => setProfile(response.data))
+      .then((response) => {
+        setProfile(response.data);
+        setName(response.data?.name || '');
+        setCuisine(response.data?.cuisine || '');
+        setCoverImageUrl(response.data?.coverImageUrl || '');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -37,6 +46,24 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
+  const saveProfile = async () => {
+    try {
+      setSaving(true);
+      await apiClient.patch('/merchants/profile/me', {
+        name: name.trim() || undefined,
+        cuisine: cuisine.trim() || undefined,
+        coverImageUrl: coverImageUrl.trim() || undefined,
+      });
+      await loadProfile();
+      Alert.alert('Готово', 'Профиль заведения обновлен');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось сохранить профиль';
+      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <ServiceScreen
       accentColor="#FB923C"
@@ -44,6 +71,39 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
       title="Кабинет заведения"
       subtitle="Профиль merchant-а уже читает backend и становится источником данных для food-каталога."
     >
+      <ServiceCard>
+        <ImageBackground
+          source={coverImageUrl ? { uri: coverImageUrl } : undefined}
+          style={[styles.coverPreview, { backgroundColor: profile?.tone || '#7C2D12' }]}
+          imageStyle={styles.coverPreviewImage}
+        />
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          style={styles.input}
+          placeholder="Название заведения"
+          placeholderTextColor="#71717A"
+        />
+        <TextInput
+          value={cuisine}
+          onChangeText={setCuisine}
+          style={styles.input}
+          placeholder="Кухня"
+          placeholderTextColor="#71717A"
+        />
+        <TextInput
+          value={coverImageUrl}
+          onChangeText={setCoverImageUrl}
+          style={styles.input}
+          placeholder="Ссылка на фото заведения"
+          placeholderTextColor="#71717A"
+        />
+        <PrimaryButton
+          title={saving ? 'Сохраняем...' : 'Сохранить витрину'}
+          onPress={() => saveProfile().catch(() => null)}
+        />
+      </ServiceCard>
+
       <ServiceCard>
         <InlineLabel label="Название" value={profile?.name || 'Новое заведение'} />
         <InlineLabel label="Кухня" value={profile?.cuisine || 'Не указана'} />
@@ -62,5 +122,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#09090B',
+  },
+  coverPreview: {
+    borderRadius: 18,
+    minHeight: 160,
+    marginBottom: 12,
+    overflow: 'hidden',
+    backgroundColor: '#27272A',
+  },
+  coverPreviewImage: {
+    borderRadius: 18,
+  },
+  input: {
+    backgroundColor: '#09090B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    color: '#F4F4F5',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+    marginBottom: 12,
   },
 });

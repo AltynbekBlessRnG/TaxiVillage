@@ -4,9 +4,19 @@ import { ValidationPipe, Logger } from '@nestjs/common'; // Добавь Logger
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { RedisService } from './redis/redis.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  const redisService = app.get(RedisService);
+  const redisAdapter = await redisService.createSocketAdapter(app);
+  if (redisAdapter) {
+    app.useWebSocketAdapter(redisAdapter);
+    Logger.log('Socket.IO Redis adapter enabled', 'Redis');
+  } else {
+    Logger.warn('Redis adapter disabled, falling back to in-memory Socket.IO', 'Redis');
+  }
 
   app.enableCors();
 
@@ -37,7 +47,6 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   
   console.log(`TaxiVillage backend is running on http://localhost:${port}/api`);
-  console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
 }
 
 bootstrap().catch((err) => {
