@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsBoolean, IsEnum, IsNumber, IsString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { memoryStorage } from 'multer'; // ИЗМЕНЕНО: используем память вместо диска
 import { DriversService } from './drivers.service';
 import { UploadService } from '../upload/upload.service';
@@ -22,6 +22,20 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CourierTransportType, DocumentType, DriverMode, UserRole } from '@prisma/client/index';
 
 class SetStatusDto {
+  @Transform(({ value }) => {
+    if (value === true || value === false) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      if (value.toLowerCase() === 'true') {
+        return true;
+      }
+      if (value.toLowerCase() === 'false') {
+        return false;
+      }
+    }
+    return value;
+  })
   @IsBoolean()
   isOnline!: boolean;
 }

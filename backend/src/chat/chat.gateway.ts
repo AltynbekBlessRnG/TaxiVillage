@@ -33,6 +33,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   async handleConnection(client: Socket) {
+    client.setMaxListeners(Math.max(client.getMaxListeners(), 30));
     const token = client.handshake.auth?.token;
     if (!token) {
       this.logger.warn('Chat socket connection rejected: no token');
@@ -56,7 +57,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
-    void this.redisService.removeSocketPresence(client.id);
+    void this.redisService.removeSocketPresence(client.id).catch(() => null);
     this.logger.log(`Chat client disconnected: ${client.id}`);
   }
 

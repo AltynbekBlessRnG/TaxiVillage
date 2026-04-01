@@ -31,6 +31,8 @@ interface GooglePlacePrediction {
 
 interface Props {
   anim: Animated.Value;
+  visible: boolean;
+  initialField?: 'from' | 'to';
   mode: 'route' | 'stop';
   fromAddress: string;
   setFromAddress: (t: string) => void;
@@ -49,6 +51,8 @@ interface Props {
 
 export const SearchSheet: React.FC<Props> = ({
   anim: _anim,
+  visible,
+  initialField = 'to',
   mode,
   fromAddress,
   setFromAddress,
@@ -70,8 +74,38 @@ export const SearchSheet: React.FC<Props> = ({
   const [activeField, setActiveField] = useState<'from' | 'to' | null>(null);
   const [recentAddresses, setRecentAddresses] = useState<RecentAddress[]>([]);
   const [stopAddress, setStopAddress] = useState('');
+  const fromInputRef = useRef<any>(null);
   const toInputRef = useRef<any>(null);
-  const snapPoints = useMemo(() => ['72%'], []);
+  const snapPoints = useMemo(() => ['80%'], []);
+
+  useEffect(() => {
+    if (!visible) {
+      setActiveField(null);
+      setSearchQuery('');
+      setSearchResults([]);
+      return;
+    }
+
+    const targetField = mode === 'stop' ? 'to' : initialField;
+    setActiveField(targetField);
+    setSearchQuery(
+      targetField === 'from'
+        ? fromAddress
+        : mode === 'stop'
+        ? stopAddress
+        : toAddress,
+    );
+
+    const timeoutId = setTimeout(() => {
+      if (targetField === 'from') {
+        fromInputRef.current?.focus?.();
+      } else {
+        toInputRef.current?.focus?.();
+      }
+    }, 150);
+
+    return () => clearTimeout(timeoutId);
+  }, [visible, initialField, mode, fromAddress, toAddress, stopAddress]);
 
   useEffect(() => {
     if (mode === 'stop') {
@@ -226,11 +260,16 @@ export const SearchSheet: React.FC<Props> = ({
 
   const shouldShowRecent = activeField && searchQuery.trim().length < 3;
 
+  if (!visible) {
+    return null;
+  }
+
   return (
     <View style={styles.overlay} pointerEvents="box-none">
       <BottomSheet
         index={0}
         snapPoints={snapPoints}
+        enableDynamicSizing={false}
         enablePanDownToClose
         onClose={onClose}
         handleIndicatorStyle={styles.handle}
@@ -260,6 +299,7 @@ export const SearchSheet: React.FC<Props> = ({
                 <>
                   <View style={styles.inputRow}>
                     <BottomSheetTextInput
+                      ref={fromInputRef}
                       style={[styles.inputField, styles.inputFieldFlex]}
                       value={fromAddress}
                       onChangeText={(text) => {

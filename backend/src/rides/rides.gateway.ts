@@ -41,6 +41,7 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   async handleConnection(client: import('socket.io').Socket) {
+    client.setMaxListeners(Math.max(client.getMaxListeners(), 30));
     const token = client.handshake.auth?.token;
     if (!token) {
       this.logger.warn('Socket connection rejected: no token');
@@ -65,7 +66,7 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: import('socket.io').Socket) {
-    void this.redisService.removeSocketPresence(client.id);
+    void this.redisService.removeSocketPresence(client.id).catch(() => null);
     this.logger.log(`Client ${client.id} disconnected`);
   }
 

@@ -13,6 +13,7 @@ interface DriverStatusSheetProps {
   onRideStatusChange?: (status: string) => void;
   onCompleteRide?: () => void;
   onCancelRide?: () => void;
+  onOpenRideChat?: () => void;
   onCourierStatusChange?: (status: string) => void;
   metrics?: {
     todayEarnings?: number;
@@ -36,6 +37,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   onRideStatusChange,
   onCompleteRide,
   onCancelRide,
+  onOpenRideChat,
   onCourierStatusChange,
   metrics,
 }) => {
@@ -110,6 +112,10 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                     <Text style={styles.completeButtonText}>Завершить поездку</Text>
                   </TouchableOpacity>
                 ) : null}
+
+                <TouchableOpacity style={styles.secondaryActionButton} onPress={onOpenRideChat}>
+                  <Text style={styles.secondaryActionButtonText}>Чат с клиентом</Text>
+                </TouchableOpacity>
 
                 {(rideStatus === 'ON_THE_WAY' || rideStatus === 'DRIVER_ASSIGNED' || rideStatus === 'DRIVER_ARRIVED') ? (
                   <TouchableOpacity style={styles.cancelButton} onPress={onCancelRide}>
@@ -229,7 +235,10 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
         ) : null}
 
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Статистика за 7 дней</Text>
+          <View style={styles.infoHeader}>
+            <Text style={styles.infoEyebrow}>Неделя</Text>
+            <Text style={styles.infoTitle}>Статистика за 7 дней</Text>
+          </View>
           <View style={styles.chartRow}>
             {(metrics?.dailyBuckets ?? []).map((bucket) => (
               <View key={bucket.date} style={styles.chartItem}>
@@ -251,7 +260,6 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
           </View>
         </View>
 
-        {/* КАРТОЧКА "СЕГОДНЯ" */}
         <TouchableOpacity style={styles.card}>
           <Text style={styles.cardTitle}>Сегодня</Text>
           <View style={styles.cardRight}>
@@ -260,7 +268,6 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
           </View>
         </TouchableOpacity>
 
-        {/* КАРТОЧКА "МЕТРИКИ" (Баланс, Активность, Рейтинг) */}
         <View style={styles.metricsCard}>
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Баланс</Text>
@@ -293,8 +300,8 @@ const styles = StyleSheet.create({
   container: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 100 },
   workspace: { 
     backgroundColor: '#09090B', 
-    padding: 16, // Уменьшили отступы, чтобы всё влезло
-    paddingBottom: 24, // Уменьшили нижний отступ
+    padding: 16,
+    paddingBottom: 24,
     borderTopLeftRadius: 24, 
     borderTopRightRadius: 24, 
     borderTopWidth: 1, 
@@ -338,17 +345,27 @@ const styles = StyleSheet.create({
 
   infoCard: {
     backgroundColor: '#18181B',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 18,
+    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#27272A',
   },
+  infoHeader: {
+    marginBottom: 4,
+  },
+  infoEyebrow: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    letterSpacing: 0.6,
+  },
   infoTitle: {
     color: '#F4F4F5',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
-    marginBottom: 6,
   },
   infoText: {
     color: '#A1A1AA',
@@ -397,7 +414,7 @@ const styles = StyleSheet.create({
 
   card: { 
     backgroundColor: '#18181B', 
-    borderRadius: 16, 
+    borderRadius: 18, 
     padding: 16, 
     marginBottom: 10, 
     flexDirection: 'row', 
@@ -411,14 +428,12 @@ const styles = StyleSheet.create({
   cardValue: { color: '#F4F4F5', fontSize: 18, fontWeight: '800' },
   chevron: { color: '#71717A', fontSize: 22, marginLeft: 10, marginTop: -2 },
   
-  // Стили для новой тройной карточки
-  // Стили для новой тройной карточки (ЖЕЛЕЗОБЕТОННЫЕ)
   metricsCard: {
     backgroundColor: '#18181B', 
-    borderRadius: 16, 
-    height: 76, // Жестко фиксируем высоту, чтобы она не растягивалась
+    borderRadius: 18, 
+    height: 76,
     flexDirection: 'row', 
-    justifyContent: 'space-evenly', // Равномерно распределяем
+    justifyContent: 'space-evenly',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#27272A'
@@ -516,6 +531,20 @@ const styles = StyleSheet.create({
   inProgressButton: { backgroundColor: '#3B82F6' },
   completeButton: { backgroundColor: '#10B981' },
   completeButtonText: { color: '#fff', fontSize: 17, fontWeight: '900' },
+  secondaryActionButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    backgroundColor: '#18181B',
+    marginBottom: 10,
+  },
+  secondaryActionButtonText: {
+    color: '#F4F4F5',
+    fontSize: 15,
+    fontWeight: '800',
+  },
   cancelButton: {
     paddingVertical: 14,
     alignItems: 'center',

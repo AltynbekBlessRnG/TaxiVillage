@@ -107,10 +107,17 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation }) => {
       accentColor="#FB923C"
       eyebrow="Kitchen"
       title="Входящие food orders"
-      subtitle="Merchant уже может принимать заказ и двигать его по kitchen-статусам."
+      subtitle="Рабочий экран кухни: новые заказы, состав и быстрый перевод по этапам."
       backLabel="К кабинету"
       onBack={() => navigation.goBack()}
     >
+      <View style={styles.heroBlock}>
+        <Text style={styles.heroTitle}>Кухня в работе</Text>
+        <Text style={styles.heroText}>
+          Сначала принимай новые заказы, затем двигай их по этапам до передачи в доставку.
+        </Text>
+      </View>
+
       {orders.length === 0 ? (
         <ServiceCard compact>
           <Text style={styles.emptyText}>Пока нет входящих food orders.</Text>
@@ -119,10 +126,14 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
       {orders.map((order) => (
         <ServiceCard key={order.id}>
-          <Text style={styles.cardTitle}>{statusLabels[order.status] || order.status}</Text>
+          <View style={styles.statusRow}>
+            <Text style={styles.cardTitle}>{statusLabels[order.status] || order.status}</Text>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>{Math.round(Number(order.totalPrice || 0))} тг</Text>
+            </View>
+          </View>
           <InlineLabel label="Клиент" value={order.passenger?.fullName || order.passenger?.user?.phone || 'Пассажир'} />
           <InlineLabel label="Адрес" value={order.deliveryAddress} />
-          <InlineLabel label="Сумма" value={`${Math.round(Number(order.totalPrice || 0))} тг`} accentColor="#FB923C" />
           {order.items.map((item: any) => (
             <InlineLabel
               key={item.id}
@@ -148,11 +159,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#09090B',
   },
+  heroBlock: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  heroTitle: {
+    color: '#F4F4F5',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  heroText: {
+    color: '#FDBA74',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
   cardTitle: {
     color: '#F4F4F5',
     fontSize: 16,
     fontWeight: '800',
-    marginBottom: 12,
+    flex: 1,
+  },
+  statusBadge: {
+    backgroundColor: '#3F1F0F',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  statusBadgeText: {
+    color: '#FED7AA',
+    fontSize: 12,
+    fontWeight: '800',
   },
   actionButton: {
     backgroundColor: '#FB923C',

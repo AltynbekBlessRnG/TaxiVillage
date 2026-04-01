@@ -29,12 +29,20 @@ export class IntercityChatSocket {
     this.socket = createAppSocket(auth.accessToken) as unknown as Socket;
 
     return new Promise((resolve, reject) => {
+      if (this.socket?.connected) {
+        this.socket.emit('join:intercity-thread', { threadType, threadId });
+        resolve();
+        return;
+      }
+
       const handleConnect = () => {
+        this.socket?.off('connect_error', handleConnectError);
         this.socket?.emit('join:intercity-thread', { threadType, threadId });
         resolve();
       };
 
       const handleConnectError = (error: any) => {
+        this.socket?.off('connect', handleConnect);
         reject(error);
       };
 

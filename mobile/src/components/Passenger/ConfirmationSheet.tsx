@@ -7,6 +7,7 @@ import {
   Platform,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -202,7 +203,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Комментарий водителю</Text>
-            <BottomSheetTextInput
+            <TextInput
               style={styles.modalInput}
               placeholder="Например: черный забор, подъезд 3"
               placeholderTextColor="#71717A"

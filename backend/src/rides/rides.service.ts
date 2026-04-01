@@ -992,8 +992,6 @@ export class RidesService implements OnModuleDestroy {
       supportsTaxi: true,
       driverMode: 'TAXI',
       balance: { gte: new Prisma.Decimal(this.MIN_BALANCE) },
-      lat: { not: null },
-      lng: { not: null },
       id: { notIn: Array.from(excludedDriverIds) },
     };
 
@@ -1001,10 +999,10 @@ export class RidesService implements OnModuleDestroy {
       ? {
           ...baseWhere,
           ...(nearbyUserIds.length > 0
-            ? {
-                userId: { in: nearbyUserIds },
-              }
-            : {
+              ? {
+                  userId: { in: nearbyUserIds },
+                }
+              : {
                 lat: {
                   not: null,
                   gte: fromLat - delta,

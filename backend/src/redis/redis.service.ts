@@ -37,6 +37,7 @@ export class RedisService implements OnModuleDestroy {
   private pubClient: Redis | null = null;
   private subClient: Redis | null = null;
   private warnedDisabled = false;
+  private shuttingDown = false;
   private readonly offlineListeners = new Set<(userId: string) => void | Promise<void>>();
 
   constructor(private readonly configService: ConfigService) {
@@ -259,10 +260,18 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    this.shuttingDown = true;
+    const client = this.client;
+    const pubClient = this.pubClient;
+    const subClient = this.subClient;
+    this.client = null;
+    this.pubClient = null;
+    this.subClient = null;
+
     await Promise.all([
-      this.client?.quit().catch(() => null),
-      this.pubClient?.quit().catch(() => null),
-      this.subClient?.quit().catch(() => null),
+      client?.quit().catch(() => null),
+      pubClient?.quit().catch(() => null),
+      subClient?.quit().catch(() => null),
     ]);
   }
 
@@ -274,7 +283,7 @@ export class RedisService implements OnModuleDestroy {
   }
 
   private async getClient() {
-    if (!this.redisUrl) {
+    if (!this.redisUrl || this.shuttingDown) {
       this.warnIfDisabled();
       return null;
     }
@@ -284,6 +293,11 @@ export class RedisService implements OnModuleDestroy {
         lazyConnect: true,
         maxRetriesPerRequest: null,
       });
+      this.client.on('error', (error) => this.handleRedisError('client', error));
+    }
+
+    if (this.client.status === 'end' || this.client.status === 'close') {
+      return null;
     }
 
     if (this.client.status === 'wait') {
@@ -295,7 +309,7 @@ export class RedisService implements OnModuleDestroy {
   }
 
   private async getPubSubClients() {
-    if (!this.redisUrl) {
+    if (!this.redisUrl || this.shuttingDown) {
       this.warnIfDisabled();
       return null;
     }
@@ -305,10 +319,21 @@ export class RedisService implements OnModuleDestroy {
         lazyConnect: true,
         maxRetriesPerRequest: null,
       });
+      this.pubClient.on('error', (error) => this.handleRedisError('pubClient', error));
       this.subClient = new Redis(this.redisUrl, {
         lazyConnect: true,
         maxRetriesPerRequest: null,
       });
+      this.subClient.on('error', (error) => this.handleRedisError('subClient', error));
+    }
+
+    if (
+      this.pubClient.status === 'end' ||
+      this.pubClient.status === 'close' ||
+      this.subClient.status === 'end' ||
+      this.subClient.status === 'close'
+    ) {
+      return null;
     }
 
     if (this.pubClient.status === 'wait') {
@@ -340,6 +365,14 @@ export class RedisService implements OnModuleDestroy {
         this.logger.warn(`Failed to handle Redis offline listener for user ${userId}: ${String(error)}`);
       });
     }
+  }
+
+  private handleRedisError(clientName: string, error: unknown) {
+    const message = String((error as Error | undefined)?.message ?? error ?? '');
+    if (message.toLowerCase().includes('connection is closed')) {
+      return;
+    }
+    this.logger.warn(`Redis ${clientName} error: ${message}`);
   }
 
   private socketPresenceKey(socketId: string) {

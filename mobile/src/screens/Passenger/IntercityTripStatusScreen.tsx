@@ -26,10 +26,17 @@ const statusLabels: Record<string, string> = {
   CANCELED: 'Отменено',
 };
 
+const tripStages = [
+  { key: 'CONFIRMED', title: 'Бронь подтверждена' },
+  { key: 'BOARDING', title: 'Посадка' },
+  { key: 'IN_PROGRESS', title: 'В пути' },
+  { key: 'COMPLETED', title: 'Поездка завершена' },
+];
+
 export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread();
+  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const loadOrder = useCallback(() => {
     apiClient
@@ -94,10 +101,15 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
       accentColor="#38BDF8"
       eyebrow="Межгород"
       title="Статус бронирования"
-      subtitle="Пассажир видит актуальный статус своей брони и самого рейса."
+      subtitle="Следи за своей бронью, выездом и связью с водителем в одном месте."
       backLabel="На главную"
       onBack={() => navigation.navigate('PassengerHome', {})}
     >
+      <View style={styles.heroBlock}>
+        <Text style={styles.heroRoute}>{`${order?.trip?.fromCity || '-'} → ${order?.trip?.toCity || '-'}`}</Text>
+        <Text style={styles.heroText}>{statusLabels[order?.status] || 'Статус обновляется'}</Text>
+      </View>
+
       <ServiceCard>
         <View style={styles.pill}>
           <Text style={styles.pillText}>{statusLabels[order?.status] || 'Межгород'}</Text>
@@ -111,10 +123,18 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
 
       <ServiceCard compact>
         <SectionTitle>Статусы поездки</SectionTitle>
-        <InlineLabel label="1" value="Забронировано" accentColor="#38BDF8" />
-        <InlineLabel label="2" value="Посадка" />
-        <InlineLabel label="3" value="В пути" />
-        <InlineLabel label="4" value="Завершено" />
+        <View style={styles.timeline}>
+          {tripStages.map((stage, index) => {
+            const currentIndex = tripStages.findIndex((item) => item.key === order?.status);
+            const isCompleted = currentIndex >= index || order?.status === 'COMPLETED';
+            return (
+              <View key={stage.key} style={styles.timelineRow}>
+                <View style={[styles.timelineDot, isCompleted && styles.timelineDotActive]} />
+                <Text style={[styles.timelineText, isCompleted && styles.timelineTextActive]}>{stage.title}</Text>
+              </View>
+            );
+          })}
+        </View>
       </ServiceCard>
 
       {order?.trip?.driver ? (
@@ -146,6 +166,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#09090B',
   },
+  heroBlock: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  heroRoute: {
+    color: '#F4F4F5',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  heroText: {
+    color: '#7DD3FC',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
   pill: {
     alignSelf: 'flex-start',
     backgroundColor: '#082F49',
@@ -157,5 +194,30 @@ const styles = StyleSheet.create({
   pillText: {
     color: '#7DD3FC',
     fontWeight: '800',
+  },
+  timeline: {
+    gap: 10,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timelineDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: '#334155',
+    marginRight: 12,
+  },
+  timelineDotActive: {
+    backgroundColor: '#38BDF8',
+  },
+  timelineText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  timelineTextActive: {
+    color: '#F4F4F5',
   },
 });

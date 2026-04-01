@@ -12,7 +12,7 @@ type PushJobPayload = {
   };
 };
 
-const NOTIFICATIONS_QUEUE_NAME = 'notifications:push';
+const NOTIFICATIONS_QUEUE_NAME = 'notifications-push';
 
 @Injectable()
 export class NotificationsQueueService implements OnModuleInit, OnModuleDestroy {
@@ -23,6 +23,7 @@ export class NotificationsQueueService implements OnModuleInit, OnModuleDestroy 
   private worker: Worker<PushJobPayload> | null = null;
   private queueConnection: Redis | null = null;
   private workerConnection: Redis | null = null;
+  private shuttingDown = false;
 
   constructor(private readonly redisService: RedisService) {}
 
@@ -38,10 +39,12 @@ export class NotificationsQueueService implements OnModuleInit, OnModuleDestroy 
         lazyConnect: true,
         maxRetriesPerRequest: null,
       });
+      this.queueConnection.on('error', (error) => this.handleRedisError('queueConnection', error));
       this.workerConnection = new Redis(redisUrl, {
         lazyConnect: true,
         maxRetriesPerRequest: null,
       });
+      this.workerConnection.on('error', (error) => this.handleRedisError('workerConnection', error));
 
       await this.queueConnection.connect();
       await this.workerConnection.connect();
@@ -93,6 +96,10 @@ export class NotificationsQueueService implements OnModuleInit, OnModuleDestroy 
       return;
     }
 
+    if (this.shuttingDown) {
+      return;
+    }
+
     if (!this.queue) {
       await this.deliverNow(pushToken, payload);
       return;
@@ -138,15 +145,33 @@ export class NotificationsQueueService implements OnModuleInit, OnModuleDestroy 
   }
 
   async onModuleDestroy() {
+    this.shuttingDown = true;
+    const worker = this.worker;
+    const queue = this.queue;
+    const queueConnection = this.queueConnection;
+    const workerConnection = this.workerConnection;
+    this.worker = null;
+    this.queue = null;
+    this.queueConnection = null;
+    this.workerConnection = null;
+
     await Promise.allSettled([
-      this.worker?.close(),
-      this.queue?.close(),
-      this.queueConnection?.quit(),
-      this.workerConnection?.quit(),
+      worker?.close(),
+      queue?.close(),
+      queueConnection?.quit(),
+      workerConnection?.quit(),
     ]);
   }
 
   private async processPushJob(job: Job<PushJobPayload>) {
     await this.deliverNow(job.data.pushToken, job.data.payload);
+  }
+
+  private handleRedisError(clientName: string, error: unknown) {
+    const message = String((error as Error | undefined)?.message ?? error ?? '');
+    if (message.toLowerCase().includes('connection is closed')) {
+      return;
+    }
+    this.logger.warn(`BullMQ ${clientName} error: ${message}`);
   }
 }

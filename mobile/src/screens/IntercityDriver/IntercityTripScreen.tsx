@@ -43,7 +43,7 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
   const [womenOnly, setWomenOnly] = useState(false);
   const [baggageSpace, setBaggageSpace] = useState(true);
   const [allowAnimals, setAllowAnimals] = useState(true);
-  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread();
+  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const isCreateMode = !route.params?.tripId;
 
@@ -231,10 +231,15 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
       accentColor="#38BDF8"
       eyebrow="Активный рейс"
       title="Межгородний рейс"
-      subtitle="Общий водительский режим: маршруты, места и контакты пассажиров в одном месте."
+      subtitle="Следи за заполнением мест, пассажирами и статусом поездки в одном рабочем экране."
       backLabel="К водителю"
       onBack={() => navigation.goBack()}
     >
+      <View style={styles.heroBlock}>
+        <Text style={styles.heroRoute}>{`${trip?.fromCity || '-'} → ${trip?.toCity || '-'}`}</Text>
+        <Text style={styles.heroText}>{statusLabels[trip?.status] || 'Рейс обновляется'}</Text>
+      </View>
+
       <ServiceCard>
         <InlineLabel label="Статус" value={statusLabels[trip?.status] || 'Рейс'} accentColor="#38BDF8" />
         <InlineLabel label="Маршрут" value={`${trip?.fromCity || '-'} -> ${trip?.toCity || '-'}`} />
@@ -296,6 +301,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#09090B',
   },
+  heroBlock: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  heroRoute: {
+    color: '#F4F4F5',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  heroText: {
+    color: '#7DD3FC',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
   input: {
     backgroundColor: '#09090B',
     borderRadius: 16,
@@ -321,9 +343,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   bookingCard: {
-    backgroundColor: '#09090B',
+    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: '#1E293B',
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,

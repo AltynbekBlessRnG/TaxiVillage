@@ -31,14 +31,20 @@ export class ChatSocket {
     this.socket = createAppSocket(auth.accessToken) as unknown as Socket;
 
     return new Promise((resolve, reject) => {
+      if (this.socket?.connected) {
+        this.socket.emit('join:ride', { rideId });
+        resolve();
+        return;
+      }
+
       const handleConnect = () => {
-        console.log('Chat socket connected');
+        this.socket?.off('connect_error', handleConnectError);
         this.socket!.emit('join:ride', { rideId });
         resolve();
       };
 
       const handleConnectError = (error: any) => {
-        console.error('Chat socket connection error:', error);
+        this.socket?.off('connect', handleConnect);
         reject(error);
       };
 

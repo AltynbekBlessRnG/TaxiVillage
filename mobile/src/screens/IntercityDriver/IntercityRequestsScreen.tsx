@@ -36,7 +36,7 @@ export const IntercityRequestsScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [availableOrders, setAvailableOrders] = useState<any[]>([]);
   const [myOrders, setMyOrders] = useState<any[]>([]);
-  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread();
+  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const loadData = useCallback(async () => {
     try {
@@ -150,10 +150,17 @@ export const IntercityRequestsScreen: React.FC<Props> = ({ navigation }) => {
       accentColor="#38BDF8"
       eyebrow="Заявки"
       title="Клиентские предложения"
-      subtitle="Водитель видит, кто хочет поехать между городами, и может взять подходящую заявку."
+      subtitle="Смотри свободные заявки, веди свои поездки и не теряй диалог с пассажиром."
       backLabel="К межгороду"
       onBack={() => navigation.goBack()}
     >
+      <View style={styles.heroBlock}>
+        <Text style={styles.heroTitle}>Живой рынок пассажирских заявок</Text>
+        <Text style={styles.heroText}>
+          Сначала бери подходящие маршруты, потом веди их по этапам и держи связь через чат.
+        </Text>
+      </View>
+
       <ServiceCard>
         <InlineLabel label="Активных моих" value={String(myOrders.filter((order) => !['COMPLETED', 'CANCELED'].includes(order.status)).length)} />
         <InlineLabel label="Свободных заявок" value={String(availableOrders.length)} accentColor="#38BDF8" />
@@ -248,6 +255,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#09090B',
   },
+  heroBlock: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  heroTitle: {
+    color: '#F4F4F5',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  heroText: {
+    color: '#94A3B8',
+    fontSize: 15,
+    lineHeight: 22,
+  },
   content: {
     gap: 14,
   },
@@ -262,9 +285,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   orderCard: {
-    backgroundColor: '#09090B',
+    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: '#1E293B',
     borderRadius: 18,
     padding: 14,
     marginBottom: 10,

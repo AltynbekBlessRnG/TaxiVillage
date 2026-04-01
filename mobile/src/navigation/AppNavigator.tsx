@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen } from '../screens/Auth/LoginScreen';
 import { RegisterScreen } from '../screens/Auth/RegisterScreen';
 import { PassengerHomeScreen } from '../screens/Passenger/PassengerHomeScreen';
-import { RideStatusScreen } from '../screens/Passenger/RideStatusScreen';
+import { RideDetailsScreen } from '../screens/Passenger/RideStatusScreen';
 import { FavoriteAddressesScreen } from '../screens/Passenger/FavoriteAddressesScreen';
 import { FoodHomeScreen } from '../screens/Passenger/FoodHomeScreen';
 import { RestaurantScreen } from '../screens/Passenger/RestaurantScreen';
@@ -19,7 +19,7 @@ import { IntercityOrderStatusScreen } from '../screens/Passenger/IntercityOrderS
 import { IntercityChatScreen } from '../screens/Passenger/IntercityChatScreen';
 import { DriverHomeScreen } from '../screens/Driver/DriverHomeScreen';
 import { DriverProfileScreen } from '../screens/Driver/DriverProfileScreen';
-import { DriverRideScreen } from '../screens/Driver/DriverRideScreen';
+import { DriverDocumentsScreen } from '../screens/Driver/DriverDocumentsScreen';
 import { CourierOrderScreen } from '../screens/Courier/CourierOrderScreen';
 import { MerchantDashboardScreen } from '../screens/Merchant/MerchantDashboardScreen';
 import { MerchantOrdersScreen } from '../screens/Merchant/MerchantOrdersScreen';
@@ -88,7 +88,7 @@ export type RootStackParamList = {
   ChatScreen: { rideId: string };
   DriverHome: undefined;
   DriverProfile: undefined;
-  DriverRide: { rideId: string };
+  DriverDocuments: undefined;
   CourierOrder: { orderId?: string } | undefined;
   MerchantDashboard: undefined;
   MerchantOrders: undefined;
@@ -175,11 +175,11 @@ export const AppNavigator: React.FC = () => {
         component={FavoriteAddressesScreen}
         options={{ presentation: 'modal', animation: 'fade_from_bottom' }}
       />
-      <Stack.Screen name="RideDetails" component={RideStatusScreen} />
+      <Stack.Screen name="RideDetails" component={RideDetailsScreen} />
       <Stack.Screen name="ChatScreen" component={ChatScreen} />
       <Stack.Screen name="DriverHome" component={DriverHomeScreen} />
       <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
-      <Stack.Screen name="DriverRide" component={DriverRideScreen} />
+      <Stack.Screen name="DriverDocuments" component={DriverDocumentsScreen} />
       <Stack.Screen name="CourierOrder" component={CourierOrderScreen} />
       <Stack.Screen name="MerchantDashboard" component={MerchantDashboardScreen} />
       <Stack.Screen name="MerchantOrders" component={MerchantOrdersScreen} />

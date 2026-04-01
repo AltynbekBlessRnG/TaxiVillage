@@ -91,7 +91,6 @@ async function ensureAndroidChannel() {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#38BDF8',
-    sound: 'default',
   });
 }
 
@@ -165,7 +164,7 @@ export async function sendLocalNotification(
       title,
       body,
       data,
-      sound: 'default',
+      sound: true,
     },
     trigger: null,
   });

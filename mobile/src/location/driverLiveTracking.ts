@@ -1,4 +1,4 @@
-import { apiClient } from '../api/client';
+import { apiClient } from '../api/instance';
 
 const MIN_UPDATE_INTERVAL_MS = 5000;
 const MIN_DISTANCE_METERS = 30;

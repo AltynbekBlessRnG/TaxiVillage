@@ -94,7 +94,7 @@ export const RideHistoryScreen: React.FC<Props> = ({ navigation }) => {
     const onPress = () => {
       if (role === 'DRIVER') {
         if (isActiveRide) {
-          navigation.navigate('DriverRide', { rideId: item.id });
+          navigation.navigate('DriverHome');
         }
         return;
       }

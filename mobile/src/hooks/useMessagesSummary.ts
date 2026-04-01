@@ -20,29 +20,73 @@ export interface IntercityChatThread {
   unreadCount: number;
 }
 
-export function useMessagesSummary() {
-  const [rideThreads, setRideThreads] = useState<RideChatThread[]>([]);
-  const [intercityThreads, setIntercityThreads] = useState<IntercityChatThread[]>([]);
-  const [loading, setLoading] = useState(true);
+interface UseMessagesSummaryOptions {
+  autoRefresh?: boolean;
+}
 
-  const refresh = useCallback(async () => {
+const CACHE_TTL_MS = 1500;
+
+let sharedRideThreads: RideChatThread[] = [];
+let sharedIntercityThreads: IntercityChatThread[] = [];
+let sharedLastLoadedAt = 0;
+let sharedRefreshPromise: Promise<void> | null = null;
+
+export function useMessagesSummary(options: UseMessagesSummaryOptions = {}) {
+  const { autoRefresh = true } = options;
+  const [rideThreads, setRideThreads] = useState<RideChatThread[]>(sharedRideThreads);
+  const [intercityThreads, setIntercityThreads] = useState<IntercityChatThread[]>(sharedIntercityThreads);
+  const [loading, setLoading] = useState(autoRefresh && sharedLastLoadedAt === 0);
+
+  const syncSharedState = useCallback(() => {
+    setRideThreads(sharedRideThreads);
+    setIntercityThreads(sharedIntercityThreads);
+  }, []);
+
+  const refresh = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && sharedLastLoadedAt > 0 && now - sharedLastLoadedAt < CACHE_TTL_MS) {
+      syncSharedState();
+      setLoading(false);
+      return;
+    }
+
+    if (sharedRefreshPromise) {
+      setLoading(true);
+      await sharedRefreshPromise;
+      syncSharedState();
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    try {
+    sharedRefreshPromise = (async () => {
       const [rideRes, intercityRes] = await Promise.all([
         apiClient.get<{ items: RideChatThread[] }>('/chat/threads').catch(() => ({ data: { items: [] } })),
         apiClient.get<{ items: IntercityChatThread[] }>('/intercity-chat/threads').catch(() => ({ data: { items: [] } })),
       ]);
 
-      setRideThreads(Array.isArray(rideRes.data?.items) ? rideRes.data.items : []);
-      setIntercityThreads(Array.isArray(intercityRes.data?.items) ? intercityRes.data.items : []);
+      sharedRideThreads = Array.isArray(rideRes.data?.items) ? rideRes.data.items : [];
+      sharedIntercityThreads = Array.isArray(intercityRes.data?.items) ? intercityRes.data.items : [];
+      sharedLastLoadedAt = Date.now();
+    })();
+
+    try {
+      await sharedRefreshPromise;
+      syncSharedState();
     } finally {
+      sharedRefreshPromise = null;
       setLoading(false);
     }
-  }, []);
+  }, [syncSharedState]);
 
   useEffect(() => {
+    if (!autoRefresh) {
+      setLoading(false);
+      return;
+    }
+
     refresh().catch(() => {});
-  }, [refresh]);
+  }, [autoRefresh, refresh]);
 
   const unreadCount = useMemo(
     () =>

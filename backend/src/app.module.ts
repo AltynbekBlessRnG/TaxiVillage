@@ -23,6 +23,7 @@ import { RedisModule } from './redis/redis.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: process.env.ENV_FILE || '.env',
     }),
     RedisModule,
     PrismaModule,

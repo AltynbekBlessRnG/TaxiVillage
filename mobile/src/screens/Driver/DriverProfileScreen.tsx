@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -14,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
@@ -49,14 +46,6 @@ interface DriverProfileData {
   documents?: Document[];
   user?: { phone?: string };
 }
-
-const DOCUMENT_TYPES = {
-  DRIVER_LICENSE: 'Водительское удостоверение',
-  CAR_REGISTRATION: 'СТС',
-  TAXI_LICENSE: 'Лицензия такси',
-  COURIER_ID: 'ID курьера',
-  OTHER: 'Другой документ',
-} as const;
 
 const TRANSPORT_LABELS = {
   FOOT: 'Пеший',
@@ -127,23 +116,6 @@ const PillButton: React.FC<{
   </TouchableOpacity>
 );
 
-const UploadAction: React.FC<{
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-  disabled?: boolean;
-  busy?: boolean;
-}> = ({ title, subtitle, onPress, disabled = false, busy = false }) => (
-  <TouchableOpacity
-    style={[styles.uploadAction, disabled && styles.disabledButton]}
-    onPress={onPress}
-    disabled={disabled}
-  >
-    <Text style={styles.uploadActionTitle}>{busy ? 'Загрузка...' : title}</Text>
-    <Text style={styles.uploadActionSubtitle}>{subtitle}</Text>
-  </TouchableOpacity>
-);
-
 export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<DriverProfileData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -154,7 +126,6 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [carModel, setCarModel] = useState('');
   const [carColor, setCarColor] = useState('');
   const [carPlate, setCarPlate] = useState('');
-  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const [updatingIntercity, setUpdatingIntercity] = useState(false);
   const [updatingCourier, setUpdatingCourier] = useState(false);
   const [courierTransportType, setCourierTransportType] = useState<'CAR' | 'BIKE' | 'FOOT'>('FOOT');
@@ -370,48 +341,6 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const getDocumentStatus = (doc: Document) => (doc.approved ? 'Одобрен' : 'На проверке');
-
-  const pickAndUploadDocument = async (
-    docType: 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'COURIER_ID',
-  ) => {
-    try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permissionResult.status !== 'granted') {
-        Alert.alert('Ошибка', 'Нужен доступ к галерее для загрузки документов');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setUploadingDoc(docType);
-        const formData = new FormData();
-        formData.append('type', docType);
-        formData.append('file', {
-          uri: result.assets[0].uri,
-          type: 'image/jpeg',
-          name: `${docType}_${Date.now()}.jpg`,
-        } as any);
-
-        await apiClient.post('/drivers/documents', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        await loadProfile();
-        Alert.alert('Готово', 'Документ отправлен на проверку');
-      }
-    } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить документ');
-    } finally {
-      setUploadingDoc(null);
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -471,6 +400,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
+            <View style={styles.heroDivider} />
             <View style={styles.statRow}>
               <StatCard
                 label="Баланс"
@@ -516,27 +446,25 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Основные данные</Text>
+            <Text style={styles.sectionTitle}>Данные и документы</Text>
             <Text style={styles.sectionSubtitle}>
-              Эти данные видят пассажиры в доставке, межгороде и рабочем профиле.
+              Имя профиля, телефон, автомобиль и все документы теперь вынесены в отдельную удобную страницу.
             </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Как тебя показать в профиле"
-              placeholderTextColor="#71717A"
-              value={fullName}
-              onChangeText={setFullName}
-            />
+            <View style={styles.documentsSummaryCard}>
+              <Text style={styles.documentsSummaryTitle}>
+                {profile?.fullName || 'Имя не указано'} • {profile?.user?.phone || 'Телефон не найден'}
+              </Text>
+              <Text style={styles.documentsSummaryText}>
+                Авто: {hasCarInfo ? 'заполнено' : 'не заполнено'}. Документы: {profile?.documents?.length || 0}, одобрено: {approvedDocuments.length}.
+              </Text>
+            </View>
 
             <TouchableOpacity
-              style={[styles.secondaryWideButton, savingProfile && styles.disabledButton]}
-              onPress={saveBasicProfile}
-              disabled={savingProfile}
+              style={styles.primaryButton}
+              onPress={() => navigation.navigate('DriverDocuments')}
             >
-              <Text style={styles.secondaryWideButtonText}>
-                {savingProfile ? 'Сохраняем...' : 'Сохранить имя профиля'}
-              </Text>
+              <Text style={styles.primaryButtonText}>Открыть документы</Text>
             </TouchableOpacity>
           </View>
 
@@ -688,79 +616,6 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Документы</Text>
-            <Text style={styles.sectionSubtitle}>
-              Загружай документы здесь. После этого администратор проверит их и одобрит.
-            </Text>
-
-            <View style={styles.uploadGrid}>
-              <UploadAction
-                title="Водительское удостоверение"
-                subtitle="Для режима такси"
-                onPress={() => pickAndUploadDocument('DRIVER_LICENSE')}
-                disabled={uploadingDoc !== null}
-                busy={uploadingDoc === 'DRIVER_LICENSE'}
-              />
-              <UploadAction
-                title="СТС"
-                subtitle="Для такси и авто-режимов"
-                onPress={() => pickAndUploadDocument('CAR_REGISTRATION')}
-                disabled={uploadingDoc !== null}
-                busy={uploadingDoc === 'CAR_REGISTRATION'}
-              />
-              <UploadAction
-                title="ID курьера"
-                subtitle="Для курьерского режима"
-                onPress={() => pickAndUploadDocument('COURIER_ID')}
-                disabled={uploadingDoc !== null}
-                busy={uploadingDoc === 'COURIER_ID'}
-              />
-            </View>
-
-            {profile?.documents?.length ? (
-              <View style={styles.documentsList}>
-                {profile.documents.map((doc) => (
-                  <View key={doc.id} style={styles.documentRow}>
-                    <View style={styles.documentLeft}>
-                      <TouchableOpacity
-                        style={styles.documentPreview}
-                        onPress={() => Linking.openURL(doc.url).catch(() => null)}
-                        activeOpacity={0.85}
-                      >
-                        <Image source={{ uri: doc.url }} style={styles.documentImage} />
-                      </TouchableOpacity>
-                      <View style={styles.documentMeta}>
-                      <Text style={styles.documentName}>{DOCUMENT_TYPES[doc.type]}</Text>
-                      <Text style={styles.documentUrl} numberOfLines={1}>
-                        {doc.url}
-                      </Text>
-                      </View>
-                    </View>
-                    <View
-                      style={[
-                        styles.documentStatusPill,
-                        doc.approved ? styles.documentStatusApproved : styles.documentStatusPending,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.documentStatusText,
-                          doc.approved && styles.documentStatusTextApproved,
-                        ]}
-                      >
-                        {getDocumentStatus(doc)}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>Пока нет загруженных документов</Text>
-              </View>
-            )}
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -806,10 +661,10 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     backgroundColor: '#111113',
-    borderRadius: 28,
+    borderRadius: 30,
     borderWidth: 1,
     borderColor: '#27272A',
-    padding: 18,
+    padding: 20,
     marginBottom: 16,
   },
   heroTop: {
@@ -838,7 +693,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#F4F4F5',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
     marginBottom: 4,
   },
@@ -857,6 +712,11 @@ const styles = StyleSheet.create({
   statusPillText: {
     fontSize: 13,
     fontWeight: '800',
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: '#202024',
+    marginBottom: 16,
   },
   statRow: {
     flexDirection: 'row',
@@ -1099,108 +959,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  uploadGrid: {
-    gap: 10,
-    marginBottom: 14,
-  },
-  uploadAction: {
+  documentsSummaryCard: {
     backgroundColor: '#18181B',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#27272A',
     padding: 14,
   },
-  uploadActionTitle: {
+  documentsSummaryTitle: {
     color: '#F4F4F5',
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
-  uploadActionSubtitle: {
+  documentsSummaryText: {
     color: '#A1A1AA',
     fontSize: 13,
     lineHeight: 18,
-  },
-  documentsList: {
-    gap: 10,
-  },
-  documentRow: {
-    backgroundColor: '#18181B',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#27272A',
-    padding: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
-  },
-  documentLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  documentPreview: {
-    width: 58,
-    height: 58,
-    borderRadius: 14,
-    overflow: 'hidden',
-    backgroundColor: '#09090B',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    marginRight: 12,
-  },
-  documentImage: {
-    width: '100%',
-    height: '100%',
-  },
-  documentMeta: {
-    flex: 1,
-  },
-  documentName: {
-    color: '#F4F4F5',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  documentUrl: {
-    color: '#71717A',
-    fontSize: 12,
-    maxWidth: 200,
-  },
-  documentStatusPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  documentStatusApproved: {
-    backgroundColor: '#0F2A1C',
-    borderColor: '#14532D',
-  },
-  documentStatusPending: {
-    backgroundColor: '#18181B',
-    borderColor: '#3F3F46',
-  },
-  documentStatusText: {
-    color: '#D4D4D8',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  documentStatusTextApproved: {
-    color: '#86EFAC',
-  },
-  emptyCard: {
-    backgroundColor: '#18181B',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#27272A',
-    padding: 18,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#71717A',
-    fontSize: 14,
   },
   disabledButton: {
     opacity: 0.6,

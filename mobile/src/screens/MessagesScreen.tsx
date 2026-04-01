@@ -15,7 +15,7 @@ import { useMessagesSummary } from '../hooks/useMessagesSummary';
 type Props = NativeStackScreenProps<RootStackParamList, 'Messages'>;
 
 export const MessagesScreen: React.FC<Props> = ({ navigation }) => {
-  const { rideThreads, intercityThreads, loading, refresh } = useMessagesSummary();
+  const { rideThreads, intercityThreads, loading, refresh } = useMessagesSummary({ autoRefresh: false });
 
   useFocusEffect(
     useCallback(() => {

@@ -95,15 +95,34 @@ function ensureSocket(token: string) {
 
 class AppSocketLease {
   private readonly socket: Socket;
+  readonly io: Socket['io'];
   private readonly listeners = new Map<string, Set<Listener>>();
 
   constructor(token: string) {
     this.socket = ensureSocket(token);
+    this.io = this.socket.io;
     leaseCount += 1;
   }
 
   get connected() {
     return this.socket.connected;
+  }
+
+  get active() {
+    return this.socket.active;
+  }
+
+  get auth() {
+    return this.socket.auth;
+  }
+
+  set auth(value: Socket['auth']) {
+    this.socket.auth = value;
+  }
+
+  connect() {
+    this.socket.connect();
+    return this;
   }
 
   emit(event: string, ...args: any[]) {

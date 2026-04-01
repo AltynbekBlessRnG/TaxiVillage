@@ -1,8 +1,12 @@
 import { useMemo } from 'react';
 import { useMessagesSummary } from './useMessagesSummary';
 
-export function useThreadUnread() {
-  const { rideThreads, intercityThreads, unreadCount, loading, refresh } = useMessagesSummary();
+interface UseThreadUnreadOptions {
+  autoRefresh?: boolean;
+}
+
+export function useThreadUnread(options: UseThreadUnreadOptions = {}) {
+  const { rideThreads, intercityThreads, unreadCount, loading, refresh } = useMessagesSummary(options);
 
   const rideUnreadById = useMemo(
     () =>

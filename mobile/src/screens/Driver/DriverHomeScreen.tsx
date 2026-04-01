@@ -82,74 +82,102 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [driverRoute, setDriverRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [metrics, setMetrics] = useState<any>(null);
   const { unreadCount: unreadNotificationsCount } = useNotificationsInbox();
-  const { unreadCount: unreadMessagesCount, refresh: refreshMessagesSummary } = useMessagesSummary();
+  const { unreadCount: unreadMessagesCount, refresh: refreshMessagesSummary } = useMessagesSummary({ autoRefresh: false });
 
   const mapRef = useRef<MapView>(null);
+  const didBootstrapRef = useRef(false);
+  const shellLoadPromiseRef = useRef<Promise<void> | null>(null);
+  const lastShellLoadAtRef = useRef(0);
 
-  const loadDriverShell = useCallback(async () => {
-    const [profileRes, metricsRes] = await Promise.all([
-      apiClient.get('/drivers/profile'),
-      apiClient.get('/drivers/metrics', { params: { days: 7 } }).catch(() => ({ data: null })),
-    ]);
-    setProfile(profileRes.data);
-    setIsOnline(Boolean(profileRes.data?.isOnline));
-    setMetrics(metricsRes.data);
+  const loadDriverShell = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && shellLoadPromiseRef.current) {
+      return shellLoadPromiseRef.current;
+    }
 
-    if (profileRes.data?.driverMode === 'TAXI' || profileRes.data?.supportsTaxi) {
-      const currentRideRes = await apiClient.get('/drivers/current-ride').catch(() => ({ data: null }));
-      if (currentRideRes.data?.id) {
-        const rideRes = await apiClient.get(`/rides/${currentRideRes.data.id}`).catch(() => ({ data: null }));
-        setCurrentRideId(currentRideRes.data.id);
-        setCurrentRide(rideRes.data ?? null);
+    if (!force && lastShellLoadAtRef.current > 0 && now - lastShellLoadAtRef.current < 1500) {
+      return;
+    }
+
+    shellLoadPromiseRef.current = (async () => {
+      const [profileRes, metricsRes] = await Promise.all([
+        apiClient.get('/drivers/profile'),
+        apiClient.get('/drivers/metrics', { params: { days: 7 } }).catch(() => ({ data: null })),
+      ]);
+      setProfile(profileRes.data);
+      setIsOnline(Boolean(profileRes.data?.isOnline));
+      setMetrics(metricsRes.data);
+
+      if (profileRes.data?.driverMode === 'TAXI' || profileRes.data?.supportsTaxi) {
+        const currentRideRes = await apiClient.get('/drivers/current-ride').catch(() => ({ data: null }));
+        if (currentRideRes.data?.id) {
+          const rideRes = await apiClient.get(`/rides/${currentRideRes.data.id}`).catch(() => ({ data: null }));
+          setCurrentRideId(currentRideRes.data.id);
+          setCurrentRide(rideRes.data ?? null);
+        } else {
+          setCurrentRideId(null);
+          setCurrentRide(null);
+        }
       } else {
         setCurrentRideId(null);
         setCurrentRide(null);
       }
-    } else {
-      setCurrentRideId(null);
-      setCurrentRide(null);
-    }
 
-    if (profileRes.data?.supportsIntercity) {
-      const [currentTripRes, myTripsRes, passengerOrdersRes] = await Promise.all([
-        apiClient.get('/intercity-trips/current').catch(() => ({ data: null })),
-        apiClient.get('/intercity-trips/my').catch(() => ({ data: [] })),
-        apiClient.get('/intercity-orders/available').catch(() => ({ data: [] })),
-      ]);
-      setCurrentIntercityTrip(currentTripRes.data);
-      setIntercityTrips(Array.isArray(myTripsRes.data) ? myTripsRes.data : []);
-      setIntercityPassengerOrders(Array.isArray(passengerOrdersRes.data) ? passengerOrdersRes.data : []);
-    } else {
-      setCurrentIntercityTrip(null);
-      setIntercityTrips([]);
-      setIntercityPassengerOrders([]);
-    }
+      if (profileRes.data?.supportsIntercity) {
+        const [currentTripRes, myTripsRes, passengerOrdersRes] = await Promise.all([
+          apiClient.get('/intercity-trips/current').catch(() => ({ data: null })),
+          apiClient.get('/intercity-trips/my').catch(() => ({ data: [] })),
+          apiClient.get('/intercity-orders/available').catch(() => ({ data: [] })),
+        ]);
+        setCurrentIntercityTrip(currentTripRes.data);
+        setIntercityTrips(Array.isArray(myTripsRes.data) ? myTripsRes.data : []);
+        setIntercityPassengerOrders(Array.isArray(passengerOrdersRes.data) ? passengerOrdersRes.data : []);
+      } else {
+        setCurrentIntercityTrip(null);
+        setIntercityTrips([]);
+        setIntercityPassengerOrders([]);
+      }
 
-    if (profileRes.data?.supportsCourier) {
-      const [currentCourierRes, availableCourierRes] = await Promise.all([
-        apiClient.get('/couriers/current-order').catch(() => ({ data: null })),
-        apiClient.get('/courier-orders/available').catch(() => ({ data: [] })),
-      ]);
-      setCurrentCourierOrder(currentCourierRes.data);
-      setAvailableCourierOrders(Array.isArray(availableCourierRes.data) ? availableCourierRes.data : []);
-    } else {
-      setCurrentCourierOrder(null);
-      setAvailableCourierOrders([]);
+      if (profileRes.data?.supportsCourier) {
+        const [currentCourierRes, availableCourierRes] = await Promise.all([
+          apiClient.get('/couriers/current-order').catch(() => ({ data: null })),
+          apiClient.get('/courier-orders/available').catch(() => ({ data: [] })),
+        ]);
+        setCurrentCourierOrder(currentCourierRes.data);
+        setAvailableCourierOrders(Array.isArray(availableCourierRes.data) ? availableCourierRes.data : []);
+      } else {
+        setCurrentCourierOrder(null);
+        setAvailableCourierOrders([]);
+      }
+    })();
+
+    try {
+      await shellLoadPromiseRef.current;
+      lastShellLoadAtRef.current = Date.now();
+    } finally {
+      shellLoadPromiseRef.current = null;
     }
   }, []);
-
-  useEffect(() => {
-    loadDriverShell()
-      .catch(() => setProfile({}))
-      .finally(() => setProfileReady(true));
-  }, [loadDriverShell]);
 
   useEffect(() => {
     if (!isFocused) {
       return;
     }
 
-    loadDriverShell().catch(() => {});
+    const shouldMarkReady = !didBootstrapRef.current;
+    didBootstrapRef.current = true;
+
+    loadDriverShell()
+      .catch(() => {
+        if (shouldMarkReady) {
+          setProfile({});
+        }
+      })
+      .finally(() => {
+        if (shouldMarkReady) {
+          setProfileReady(true);
+        }
+      });
     refreshMessagesSummary().catch(() => {});
   }, [isFocused, loadDriverShell, refreshMessagesSummary]);
 
@@ -300,7 +328,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           setCurrentCourierOrder(null);
           setAvailableCourierOrders([]);
         }
-        await loadDriverShell();
+        await loadDriverShell(true);
       } catch (error: any) {
         const message = error?.response?.data?.message || 'Не удалось переключить режим';
         Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
@@ -321,7 +349,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         setProfile(response.data);
       }
 
-      await loadDriverShell();
+      await loadDriverShell(true);
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось открыть межгород';
       Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
@@ -356,7 +384,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     async (orderId: string) => {
       try {
         await apiClient.post(`/courier-orders/${orderId}/accept`);
-        await loadDriverShell();
+        await loadDriverShell(true);
       } catch (error: any) {
         const message = error?.response?.data?.message || 'Не удалось принять доставку';
         Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
@@ -392,7 +420,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       await apiClient.post(`/rides/${currentRideId}/complete`, {});
       setCurrentRideId(null);
       setCurrentRide(null);
-      await loadDriverShell();
+      await loadDriverShell(true);
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось завершить поездку';
       Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
@@ -414,7 +442,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             await apiClient.post(`/rides/${currentRideId}/status`, { status: 'CANCELED' });
             setCurrentRideId(null);
             setCurrentRide(null);
-            await loadDriverShell();
+            await loadDriverShell(true);
           } catch (error: any) {
             const message = error?.response?.data?.message || 'Не удалось отменить заказ';
             Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
@@ -435,7 +463,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         if (status === 'DELIVERED') {
           setCurrentCourierOrder(null);
         }
-        await loadDriverShell();
+        await loadDriverShell(true);
       } catch (error: any) {
         const message = error?.response?.data?.message || 'Не удалось обновить статус доставки';
         Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
@@ -462,23 +490,18 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           return;
         }
 
-        const res = await apiClient.get('/drivers/current-ride');
-        if (mounted && res.data?.id) {
-          setCurrentRideId(res.data.id);
-          const rideRes = await apiClient.get(`/rides/${res.data.id}`).catch(() => ({ data: null }));
-          if (mounted) {
-            setCurrentRide(rideRes.data ?? null);
-          }
-        } else if (mounted) {
-          setCurrentRide(null);
-        }
-
         socket = createRidesSocket(auth.accessToken);
-        socket.on('connect', () => mounted && setSocketState('connected'));
-        socket.on('disconnect', () => mounted && setSocketState('disconnected'));
-        socket.on('connect_error', () => mounted && setSocketState('reconnecting'));
-        socket.io.on('reconnect_attempt', () => mounted && setSocketState('reconnecting'));
-        socket.io.on('reconnect', () => mounted && setSocketState('connected'));
+        const handleConnect = () => mounted && setSocketState('connected');
+        const handleDisconnect = () => mounted && setSocketState('disconnected');
+        const handleConnectError = () => mounted && setSocketState('reconnecting');
+        const handleReconnectAttempt = () => mounted && setSocketState('reconnecting');
+        const handleReconnect = () => mounted && setSocketState('connected');
+
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect_error', handleConnectError);
+        socket.io?.on?.('reconnect_attempt', handleReconnectAttempt);
+        socket.io?.on?.('reconnect', handleReconnect);
 
         socket.on('ride:offer', (ride: RideOffer) => {
           if (!mounted || !isOnline) {
@@ -521,6 +544,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           setCurrentRideId(ride.id);
           apiClient.get(`/rides/${ride.id}`).then((res) => setCurrentRide(res.data)).catch(() => null);
         });
+
+        return () => {
+          socket?.off('connect', handleConnect);
+          socket?.off('disconnect', handleDisconnect);
+          socket?.off('connect_error', handleConnectError);
+          socket?.io?.off?.('reconnect_attempt', handleReconnectAttempt);
+          socket?.io?.off?.('reconnect', handleReconnect);
+        };
       } catch {
         if (mounted) {
           setSocketState('disconnected');
@@ -528,10 +559,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       }
     };
 
-    init();
+    let cleanupListeners: (() => void) | undefined;
+    init().then((cleanup) => {
+      cleanupListeners = cleanup;
+    }).catch(() => null);
 
     return () => {
       mounted = false;
+      cleanupListeners?.();
       socket?.disconnect();
     };
   }, [incomingOffer?.id, isOnline, profile?.driverMode]);
@@ -551,9 +586,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       socket = createCourierOrdersSocket(auth.accessToken);
-      socket.on('connect', () => mounted && setSocketState('connected'));
-      socket.on('disconnect', () => mounted && setSocketState('disconnected'));
-      socket.on('connect_error', () => mounted && setSocketState('reconnecting'));
+      const handleConnect = () => mounted && setSocketState('connected');
+      const handleDisconnect = () => mounted && setSocketState('disconnected');
+      const handleConnectError = () => mounted && setSocketState('reconnecting');
+
+      socket.on('connect', handleConnect);
+      socket.on('disconnect', handleDisconnect);
+      socket.on('connect_error', handleConnectError);
 
       socket.on('courier-order:offer', (order: any) => {
         if (!mounted) {
@@ -575,12 +614,22 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           setCurrentCourierOrder(null);
         }
       });
+
+      return () => {
+        socket?.off('connect', handleConnect);
+        socket?.off('disconnect', handleDisconnect);
+        socket?.off('connect_error', handleConnectError);
+      };
     };
 
-    init().catch(() => null);
+    let cleanupListeners: (() => void) | undefined;
+    init().then((cleanup) => {
+      cleanupListeners = cleanup;
+    }).catch(() => null);
 
     return () => {
       mounted = false;
+      cleanupListeners?.();
       socket?.disconnect();
     };
   }, [isOnline, profile?.driverMode]);
@@ -793,10 +842,23 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         accentColor="#38BDF8"
         eyebrow="Driver mode"
         title="Межгород"
-        subtitle="Межгород как маркетплейс: можно публиковать свои рейсы и смотреть заявки пассажиров."
+        subtitle="Рабочий режим для рейсов, заявок пассажиров и оперативного управления поездкой."
         backLabel="На главную"
         onBack={() => switchDriverMode(profile?.supportsTaxi ? 'TAXI' : 'COURIER')}
       >
+        <View style={styles.intercityHero}>
+          <Text style={styles.intercityHeroTitle}>
+            {currentIntercityTrip
+              ? `${currentIntercityTrip.fromCity} → ${currentIntercityTrip.toCity}`
+              : 'Межгород под контролем'}
+          </Text>
+          <Text style={styles.intercityHeroText}>
+            {currentIntercityTrip
+              ? 'Активный рейс уже в работе. Ниже быстрый доступ к пассажирам и заявкам.'
+              : 'Публикуй свои рейсы, смотри клиентские заявки и собирай поездку без лишних экранов.'}
+          </Text>
+        </View>
+
         {currentIntercityTrip ? (
           <ServiceCard>
             <Text style={styles.intercityTitle}>Активный рейс</Text>
@@ -1007,6 +1069,11 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           onRideStatusChange={updateRideStatus}
           onCompleteRide={completeRide}
           onCancelRide={cancelRide}
+          onOpenRideChat={() => {
+            if (currentRideId) {
+              navigation.navigate('ChatScreen', { rideId: currentRideId });
+            }
+          }}
           onCourierStatusChange={updateCourierStatus}
         />
       )}
@@ -1157,6 +1224,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     marginBottom: 12,
+  },
+  intercityHero: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  intercityHeroTitle: {
+    color: '#F4F4F5',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  intercityHeroText: {
+    color: '#94A3B8',
+    fontSize: 15,
+    lineHeight: 22,
   },
   courierTitle: {
     color: '#F4F4F5',

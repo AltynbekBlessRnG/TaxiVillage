@@ -26,7 +26,7 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
-  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread();
+  const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const loadOrder = useCallback(() => {
     return apiClient

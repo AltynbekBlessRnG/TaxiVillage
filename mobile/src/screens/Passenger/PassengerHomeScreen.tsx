@@ -65,13 +65,14 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mapPickTarget, setMapPickTarget] = useState<'from' | 'to' | 'stop'>('to');
   const [searchMode, setSearchMode] = useState<SearchMode>('route');
+  const [searchInitialField, setSearchInitialField] = useState<'from' | 'to'>('to');
   const [displayRoute, setDisplayRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [courierItemDescription, setCourierItemDescription] = useState('');
   const [courierPackageWeight, setCourierPackageWeight] = useState('');
   const [courierPackageSize, setCourierPackageSize] = useState('');
   const { unreadCount: unreadNotificationsCount } = useNotificationsInbox();
-  const { unreadCount: unreadMessagesCount, refresh: refreshMessagesSummary } = useMessagesSummary();
-  const { rideUnreadById } = useThreadUnread();
+  const { unreadCount: unreadMessagesCount, refresh: refreshMessagesSummary } = useMessagesSummary({ autoRefresh: false });
+  const { rideUnreadById, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const searchSheetAnim = useRef(new Animated.Value(height)).current;
   const orderSheetTranslateY = useRef(new Animated.Value(height)).current;
@@ -268,7 +269,10 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   useEffect(() => {
     Promise.all([refreshActiveRide(), refreshActiveCourierOrder()])
       .then(([activeRideItem, activeCourierItem]) => {
-        if (!activeRideItem && !activeCourierItem) {
+        const hasPendingSearch =
+          !!currentRideId || !!activeRideId || !!activeCourierOrderId;
+
+        if (!activeRideItem && !activeCourierItem && !hasPendingSearch) {
           setShowOrderDetails(false);
           if (screenState === 'SEARCHING') {
             setScreenState('IDLE');
@@ -280,7 +284,10 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     const unsubscribe = navigation.addListener('focus', () => {
       Promise.all([refreshActiveRide(), refreshActiveCourierOrder()])
         .then(([activeRideItem, activeCourierItem]) => {
-          if (!activeRideItem && !activeCourierItem) {
+          const hasPendingSearch =
+            !!currentRideId || !!activeRideId || !!activeCourierOrderId;
+
+          if (!activeRideItem && !activeCourierItem && !hasPendingSearch) {
             setShowOrderDetails(false);
             if (screenState === 'SEARCHING') {
               setScreenState('IDLE');
@@ -288,11 +295,24 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
           }
         })
         .catch(() => {});
-      refreshMessagesSummary().catch(() => {});
+      Promise.allSettled([
+        refreshMessagesSummary(),
+        refreshThreadUnread(),
+      ]);
     });
 
     return unsubscribe;
-  }, [navigation, refreshActiveCourierOrder, refreshActiveRide, refreshMessagesSummary, screenState]);
+  }, [
+    activeCourierOrderId,
+    activeRideId,
+    currentRideId,
+    navigation,
+    refreshActiveCourierOrder,
+    refreshActiveRide,
+    refreshMessagesSummary,
+    refreshThreadUnread,
+    screenState,
+  ]);
 
   useEffect(() => {
     if (screenState === 'IDLE' && userLocation) {
@@ -551,6 +571,16 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     setToCoord(hasValidCoordinates({ lat, lng }) ? { lat, lng } : null);
   };
 
+  const openSearchSheet = useCallback(
+    (field: 'from' | 'to') => {
+      setSearchInitialField(field);
+      setSearchMode('route');
+      setIsStopSelectionMode(false);
+      changeState('SEARCH');
+    },
+    [changeState],
+  );
+
   const toggleMenu = (show: boolean) => {
     if (show) {
       setIsMenuOpen(true);
@@ -693,14 +723,14 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
       {screenState === 'IDLE' && (
         <View style={styles.uiOverlay} pointerEvents="box-none">
           <View style={styles.ashenSearchCard}>
-            <TouchableOpacity style={styles.ashenRow} onPress={() => changeState('SEARCH')}>
+            <TouchableOpacity style={styles.ashenRow} onPress={() => openSearchSheet('from')}>
               <View style={styles.dotBlue} />
               <Text style={styles.ashenInputText} numberOfLines={1}>
                 {fromAddress}
               </Text>
             </TouchableOpacity>
             <View style={styles.zincDivider} />
-            <TouchableOpacity style={styles.ashenRow} onPress={() => changeState('SEARCH')}>
+            <TouchableOpacity style={styles.ashenRow} onPress={() => openSearchSheet('to')}>
               <View style={styles.squareRed} />
               <Text style={toAddress ? styles.ashenInputText : styles.placeholderZinc}>
                 {toAddress || (activeService === 'Курьер' ? 'Куда доставить?' : 'Куда едем?')}
@@ -775,6 +805,8 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <SearchSheet
         anim={searchSheetAnim}
+        visible={screenState === 'SEARCH'}
+        initialField={searchInitialField}
         mode={searchMode}
         fromAddress={fromAddress}
         setFromAddress={setFromAddress}
@@ -919,9 +951,13 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
             onCancel={() => {
               void handleCancelSearchingRide();
             }}
-            onShowDetails={() => setShowOrderDetails(true)}
             title={activeService === 'Курьер' ? 'Ищем курьера...' : 'Ищем машину...'}
             cancelLabel={activeService === 'Курьер' ? 'Отменить\nдоставку' : 'Отменить\nпоездку'}
+            fromAddress={fromAddress}
+            toAddress={toAddress}
+            comment={comment}
+            stops={stops}
+            price={offeredPrice}
           />
         )
       )}

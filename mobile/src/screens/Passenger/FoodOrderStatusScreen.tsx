@@ -27,6 +27,15 @@ const statusLabels: Record<string, string> = {
   CANCELED: 'Отменено',
 };
 
+const foodStages = [
+  { key: 'PLACED', title: 'Заказ оформлен' },
+  { key: 'ACCEPTED', title: 'Заведение приняло заказ' },
+  { key: 'PREPARING', title: 'Готовится' },
+  { key: 'READY_FOR_PICKUP', title: 'Готов к выдаче' },
+  { key: 'ON_DELIVERY', title: 'Курьер в пути' },
+  { key: 'DELIVERED', title: 'Доставлено' },
+];
+
 export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -95,10 +104,15 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       accentColor="#FB923C"
       eyebrow="Еда"
       title="Заказ оформлен"
-      subtitle="Экран статуса уже читает реальный `FoodOrder` и статус кухни из backend."
+      subtitle="Следи за кухней, доставкой и итогом заказа без лишних переходов."
       backLabel="На главную"
       onBack={() => navigation.navigate('PassengerHome', {})}
     >
+      <View style={styles.heroBlock}>
+        <Text style={styles.heroTitle}>{order?.merchant?.name || 'Ваш заказ принят'}</Text>
+        <Text style={styles.heroText}>{statusLabels[order?.status] || 'Статус обновляется'}</Text>
+      </View>
+
       <ServiceCard>
         <SectionTitle>Статус кухни</SectionTitle>
         <View style={styles.statusPill}>
@@ -111,11 +125,18 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
 
       <ServiceCard compact>
         <SectionTitle>Этапы</SectionTitle>
-        <InlineLabel label="1" value="Заказ принят заведением" accentColor="#FB923C" />
-        <InlineLabel label="2" value="Готовится" />
-        <InlineLabel label="3" value="Готов к выдаче" />
-        <InlineLabel label="4" value="Курьер в пути" />
-        <InlineLabel label="5" value="Доставлено" />
+        <View style={styles.timeline}>
+          {foodStages.map((stage, index) => {
+            const currentIndex = foodStages.findIndex((item) => item.key === order?.status);
+            const isCompleted = currentIndex >= index || order?.status === 'DELIVERED';
+            return (
+              <View key={stage.key} style={styles.timelineRow}>
+                <View style={[styles.timelineDot, isCompleted && styles.timelineDotActive]} />
+                <Text style={[styles.timelineText, isCompleted && styles.timelineTextActive]}>{stage.title}</Text>
+              </View>
+            );
+          })}
+        </View>
       </ServiceCard>
 
         <PrimaryButton title="Вернуться в такси" onPress={() => navigation.navigate('PassengerHome', {})} />
@@ -130,6 +151,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#09090B',
   },
+  heroBlock: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  heroTitle: {
+    color: '#F4F4F5',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  heroText: {
+    color: '#FDBA74',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
   statusPill: {
     alignSelf: 'flex-start',
     backgroundColor: '#3F1F0F',
@@ -141,5 +179,30 @@ const styles = StyleSheet.create({
   statusText: {
     color: '#FED7AA',
     fontWeight: '800',
+  },
+  timeline: {
+    gap: 10,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timelineDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: '#3F3F46',
+    marginRight: 12,
+  },
+  timelineDotActive: {
+    backgroundColor: '#FB923C',
+  },
+  timelineText: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  timelineTextActive: {
+    color: '#F4F4F5',
   },
 });

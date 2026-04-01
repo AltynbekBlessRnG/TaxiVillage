@@ -29,6 +29,7 @@ export class IntercityGateway implements OnGatewayConnection, OnGatewayDisconnec
   ) {}
 
   async handleConnection(client: Socket) {
+    client.setMaxListeners(Math.max(client.getMaxListeners(), 30));
     const token = client.handshake.auth?.token;
     if (!token) {
       this.rejectUnauthorized(client);
@@ -50,7 +51,7 @@ export class IntercityGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   handleDisconnect(client: Socket) {
-    void this.redisService.removeSocketPresence(client.id);
+    void this.redisService.removeSocketPresence(client.id).catch(() => null);
     this.logger.log(`Intercity client disconnected: ${client.id}`);
   }
 

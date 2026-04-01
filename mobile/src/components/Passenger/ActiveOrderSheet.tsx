@@ -34,31 +34,32 @@ export const ActiveOrderSheet: React.FC<Props> = ({
   const status = activeRide?.status ?? activeCourierOrder?.status;
 
   return (
-    <BottomSheet
-      ref={bottomSheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      enablePanDownToClose={false}
-      enableDynamicSizing={false}
-      handleIndicatorStyle={styles.handleIndicator}
-      handleStyle={styles.handle}
-      backgroundStyle={styles.background}
-      style={styles.sheetShadow}
-    >
-      <BottomSheetView style={styles.content}>
-        <View style={styles.statusHeader}>
-          <View style={[styles.statusDot, getStatusDotColor(status)]} />
-          <Text style={styles.statusTitle}>
-            {isCourier ? translateCourierStatus(status) : translateStatus(status)}
-          </Text>
-        </View>
-
-        {activeRide && etaSeconds && (activeRide.status === 'ON_THE_WAY' || activeRide.status === 'DRIVER_ASSIGNED' || activeRide.status === 'DRIVER_ARRIVED') ? (
-          <View style={styles.etaBadge}>
-            <Text style={styles.etaLabel}>До подачи примерно</Text>
-            <Text style={styles.etaValue}>{`${Math.max(1, Math.round(etaSeconds / 60))} мин`}</Text>
+    <View style={styles.fullOverlay} pointerEvents="box-none">
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={0}
+        snapPoints={snapPoints}
+        enablePanDownToClose={false}
+        enableDynamicSizing={false}
+        handleIndicatorStyle={styles.handleIndicator}
+        handleStyle={styles.handle}
+        backgroundStyle={styles.background}
+        style={styles.sheetShadow}
+      >
+        <BottomSheetView style={styles.content}>
+          <View style={styles.statusHeader}>
+            <View style={[styles.statusDot, getStatusDotColor(status)]} />
+            <Text style={styles.statusTitle}>
+              {isCourier ? translateCourierStatus(status) : translateStatus(status)}
+            </Text>
           </View>
-        ) : null}
+
+          {activeRide && etaSeconds && (activeRide.status === 'ON_THE_WAY' || activeRide.status === 'DRIVER_ASSIGNED' || activeRide.status === 'DRIVER_ARRIVED') ? (
+            <View style={styles.etaBadge}>
+              <Text style={styles.etaLabel}>До подачи примерно</Text>
+              <Text style={styles.etaValue}>{`${Math.max(1, Math.round(etaSeconds / 60))} мин`}</Text>
+            </View>
+          ) : null}
 
         {activeRide?.driver ? (
           <View style={styles.rideCard}>
@@ -121,30 +122,31 @@ export const ActiveOrderSheet: React.FC<Props> = ({
           </View>
         ) : null}
 
-        <View style={styles.buttonsRow}>
-          {activeRide && ACTIVE_CANCELABLE_STATUSES.includes(activeRide.status) ? (
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-              <Text style={styles.cancelBtnText}>Отменить</Text>
-            </TouchableOpacity>
-          ) : null}
-          {activeCourierOrder && activeCourierOrder.status !== 'DELIVERED' && activeCourierOrder.status !== 'CANCELED' ? (
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-              <Text style={styles.cancelBtnText}>Отменить</Text>
-            </TouchableOpacity>
-          ) : null}
-          {activeRide?.driver && onOpenRideChat ? (
-            <TouchableOpacity style={styles.chatBtn} onPress={onOpenRideChat}>
-              <Text style={styles.chatBtnText}>Чат с водителем</Text>
-              {rideUnreadCount > 0 ? (
-                <View style={styles.chatBadge}>
-                  <Text style={styles.chatBadgeText}>{rideUnreadCount > 99 ? '99+' : rideUnreadCount}</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </BottomSheetView>
-    </BottomSheet>
+          <View style={styles.buttonsRow}>
+            {activeRide && ACTIVE_CANCELABLE_STATUSES.includes(activeRide.status) ? (
+              <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+                <Text style={styles.cancelBtnText}>Отменить</Text>
+              </TouchableOpacity>
+            ) : null}
+            {activeCourierOrder && activeCourierOrder.status !== 'DELIVERED' && activeCourierOrder.status !== 'CANCELED' ? (
+              <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+                <Text style={styles.cancelBtnText}>Отменить</Text>
+              </TouchableOpacity>
+            ) : null}
+            {activeRide?.driver && onOpenRideChat ? (
+              <TouchableOpacity style={styles.chatBtn} onPress={onOpenRideChat}>
+                <Text style={styles.chatBtnText}>Чат с водителем</Text>
+                {rideUnreadCount > 0 ? (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>{rideUnreadCount > 99 ? '99+' : rideUnreadCount}</Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </BottomSheetView>
+      </BottomSheet>
+    </View>
   );
 };
 
@@ -195,6 +197,11 @@ function translateCourierStatus(status: string): string {
 }
 
 const styles = StyleSheet.create({
+  fullOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 700,
+    pointerEvents: 'box-none',
+  },
   sheetShadow: {
     zIndex: 700,
     elevation: 24,
