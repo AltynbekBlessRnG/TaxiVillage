@@ -1,4 +1,3 @@
-import { Alert } from 'react-native';
 import { useCallback } from 'react';
 import { apiClient } from '../../../api/client';
 import { geocodeAddressWithGoogle } from '../../../utils/googleMaps';
@@ -14,6 +13,14 @@ const hasValidCoordinates = (coords?: PassengerCoordinates | null) =>
   Number.isFinite(coords.lat) &&
   Number.isFinite(coords.lng) &&
   !(coords.lat === 0 && coords.lng === 0);
+
+const extractResponseMessage = (error: any, fallback: string) => {
+  const serverMessage = error?.response?.data?.message;
+  if (Array.isArray(serverMessage)) {
+    return serverMessage.join(', ');
+  }
+  return serverMessage || fallback;
+};
 
 interface UsePassengerHomeControllerParams {
   activeService: 'Такси' | 'Курьер' | 'Еда' | 'Межгород';
@@ -100,8 +107,7 @@ export const usePassengerHomeController = ({
 }: UsePassengerHomeControllerParams) => {
   const handleGeocodeAndProceed = useCallback(async () => {
     if (!toAddress) {
-      Alert.alert('Ошибка', 'Введите адрес назначения');
-      return;
+      throw new Error('Введите адрес назначения');
     }
 
     if (activeService === 'Такси' && fromAddress.trim() && toAddress.trim()) {
@@ -171,12 +177,12 @@ export const usePassengerHomeController = ({
   const handleCreateRide = useCallback(async () => {
     if (activeService === 'Курьер') {
       if (!courierItemDescription.trim()) {
-        Alert.alert('Не хватает данных', 'Опишите, что нужно доставить.');
+        throw new Error('Опишите, что нужно доставить.');
         return;
       }
 
       if (!hasValidCoordinates(fromCoord) || !hasValidCoordinates(toCoord)) {
-        Alert.alert('Нужны координаты', 'Выберите адреса забора и доставки из подсказок или на карте.');
+        throw new Error('Выберите адреса забора и доставки из подсказок или на карте.');
         return;
       }
 
@@ -207,9 +213,10 @@ export const usePassengerHomeController = ({
         setShowSearchingDetails(false);
         changeState('SEARCHING');
       } catch (e: any) {
-        const serverMessage = e.response?.data?.message;
-        const errorMessage = Array.isArray(serverMessage) ? serverMessage.join(', ') : serverMessage;
-        Alert.alert('Ошибка сервера', errorMessage || 'Не удалось создать заказ доставки');
+        if (e instanceof Error && !('response' in e)) {
+          throw e;
+        }
+        throw new Error(extractResponseMessage(e, 'Не удалось создать заказ доставки'));
       } finally {
         setLoading(false);
       }
@@ -217,13 +224,11 @@ export const usePassengerHomeController = ({
     }
 
     if (!toAddress) {
-      Alert.alert('Ошибка', 'Укажите адрес назначения');
-      return;
+      throw new Error('Укажите адрес назначения');
     }
 
     if (!fromAddress.trim()) {
-      Alert.alert('Ошибка', 'Укажите адрес подачи');
-      return;
+      throw new Error('Укажите адрес подачи');
     }
 
     const hasExactPickup = hasValidCoordinates(fromCoord);
@@ -234,13 +239,11 @@ export const usePassengerHomeController = ({
       toLocationPrecision === 'EXACT' &&
       (!hasExactPickup || !hasExactDropoff)
     ) {
-      Alert.alert('Нужны координаты', 'Выберите адрес из подсказок Google или укажите точку на карте.');
-      return;
+      throw new Error('Выберите адрес из подсказок Google или укажите точку на карте.');
     }
 
     if (stops.some((stop) => !hasValidCoordinates(stop))) {
-      Alert.alert('Нужны координаты', 'Один из заездов не содержит корректную точку. Выберите его заново.');
-      return;
+      throw new Error('Один из заездов не содержит корректную точку. Выберите его заново.');
     }
 
     setLoading(true);
@@ -271,11 +274,10 @@ export const usePassengerHomeController = ({
         changeState('SEARCHING');
       }
     } catch (e: any) {
-      const serverMessage = e.response?.data?.message;
-      const errorMessage = Array.isArray(serverMessage)
-        ? serverMessage.join(', ')
-        : serverMessage;
-      Alert.alert('Ошибка сервера', errorMessage || 'Не удалось создать заказ');
+      if (e instanceof Error && !('response' in e)) {
+        throw e;
+      }
+      throw new Error(extractResponseMessage(e, 'Не удалось создать заказ'));
     } finally {
       setLoading(false);
     }
@@ -304,28 +306,18 @@ export const usePassengerHomeController = ({
 
   const handleCancelSearchingRide = useCallback(async () => {
     if (activeService === 'Курьер' && activeCourierOrderId) {
-      Alert.alert('Отменить доставку?', 'Мы прекратим поиск курьера для этого заказа.', [
-        { text: 'Нет', style: 'cancel' },
-        {
-          text: 'Да',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              await apiClient.post(`/courier-orders/${activeCourierOrderId}/cancel`);
-              clearCourierState();
-              resetCourierDraft();
-              setShowSearchingDetails(false);
-              changeState('IDLE');
-            } catch (e: any) {
-              const message = e.response?.data?.message || 'Не удалось отменить заказ';
-              Alert.alert('Ошибка', message);
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]);
+      setLoading(true);
+      try {
+        await apiClient.post(`/courier-orders/${activeCourierOrderId}/cancel`);
+        clearCourierState();
+        resetCourierDraft();
+        setShowSearchingDetails(false);
+        changeState('IDLE');
+      } catch (e: any) {
+        throw new Error(extractResponseMessage(e, 'Не удалось отменить заказ'));
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -336,30 +328,20 @@ export const usePassengerHomeController = ({
       return;
     }
 
-    Alert.alert('Отменить поездку?', 'Мы прекратим поиск водителя для этого заказа.', [
-      { text: 'Нет', style: 'cancel' },
-      {
-        text: 'Да',
-        style: 'destructive',
-        onPress: async () => {
-          setLoading(true);
-          try {
-            await apiClient.post(`/rides/${rideIdToCancel}/cancel`);
-            setCurrentRideId(null);
-            setActiveRideId(null);
-            await refreshActiveRide();
-            resetTaxiDraft();
-            setShowSearchingDetails(false);
-            changeState('IDLE');
-          } catch (e: any) {
-            const message = e.response?.data?.message || 'Не удалось отменить заказ';
-            Alert.alert('Ошибка', message);
-          } finally {
-            setLoading(false);
-          }
-        },
-      },
-    ]);
+    setLoading(true);
+    try {
+      await apiClient.post(`/rides/${rideIdToCancel}/cancel`);
+      setCurrentRideId(null);
+      setActiveRideId(null);
+      await refreshActiveRide();
+      resetTaxiDraft();
+      setShowSearchingDetails(false);
+      changeState('IDLE');
+    } catch (e: any) {
+      throw new Error(extractResponseMessage(e, 'Не удалось отменить заказ'));
+    } finally {
+      setLoading(false);
+    }
   }, [
     activeCourierOrderId,
     activeRideId,
@@ -387,8 +369,7 @@ export const usePassengerHomeController = ({
 
     if (searchMode === 'stop') {
       if (!hasValidCoordinates({ lat, lng })) {
-        Alert.alert('Нужны координаты', 'Выберите адрес из подсказок Google или укажите точку на карте.');
-        return;
+        throw new Error('Выберите адрес из подсказок Google или укажите точку на карте.');
       }
       setStops((current) => [...current, { address, lat, lng }]);
       setSearchMode('route');

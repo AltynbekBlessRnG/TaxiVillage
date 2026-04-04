@@ -44,7 +44,7 @@ const DOCUMENT_TYPES = {
   DRIVER_LICENSE: 'Водительское удостоверение',
   CAR_REGISTRATION: 'СТС',
   TAXI_LICENSE: 'Лицензия такси',
-  COURIER_ID: 'ID курьера',
+  COURIER_ID: 'Удостоверение личности',
   OTHER: 'Другой документ',
 } as const;
 
@@ -326,7 +326,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
                 busy={uploadingDoc === 'CAR_REGISTRATION'}
               />
               <UploadAction
-                title="ID курьера"
+                title="Удостоверение личности"
                 subtitle="Для курьерского режима"
                 onPress={() => pickAndUploadDocument('COURIER_ID')}
                 disabled={uploadingDoc !== null}

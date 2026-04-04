@@ -13,7 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient } from '../../api/client';
+import { apiClient, logout } from '../../api/client';
 import {
   InlineLabel,
   PrimaryButton,
@@ -139,6 +139,23 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigation.replace('Login');
+  };
+
+  const handleOpenPreview = () => {
+    if (!profile?.id) {
+      Alert.alert('Пока недоступно', 'Сначала сохрани карточку заведения.');
+      return;
+    }
+
+    navigation.navigate('Restaurant', {
+      restaurantId: profile.id,
+      restaurantName: profile?.name || name.trim() || 'Ресторан',
+    });
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -148,11 +165,11 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <ServiceScreen
-      accentColor="#FB923C"
-      eyebrow="Merchant"
-      title="Заведение"
-      subtitle="Карточка ресторана, WhatsApp для заказов и быстрый доступ к меню."
+      <ServiceScreen
+        accentColor="#FB923C"
+        eyebrow="Merchant"
+        title="Заведение"
+        subtitle="Карточка ресторана, WhatsApp для заказов и быстрый доступ к меню."
     >
       <ServiceCard>
         <ImageBackground
@@ -265,7 +282,12 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
       </ServiceCard>
 
       <PrimaryButton title="Редактор меню" onPress={() => navigation.navigate('MenuEditor')} />
+      <SecondaryButton
+        title="Посмотреть как видит клиент"
+        onPress={handleOpenPreview}
+      />
       <SecondaryButton title="Открыть заказы" onPress={() => navigation.navigate('MerchantOrders')} />
+      <SecondaryButton title="Выйти из аккаунта" onPress={() => handleLogout().catch(() => null)} />
     </ServiceScreen>
   );
 };

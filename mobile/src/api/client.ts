@@ -4,6 +4,7 @@ import {
   loadAuth,
   updateAuthTokens,
 } from '../storage/authStorage';
+import { resetNotificationsInbox } from '../storage/notificationsInbox';
 import { stopDriverBackgroundTracking } from '../location/backgroundTracking';
 import { apiClient, BASE_URL } from './instance';
 
@@ -78,6 +79,7 @@ export async function logout(): Promise<void> {
 
 export async function resetAuthSession(): Promise<void> {
   await stopDriverBackgroundTracking().catch(() => {});
+  await resetNotificationsInbox().catch(() => {});
   await clearAuth();
   setAuthToken(null);
 }

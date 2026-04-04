@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 
 interface DriverStatusSheetProps {
@@ -7,6 +7,7 @@ interface DriverStatusSheetProps {
   currentRide?: any;
   profile: any;
   onSwitchMode: (mode: 'TAXI' | 'COURIER') => void;
+  onOpenToday?: () => void;
   currentCourierOrder?: any;
   availableCourierOrders?: any[];
   onAcceptCourierOrder?: (orderId: string) => void;
@@ -32,6 +33,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   currentRide,
   profile,
   onSwitchMode,
+  onOpenToday,
   currentCourierOrder,
   availableCourierOrders = [],
   onAcceptCourierOrder,
@@ -44,6 +46,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   metrics,
 }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const maxEarnings = Math.max(...(metrics?.dailyBuckets?.map((bucket) => bucket.earnings) ?? [0]), 1);
 
   useEffect(() => {
@@ -234,13 +237,14 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
           ) : null}
         </View>
         
-        {/* СТАТУС */}
-        <View style={styles.statusRow}>
-          <Animated.View style={[styles.statusDot, { backgroundColor: isOnline ? '#10B981' : '#71717A', opacity: pulseAnim }]} />
-          <Text style={styles.statusText}>
-            {isOnline ? (profile?.driverMode === 'COURIER' ? 'Поиск доставок...' : 'Поиск заказов...') : 'Офлайн — отдых'}
-          </Text>
-        </View>
+        {isOnline ? (
+          <View style={styles.statusRow}>
+            <Animated.View style={[styles.statusDot, { backgroundColor: '#10B981', opacity: pulseAnim }]} />
+            <Text style={styles.statusText}>
+              {profile?.driverMode === 'COURIER' ? 'Поиск доставок...' : 'Поиск заказов...'}
+            </Text>
+          </View>
+        ) : null}
 
         {profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
           <View style={styles.offerBlock}>
@@ -257,32 +261,41 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
         ) : null}
 
         <View style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <Text style={styles.infoEyebrow}>Неделя</Text>
-            <Text style={styles.infoTitle}>Статистика за 7 дней</Text>
-          </View>
-          <View style={styles.chartRow}>
-            {(metrics?.dailyBuckets ?? []).map((bucket) => (
-              <View key={bucket.date} style={styles.chartItem}>
-                <View style={styles.chartTrack}>
-                  <View
-                    style={[
-                      styles.chartBar,
-                      {
-                        height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
-                        backgroundColor: profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
-                      },
-                    ]}
-                  />
+          <TouchableOpacity
+            style={styles.infoHeaderRow}
+            onPress={() => setIsStatsExpanded((prev) => !prev)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.infoHeader}>
+              <Text style={styles.infoEyebrow}>Неделя</Text>
+              <Text style={styles.infoTitle}>Статистика за 7 дней</Text>
+            </View>
+            <Text style={styles.infoChevron}>{isStatsExpanded ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+          {isStatsExpanded ? (
+            <View style={styles.chartRow}>
+              {(metrics?.dailyBuckets ?? []).map((bucket) => (
+                <View key={bucket.date} style={styles.chartItem}>
+                  <View style={styles.chartTrack}>
+                    <View
+                      style={[
+                        styles.chartBar,
+                        {
+                          height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
+                          backgroundColor: profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.chartValue}>{Math.round(bucket.earnings)}</Text>
+                  <Text style={styles.chartLabel}>{bucket.label}</Text>
                 </View>
-                <Text style={styles.chartValue}>{Math.round(bucket.earnings)}</Text>
-                <Text style={styles.chartLabel}>{bucket.label}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          ) : null}
         </View>
 
-        <TouchableOpacity style={styles.card}>
+        <TouchableOpacity style={styles.card} onPress={onOpenToday}>
           <Text style={styles.cardTitle}>Сегодня</Text>
           <View style={styles.cardRight}>
             <Text style={styles.cardValue}>{Math.round(Number(metrics?.todayEarnings ?? 0))} ₸</Text>
@@ -374,7 +387,12 @@ const styles = StyleSheet.create({
     borderColor: '#27272A',
   },
   infoHeader: {
-    marginBottom: 4,
+    flex: 1,
+  },
+  infoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   infoEyebrow: {
     color: '#71717A',
@@ -388,6 +406,12 @@ const styles = StyleSheet.create({
     color: '#F4F4F5',
     fontSize: 16,
     fontWeight: '800',
+  },
+  infoChevron: {
+    color: '#A1A1AA',
+    fontSize: 18,
+    fontWeight: '800',
+    marginLeft: 12,
   },
   infoText: {
     color: '#A1A1AA',

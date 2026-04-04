@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Dimensions,
   Keyboard,
   LayoutAnimation,
-  Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -20,17 +17,15 @@ import { useIsFocused } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, logout } from '../../api/client';
 import { initializeNotifications } from '../../utils/notifications';
-import { SearchSheet } from '../../components/Passenger/SearchSheet';
-import { ConfirmationSheet } from '../../components/Passenger/ConfirmationSheet';
-import { SearchingSheet } from '../../components/Passenger/SearchingSheet';
-import { SearchingDetailsSheet } from '../../components/Passenger/SearchingDetailsSheet';
-import { ActiveOrderSheet } from '../../components/Passenger/ActiveOrderSheet';
 import { buildRegion, buildRouteCoordinates, toMapPoint } from '../../utils/map';
 import { reverseGeocodeWithGoogle } from '../../utils/googleMaps';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { resolveRideRoute } from '../../utils/rideRoute';
 import { saveRecentAddress } from '../../storage/recentAddresses';
 import { PassengerMapScene } from './home/PassengerMapScene';
+import { PassengerIdleOverlay } from './home/PassengerIdleOverlay';
+import { PassengerSheetHost } from './home/PassengerSheetHost';
+import { PassengerSideDrawer } from './home/PassengerSideDrawer';
 import { usePassengerHomeController } from './home/usePassengerHomeController';
 import { usePassengerLocation } from './home/usePassengerLocation';
 import { usePassengerRideState } from './home/usePassengerRideState';
@@ -527,113 +522,66 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         </TouchableOpacity>
       ) : null}
 
-        <TouchableOpacity style={styles.burgerBtn} onPress={() => toggleMenu(true)}>
-        <Text style={{ fontSize: 22, color: '#fff' }}>☰</Text>
-        {unreadNotificationsCount > 0 ? (
-          <View style={styles.burgerBadge}>
-            <Text style={styles.burgerBadgeText}>
-              {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
-            </Text>
-          </View>
-        ) : null}
-      </TouchableOpacity>
+      {screenState === 'IDLE' ? (
+        <PassengerIdleOverlay
+          fromAddress={fromAddress}
+          toAddress={toAddress}
+          activeService={activeService}
+          activeRideId={activeRideId}
+          activeRide={activeRide}
+          activeCourierOrderId={activeCourierOrderId}
+          unreadNotificationsCount={unreadNotificationsCount}
+          onOpenMenu={() => toggleMenu(true)}
+          onOpenSearch={openSearchSheet}
+          onRecenter={recenterMap}
+          onOpenActiveRide={() => changeState('SEARCHING')}
+          onOpenActiveCourier={() => {
+            setActiveService('Курьер');
+            changeState('SEARCHING');
+          }}
+          onSelectService={(service) => {
+            setActiveService(service);
+            if (service === 'Курьер') {
+              resetTaxiDraft();
+            } else if (service === 'Еда') {
+              navigation.navigate('FoodHome');
+            } else if (service === 'Межгород') {
+              navigation.navigate('IntercityHome');
+            } else if (service === 'Такси') {
+              resetCourierDraft();
+            }
+          }}
+        />
+      ) : null}
 
-      {screenState === 'IDLE' && (
-        <View style={styles.uiOverlay} pointerEvents="box-none">
-          <View style={styles.ashenSearchCard}>
-            <TouchableOpacity style={styles.ashenRow} onPress={() => openSearchSheet('from')}>
-              <View style={styles.dotBlue} />
-              <Text style={styles.ashenInputText} numberOfLines={1}>
-                {fromAddress}
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.zincDivider} />
-            <TouchableOpacity style={styles.ashenRow} onPress={() => openSearchSheet('to')}>
-              <View style={styles.squareRed} />
-              <Text style={toAddress ? styles.ashenInputText : styles.placeholderZinc}>
-                {toAddress || (activeService === 'Курьер' ? 'Куда доставить?' : 'Куда едем?')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.recenterBtn} onPress={recenterMap}>
-            <Text style={{ fontSize: 22 }}>🎯</Text>
-          </TouchableOpacity>
-
-          {activeRideId && !activeRide && (
-            <TouchableOpacity
-              style={styles.activeRideBanner}
-              onPress={() => changeState('SEARCHING')}
-            >
-              <View style={styles.dotGreen} />
-              <Text style={styles.activeRideText}>У вас есть активная поездка!</Text>
-              <Text style={styles.activeRideArrow}>›</Text>
-            </TouchableOpacity>
-          )}
-
-          {!activeRideId && activeCourierOrderId ? (
-            <TouchableOpacity
-              style={[styles.activeRideBanner, styles.activeCourierBanner]}
-              onPress={() => {
-                setActiveService('Курьер');
-                changeState('SEARCHING');
-              }}
-            >
-              <View style={styles.dotGreen} />
-              <Text style={styles.activeRideText}>У вас есть активная доставка!</Text>
-              <Text style={styles.activeRideArrow}>›</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          <View style={styles.bottomAshenBar}>
-            {(['Такси', 'Курьер', 'Еда', 'Межгород'] as const).map((service) => (
-              <TouchableOpacity
-                key={service}
-                style={styles.servicePill}
-                onPress={() => {
-                  setActiveService(service);
-                  if (service === 'Курьер') {
-                    resetTaxiDraft();
-                  } else if (service === 'Еда') {
-                    navigation.navigate('FoodHome');
-                  } else if (service === 'Межгород') {
-                    navigation.navigate('IntercityHome');
-                    } else if (service === 'Такси') {
-                      resetCourierDraft();
-                    }
-                  }}
-                >
-                <View style={[styles.serviceCircle, activeService === service && styles.serviceCircleActive]}>
-                  <Text style={styles.serviceIcon}>
-                    {service === 'Такси'
-                      ? '🚕'
-                      : service === 'Курьер'
-                      ? '📦'
-                      : service === 'Еда'
-                      ? '🍕'
-                      : '🛣️'}
-                  </Text>
-                </View>
-                <Text style={[styles.serviceLabel, activeService === service && styles.serviceLabelActive]}>
-                  {service}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      <SearchSheet
-        visible={screenState === 'SEARCH'}
-        initialField={searchInitialField}
-        mode={searchMode}
+      <PassengerSheetHost
+        screenState={screenState}
+        activeService={activeService}
+        loading={loading}
         fromAddress={fromAddress}
-        setFromAddress={setFromAddress}
         toAddress={toAddress}
-        setToAddress={setToAddress}
+        fromCoord={fromCoord}
+        toCoord={toCoord}
+        fromLocationPrecision={fromLocationPrecision}
+        toLocationPrecision={toLocationPrecision}
+        offeredPrice={offeredPrice}
+        comment={comment}
+        stops={stops}
         isStopSelectionMode={isStopSelectionMode}
+        showSearchingDetails={showSearchingDetails}
+        mapPickTarget={mapPickTarget}
+        searchMode={searchMode}
+        searchInitialField={searchInitialField}
+        courierItemDescription={courierItemDescription}
+        courierPackageWeight={courierPackageWeight}
+        courierPackageSize={courierPackageSize}
         userLocation={userLocation}
-        onClose={() => {
+        activeRide={activeRide}
+        activeCourierOrder={activeCourierOrder}
+        etaSeconds={etaSeconds}
+        rideUnreadCount={activeRide ? (rideUnreadById[activeRide.id] ?? 0) : 0}
+        mapCenter={mapCenter}
+        onCloseSearch={() => {
           setIsStopSelectionMode(false);
           setSearchMode('route');
           if (toAddress) {
@@ -647,12 +595,12 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
             changeState('IDLE');
           }
         }}
-        onMapPick={(field) => {
+        onMapPickStart={(field) => {
           setMapPickTarget(field);
           setMapCenter(field === 'from' ? (fromCoord ?? userLocation) : (toCoord ?? userLocation));
           changeState('MAP_PICK');
         }}
-        onSubmit={handleGeocodeAndProceed}
+        onSearchSubmit={handleGeocodeAndProceed}
         onAddressSelect={handleAddressSelect}
         onCustomLandmarkSelect={handleCustomLandmarkSelect}
         onDestinationReady={() => {
@@ -660,242 +608,109 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
           setIsStopSelectionMode(false);
           changeState('ORDER_SETUP');
         }}
-        fromPlaceholder={activeService === 'Курьер' ? 'Откуда забрать?' : 'Откуда?'}
-        toPlaceholder={activeService === 'Курьер' ? 'Куда доставить?' : 'Куда?'}
-        title={searchMode === 'stop' ? 'Добавить заезд' : activeService === 'Курьер' ? 'Доставка' : 'Маршрут'}
+        onMapPickConfirm={async () => {
+          if (mapCenter) {
+            const addrStr = await reverseGeocodeWithGoogle(mapCenter.lat, mapCenter.lng).catch(
+              () => 'Точка на карте',
+            );
+
+            if (mapPickTarget === 'stop') {
+              setStops((current) => [
+                ...current,
+                { address: addrStr, lat: mapCenter.lat, lng: mapCenter.lng },
+              ]);
+              await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
+              setIsStopSelectionMode(false);
+              setSearchMode('route');
+            } else if (mapPickTarget === 'from') {
+              setFromAddress(addrStr);
+              setFromCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
+              setFromLocationPrecision('EXACT');
+              await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
+            } else {
+              setToAddress(addrStr);
+              setToCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
+              setToLocationPrecision('EXACT');
+              await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
+            }
+          }
+          if (mapPickTarget === 'from' && !toAddress) {
+            setSearchMode('route');
+            changeState('SEARCH');
+            return;
+          }
+
+          setSearchMode('route');
+          changeState('ORDER_SETUP');
+        }}
+        onOrder={handleCreateRide}
+        onEditAddress={() => changeState('SEARCH')}
+        onOrderSetupClose={() => {
+          if (activeService === 'Курьер') {
+            resetCourierDraft();
+          } else {
+            resetTaxiDraft();
+          }
+          changeState('IDLE');
+        }}
+        setPrice={setOfferedPrice}
+        setComment={setComment}
+        onRequestAddStop={() => {
+          setIsStopSelectionMode(true);
+          setSearchMode('stop');
+          changeState('SEARCH');
+        }}
+        onRemoveStop={(indexToRemove) =>
+          setStops((current) => current.filter((_, index) => index !== indexToRemove))
+        }
+        setItemDescription={setCourierItemDescription}
+        setPackageWeight={setCourierPackageWeight}
+        setPackageSize={setCourierPackageSize}
+        onCancelSearching={() => {
+          void handleCancelSearchingRide();
+        }}
+        onShowSearchingDetails={() => setShowSearchingDetails(true)}
+        onHideSearchingDetails={() => setShowSearchingDetails(false)}
+        onOpenRideChat={
+          activeRide
+            ? () => {
+                navigation.navigate('ChatScreen', { rideId: activeRide.id });
+              }
+            : undefined
+        }
       />
 
-      {screenState === 'MAP_PICK' && (
-        <View style={styles.confirmMapPick}>
-          <TouchableOpacity
-            style={styles.zincMainBtn}
-            onPress={async () => {
-              if (mapCenter) {
-                const addrStr = await reverseGeocodeWithGoogle(mapCenter.lat, mapCenter.lng).catch(
-                  () => 'Точка на карте',
-                );
-
-                if (mapPickTarget === 'stop') {
-                  setStops((current) => [
-                    ...current,
-                    { address: addrStr, lat: mapCenter.lat, lng: mapCenter.lng },
-                  ]);
-                  await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
-                  setIsStopSelectionMode(false);
-                  setSearchMode('route');
-                } else if (mapPickTarget === 'from') {
-                  setFromAddress(addrStr);
-                  setFromCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
-                  setFromLocationPrecision('EXACT');
-                  await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
-                } else {
-                  setToAddress(addrStr);
-                  setToCoord({ lat: mapCenter.lat, lng: mapCenter.lng });
-                  setToLocationPrecision('EXACT');
-                  await saveRecentAddress(addrStr, mapCenter.lat, mapCenter.lng);
-                }
-              }
-              if (mapPickTarget === 'from' && !toAddress) {
-                setSearchMode('route');
-                changeState('SEARCH');
-                return;
-              }
-
-              setSearchMode('route');
-              changeState('ORDER_SETUP');
-            }}
-          >
-            <Text style={styles.zincMainBtnText}>Готово</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {screenState === 'ORDER_SETUP' ? (
-        <ConfirmationSheet
-          serviceType={activeService === 'Курьер' ? 'courier' : 'taxi'}
-          fromAddress={fromAddress}
-          toAddress={toAddress}
-          fromLocationPrecision={fromLocationPrecision}
-          toLocationPrecision={toLocationPrecision}
-          price={offeredPrice}
-          setPrice={setOfferedPrice}
-          onOrder={handleCreateRide}
-          onEditAddress={() => changeState('SEARCH')}
-          onSwipeDown={() => {
-            if (activeService === 'Курьер') {
-              resetCourierDraft();
-            } else {
-              resetTaxiDraft();
-            }
-            changeState('IDLE');
-          }}
-          loading={loading}
-          comment={comment}
-          setComment={setComment}
-          stops={stops}
-          onAddStop={() => {
-            if (!toAddress || !toCoord) {
-              Alert.alert('Сначала укажите адрес', 'Сначала выберите, куда едем, а потом добавляйте заезд.');
-              return;
-            }
-
-            setIsStopSelectionMode(true);
-            setSearchMode('stop');
-            changeState('SEARCH');
-          }}
-          isAddStopDisabled={!hasValidCoordinates(toCoord)}
-          onRemoveStop={(indexToRemove: number) =>
-            setStops((current) => current.filter((_, index) => index !== indexToRemove))
-          }
-          itemDescription={courierItemDescription}
-          setItemDescription={setCourierItemDescription}
-          packageWeight={courierPackageWeight}
-          setPackageWeight={setCourierPackageWeight}
-          packageSize={courierPackageSize}
-          setPackageSize={setCourierPackageSize}
-        />
-      ) : null}
-
-      {screenState === 'SEARCHING' && (
-        activeRide || activeCourierOrder ? (
-          isSearchingRide ? (
-            <>
-              <SearchingSheet
-                onCancel={() => {
-                  void handleCancelSearchingRide();
-                }}
-                onShowDetails={() => setShowSearchingDetails(true)}
-                title={activeService === 'Курьер' ? 'Ищем курьера...' : 'Ищем водителя'}
-              />
-
-              <SearchingDetailsSheet
-                visible={showSearchingDetails}
-                fromAddress={fromAddress}
-                toAddress={toAddress}
-                comment={comment}
-                stops={stops}
-                price={offeredPrice}
-                onClose={() => setShowSearchingDetails(false)}
-              />
-            </>
-          ) : (
-          <ActiveOrderSheet
-            activeRide={activeRide}
-            activeCourierOrder={activeCourierOrder}
-            etaSeconds={etaSeconds}
-            rideUnreadCount={activeRide ? (rideUnreadById[activeRide.id] ?? 0) : 0}
-            onCancel={() => {
-              void handleCancelSearchingRide();
-            }}
-            onOpenRideChat={
-              activeRide
-                ? () => {
-                    navigation.navigate('ChatScreen', { rideId: activeRide.id });
-                  }
-                : undefined
-            }
-          />
-          )
-        ) : (
-          <SearchingSheet
-            onCancel={() => {
-              void handleCancelSearchingRide();
-            }}
-            onShowDetails={() => setShowSearchingDetails(true)}
-            title={activeService === 'Курьер' ? 'Ищем курьера...' : 'Ищем водителя'}
-          />
-        )
-      )}
-
-      {!activeRide && !activeCourierOrder && screenState === 'SEARCHING' ? (
-        <SearchingDetailsSheet
-          visible={showSearchingDetails}
-          fromAddress={fromAddress}
-          toAddress={toAddress}
-          comment={comment}
-          stops={stops}
-          price={offeredPrice}
-          onClose={() => setShowSearchingDetails(false)}
-        />
-      ) : null}
-
-      {isMenuOpen && (
-        <Animated.View style={[styles.menuBackdrop, { opacity: menuBackdropOpacity }]}>
-          <Pressable style={{ flex: 1 }} onPress={() => toggleMenu(false)} />
-        </Animated.View>
-      )}
-      <Animated.View style={[styles.sideDrawer, { transform: [{ translateX: sideMenuAnim }] }]}>
-        <View style={styles.drawerHeader}>
-          <Text style={styles.drName}>{userProfile?.fullName || 'Загрузка...'}</Text>
-          <Text style={styles.drPhone}>{userProfile?.phone || ''}</Text>
-        </View>
-        <ScrollView style={{ padding: 20 }}>
-          <TouchableOpacity
-            style={styles.drawerItem}
-            onPress={() => {
-              toggleMenu(false);
-              navigation.navigate('Notifications');
-            }}
-          >
-            <View style={styles.drawerItemRow}>
-              <Text style={styles.drawerText}>Уведомления</Text>
-              {unreadNotificationsCount > 0 ? (
-                <View style={styles.drawerBadge}>
-                  <Text style={styles.drawerBadgeText}>
-                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.drawerItem}
-            onPress={() => {
-              toggleMenu(false);
-              navigation.navigate('Messages');
-            }}
-          >
-            <View style={styles.drawerItemRow}>
-              <Text style={styles.drawerText}>Сообщения</Text>
-              {unreadMessagesCount > 0 ? (
-                <View style={styles.drawerBadge}>
-                  <Text style={styles.drawerBadgeText}>
-                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.drawerItem}
-            onPress={() => {
-              toggleMenu(false);
-              navigation.navigate('RideHistory');
-            }}
-          >
-            <Text style={styles.drawerText}>История заказов</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.drawerItem}
-            onPress={() => {
-              toggleMenu(false);
-              navigation.navigate('FavoriteAddresses');
-            }}
-          >
-            <Text style={styles.drawerText}>Мои адреса</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.drawerItem, { marginTop: 20 }]}
-            onPress={async () => {
-              toggleMenu(false);
-              await logout();
-              navigation.replace('Login');
-            }}
-          >
-            <Text style={[styles.drawerText, { color: '#EF4444' }]}>Выйти</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </Animated.View>
+      <PassengerSideDrawer
+        visible={isMenuOpen}
+        sideMenuAnim={sideMenuAnim}
+        menuBackdropOpacity={menuBackdropOpacity}
+        fullName={userProfile?.fullName}
+        phone={userProfile?.phone}
+        unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
+        onClose={() => toggleMenu(false)}
+        onOpenNotifications={() => {
+          toggleMenu(false);
+          navigation.navigate('Notifications');
+        }}
+        onOpenMessages={() => {
+          toggleMenu(false);
+          navigation.navigate('Messages');
+        }}
+        onOpenRideHistory={() => {
+          toggleMenu(false);
+          navigation.navigate('RideHistory');
+        }}
+        onOpenFavoriteAddresses={() => {
+          toggleMenu(false);
+          navigation.navigate('FavoriteAddresses');
+        }}
+        onLogout={async () => {
+          toggleMenu(false);
+          await logout();
+          navigation.replace('Login');
+        }}
+      />
     </View>
   );
 };
@@ -938,132 +753,4 @@ const styles = StyleSheet.create({
   },
   chatToastTitle: { color: '#F4F4F5', fontSize: 13, fontWeight: '800', marginBottom: 4 },
   chatToastBody: { color: '#D4D4D8', fontSize: 14, fontWeight: '500' },
-  burgerBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 5,
-    backgroundColor: '#DC2626',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  burgerBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  ashenSearchCard: {
-    marginTop: 115,
-    marginHorizontal: 16,
-    backgroundColor: '#18181B',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#27272A',
-    elevation: 15,
-  },
-  ashenRow: { flexDirection: 'row', alignItems: 'center', height: 44 },
-  ashenInputText: { flex: 1, color: '#F4F4F5', fontSize: 16, fontWeight: '500' },
-  placeholderZinc: { color: '#71717A', fontSize: 16 },
-  zincDivider: { height: 1, backgroundColor: '#27272A', marginVertical: 4, marginLeft: 28 },
-  recenterBtn: {
-    position: 'absolute',
-    bottom: 160,
-    right: 20,
-    width: 50,
-    height: 50,
-    backgroundColor: '#18181B',
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#27272A',
-  },
-  activeRideBanner: {
-    position: 'absolute',
-    bottom: 110,
-    left: 20,
-    right: 20,
-    backgroundColor: '#10B981',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activeCourierBanner: {
-    backgroundColor: '#F59E0B',
-  },
-  dotGreen: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff', marginRight: 12 },
-  activeRideText: { color: '#fff', fontSize: 16, fontWeight: '700', flex: 1 },
-  activeRideArrow: { color: '#fff', fontSize: 24, fontWeight: '300', marginTop: -4 },
-  bottomAshenBar: {
-    position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  servicePill: { alignItems: 'center', width: 72 },
-  serviceCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: 'rgba(24,24,27,0.92)',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
-  },
-  serviceCircleActive: {
-    backgroundColor: '#F4F4F5',
-    borderColor: '#F4F4F5',
-  },
-  serviceIcon: { fontSize: 23 },
-  serviceLabel: { color: '#A1A1AA', fontSize: 12, fontWeight: '700', marginTop: 8, textAlign: 'center' },
-  serviceLabelActive: { color: '#F4F4F5' },
-  confirmMapPick: { position: 'absolute', bottom: 50, left: 20, right: 20, zIndex: 100 },
-  zincMainBtn: {
-    backgroundColor: '#F4F4F5',
-    height: 60,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  zincMainBtnText: { color: '#000', fontSize: 18, fontWeight: '800' },
-  menuBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 900 },
-  sideDrawer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: width * 0.8,
-    backgroundColor: '#09090B',
-    zIndex: 1000,
-    borderRightWidth: 1,
-    borderColor: '#18181B',
-  },
-  drawerHeader: { backgroundColor: '#18181B', padding: 28, paddingTop: 65 },
-  drName: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  drPhone: { color: '#71717A', fontSize: 15, marginTop: 6 },
-  drawerItem: { paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: '#18181B' },
-  drawerItemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  drawerText: { color: '#E4E4E7', fontSize: 17, fontWeight: '500' },
-  drawerBadge: {
-    minWidth: 28,
-    height: 28,
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    backgroundColor: '#DC2626',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  drawerBadgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  dotBlue: { width: 8, height: 8, backgroundColor: '#3B82F6', borderRadius: 4, marginRight: 15 },
-  squareRed: { width: 8, height: 8, backgroundColor: '#EF4444', marginRight: 15 },
 });

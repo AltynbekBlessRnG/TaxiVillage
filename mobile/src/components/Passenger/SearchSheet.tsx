@@ -76,6 +76,8 @@ export const SearchSheet: React.FC<Props> = ({
   const [activeField, setActiveField] = useState<'from' | 'to' | null>(null);
   const [recentAddresses, setRecentAddresses] = useState<RecentAddress[]>([]);
   const [stopAddress, setStopAddress] = useState('');
+  const [fromInputValue, setFromInputValue] = useState(fromAddress);
+  const [toInputValue, setToInputValue] = useState(toAddress);
   const fromInputRef = useRef<any>(null);
   const toInputRef = useRef<any>(null);
   const snapPoints = useMemo(() => ['86%'], []);
@@ -90,6 +92,8 @@ export const SearchSheet: React.FC<Props> = ({
 
     const targetField = mode === 'stop' ? 'to' : initialField;
     setActiveField(targetField);
+    setFromInputValue(fromAddress);
+    setToInputValue(toAddress);
     setSearchQuery(
       targetField === 'from'
         ? fromAddress
@@ -117,6 +121,22 @@ export const SearchSheet: React.FC<Props> = ({
       setTimeout(() => toInputRef.current?.focus?.(), 250);
     }
   }, [mode]);
+
+  useEffect(() => {
+    if (activeField !== 'from') {
+      setFromInputValue(fromAddress);
+    }
+  }, [activeField, fromAddress]);
+
+  useEffect(() => {
+    if (mode === 'stop') {
+      return;
+    }
+
+    if (activeField !== 'to') {
+      setToInputValue(toAddress);
+    }
+  }, [activeField, mode, toAddress]);
 
   useEffect(() => {
     if (!activeField || searchQuery.trim().length >= 3) {
@@ -160,6 +180,14 @@ export const SearchSheet: React.FC<Props> = ({
     lat: number,
     lng: number,
   ) => {
+    if (field === 'from') {
+      setFromInputValue(address);
+    } else if (isStopSelectionMode) {
+      setStopAddress('');
+    } else {
+      setToInputValue(address);
+    }
+
     onAddressSelect(field, address, lat, lng);
     await saveRecentAddress(address, lat, lng);
     setSearchQuery('');
@@ -221,6 +249,11 @@ export const SearchSheet: React.FC<Props> = ({
     }
 
     const selectedField = activeField;
+    if (selectedField === 'from') {
+      setFromInputValue(normalized);
+    } else {
+      setToInputValue(normalized);
+    }
     onCustomLandmarkSelect?.(activeField, normalized);
     setSearchQuery('');
     setSearchResults([]);
@@ -350,8 +383,9 @@ export const SearchSheet: React.FC<Props> = ({
                     <BottomSheetTextInput
                       ref={fromInputRef}
                       style={[styles.inputField, styles.inputFieldFlex]}
-                      value={fromAddress}
+                      value={fromInputValue}
                       onChangeText={(text) => {
+                        setFromInputValue(text);
                         setFromAddress(text);
                         if (activeField === 'from') {
                           setSearchQuery(text);
@@ -359,7 +393,7 @@ export const SearchSheet: React.FC<Props> = ({
                       }}
                       onFocus={() => {
                         setActiveField('from');
-                        setSearchQuery(fromAddress);
+                        setSearchQuery(fromInputValue);
                       }}
                       placeholder={fromPlaceholder}
                       placeholderTextColor="#52525B"
@@ -381,18 +415,19 @@ export const SearchSheet: React.FC<Props> = ({
                   style={[styles.inputField, styles.inputFieldFlex]}
                   placeholder={mode === 'stop' ? 'Адрес заезда...' : toPlaceholder}
                   placeholderTextColor="#52525B"
-                  value={mode === 'stop' ? stopAddress : toAddress}
+                  value={mode === 'stop' ? stopAddress : toInputValue}
                   onChangeText={(text) => {
                     if (isStopSelectionMode) {
                       setStopAddress(text);
                     } else {
+                      setToInputValue(text);
                       setToAddress(text);
                     }
                     setSearchQuery(text);
                   }}
                   onFocus={() => {
                     setActiveField('to');
-                    setSearchQuery(mode === 'stop' ? stopAddress : toAddress);
+                    setSearchQuery(mode === 'stop' ? stopAddress : toInputValue);
                   }}
                   returnKeyType="done"
                   onSubmitEditing={handleToSubmit}

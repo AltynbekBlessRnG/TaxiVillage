@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  DocumentType,
+  DriverStatus,
   DriverMode,
   IntercityOrderStatus,
   IntercityBookingStatus,
@@ -442,7 +444,7 @@ export class IntercityTripsService {
   private async requireDriver(userId: string, requireIntercity = false) {
     const driver = await this.prisma.driverProfile.findUnique({
       where: { userId },
-      include: { car: true },
+      include: { car: true, documents: true },
     });
     if (!driver) {
       throw new NotFoundException('Driver profile not found');
@@ -450,6 +452,29 @@ export class IntercityTripsService {
     if (requireIntercity && !driver.supportsIntercity) {
       throw new ForbiddenException('Межгородний режим недоступен для этого водителя');
     }
+
+    if (requireIntercity) {
+      if (driver.status !== DriverStatus.APPROVED) {
+        throw new ForbiddenException('Сначала получите одобрение профиля');
+      }
+
+      if (!driver.car || !driver.car.make || !driver.car.model || !driver.car.color || !driver.car.plateNumber) {
+        throw new ForbiddenException('Для межгорода нужно заполнить автомобиль');
+      }
+
+      const approvedDocuments = driver.documents.filter((doc) => doc.approved);
+      const hasDriverLicense = approvedDocuments.some((doc) => doc.type === DocumentType.DRIVER_LICENSE);
+      const hasCarRegistration = approvedDocuments.some((doc) => doc.type === DocumentType.CAR_REGISTRATION);
+
+      if (!hasDriverLicense) {
+        throw new ForbiddenException('Для межгорода нужно загрузить водительское удостоверение');
+      }
+
+      if (!hasCarRegistration) {
+        throw new ForbiddenException('Для межгорода нужно загрузить СТС');
+      }
+    }
+
     return driver;
   }
 

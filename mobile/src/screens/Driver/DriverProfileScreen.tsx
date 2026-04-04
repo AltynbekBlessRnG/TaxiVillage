@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -65,20 +64,30 @@ const ReadinessCard: React.FC<{
     style={[
       styles.readinessCard,
       ready ? styles.readinessCardReady : styles.readinessCardPending,
-      { borderColor: ready ? accent : '#27272A' },
+      { borderColor: ready ? '#27272A' : accent },
     ]}
   >
+    {!ready ? <View style={[styles.readinessAccentBar, { backgroundColor: accent }]} /> : null}
     <View style={styles.readinessHeader}>
-      <View>
+      <View style={styles.readinessCopy}>
         <Text style={styles.readinessTitle}>{title}</Text>
         <Text style={styles.readinessSubtitle}>{subtitle}</Text>
       </View>
-      <View style={[styles.readinessBadge, ready && { backgroundColor: accent }]}>
-        <Text style={[styles.readinessBadgeText, ready && styles.readinessBadgeTextReady]}>{badge}</Text>
+      <View
+        style={[
+          styles.readinessBadge,
+          ready
+            ? { backgroundColor: accent, borderColor: accent }
+            : { backgroundColor: `${accent}22`, borderColor: accent },
+        ]}
+      >
+        <Text style={[styles.readinessBadgeText, ready && styles.readinessBadgeTextReady]}>
+          {badge}
+        </Text>
       </View>
     </View>
     {steps.length === 0 ? (
-      <Text style={styles.readyText}>Все готово. Можно выходить на линию в этом режиме.</Text>
+      <Text style={styles.readyText}>Можно выходить на линию.</Text>
     ) : (
       steps.map((step) => (
         <View key={`${title}-${step}`} style={styles.stepRow}>
@@ -119,13 +128,6 @@ const PillButton: React.FC<{
 export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<DriverProfileData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [carMake, setCarMake] = useState('');
-  const [carModel, setCarModel] = useState('');
-  const [carColor, setCarColor] = useState('');
-  const [carPlate, setCarPlate] = useState('');
   const [updatingIntercity, setUpdatingIntercity] = useState(false);
   const [updatingCourier, setUpdatingCourier] = useState(false);
   const [courierTransportType, setCourierTransportType] = useState<'CAR' | 'BIKE' | 'FOOT'>('FOOT');
@@ -135,15 +137,15 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const hasApprovedRegistration = approvedDocuments.some((doc) => doc.type === 'CAR_REGISTRATION');
   const hasApprovedCourierId = approvedDocuments.some((doc) => doc.type === 'COURIER_ID');
   const hasCarInfo = !!(profile?.car?.make && profile?.car?.model && profile?.car?.color && profile?.car?.plateNumber);
-  const isCourierCar = courierTransportType === 'CAR';
+  const courierNeedsVehicleDocs = courierTransportType !== 'FOOT';
 
   const taxiSteps = useMemo(
     () =>
       [
-        profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
-        !hasCarInfo ? 'Заполните автомобиль: марка, модель, цвет и номер.' : null,
-        !hasApprovedLicense ? 'Загрузите водительское удостоверение и дождитесь проверки.' : null,
-        !hasApprovedRegistration ? 'Загрузите СТС и дождитесь проверки.' : null,
+        profile?.status !== 'APPROVED' ? 'Нужно одобрение' : null,
+        !hasCarInfo ? 'Заполните авто' : null,
+        !hasApprovedLicense ? 'Загрузите права' : null,
+        !hasApprovedRegistration ? 'Загрузите СТС' : null,
       ].filter(Boolean) as string[],
     [hasApprovedLicense, hasApprovedRegistration, hasCarInfo, profile?.status],
   );
@@ -151,20 +153,30 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const courierSteps = useMemo(
     () =>
       [
-        profile?.status !== 'APPROVED' ? 'Дождитесь одобрения аккаунта администратором.' : null,
-        !profile?.supportsCourier ? 'Включите курьерский режим ниже.' : null,
-        !hasApprovedCourierId ? 'Загрузите ID курьера и дождитесь проверки.' : null,
-        isCourierCar && !hasCarInfo ? 'Для автокурьера заполните автомобиль.' : null,
+        profile?.status !== 'APPROVED' ? 'Нужно одобрение' : null,
+        !profile?.supportsCourier ? 'Включите курьера' : null,
+        !hasApprovedCourierId ? 'Загрузите удостоверение' : null,
+        courierNeedsVehicleDocs && !hasCarInfo ? 'Заполните авто' : null,
+        courierNeedsVehicleDocs && !hasApprovedLicense ? 'Загрузите права' : null,
+        courierNeedsVehicleDocs && !hasApprovedRegistration ? 'Загрузите СТС' : null,
       ].filter(Boolean) as string[],
-    [hasApprovedCourierId, hasCarInfo, isCourierCar, profile?.status, profile?.supportsCourier],
+    [
+      courierNeedsVehicleDocs,
+      hasApprovedCourierId,
+      hasApprovedLicense,
+      hasApprovedRegistration,
+      hasCarInfo,
+      profile?.status,
+      profile?.supportsCourier,
+    ],
   );
 
   const intercitySteps = useMemo(
     () =>
       [
-        profile?.status !== 'APPROVED' ? 'Межгород доступен только после одобрения аккаунта.' : null,
-        !profile?.supportsIntercity ? 'Включите межгородний режим ниже.' : null,
-        !hasCarInfo ? 'Для межгорода нужен автомобиль в профиле.' : null,
+        profile?.status !== 'APPROVED' ? 'Нужно одобрение' : null,
+        !profile?.supportsIntercity ? 'Включите межгород' : null,
+        !hasCarInfo ? 'Заполните авто' : null,
       ].filter(Boolean) as string[],
     [hasCarInfo, profile?.status, profile?.supportsIntercity],
   );
@@ -199,7 +211,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 
     return {
       title: 'Профиль готов',
-      step: 'Все основные требования закрыты. Можно спокойно работать в нужном режиме.',
+      step: 'Все готово к работе.',
       accent: '#22C55E',
     };
   }, [courierSteps, intercitySteps, taxiSteps]);
@@ -210,11 +222,15 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       hasApprovedLicense,
       hasApprovedRegistration,
       profile?.supportsCourier ? hasApprovedCourierId : true,
+      profile?.supportsCourier && courierNeedsVehicleDocs ? hasCarInfo : true,
+      profile?.supportsCourier && courierNeedsVehicleDocs ? hasApprovedLicense : true,
+      profile?.supportsCourier && courierNeedsVehicleDocs ? hasApprovedRegistration : true,
       profile?.supportsIntercity ? hasCarInfo : true,
     ];
     const passed = checks.filter(Boolean).length;
     return Math.round((passed / checks.length) * 100);
   }, [
+    courierNeedsVehicleDocs,
     hasApprovedCourierId,
     hasApprovedLicense,
     hasApprovedRegistration,
@@ -234,57 +250,11 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       const res = await apiClient.get('/drivers/profile');
       const data = res.data;
       setProfile(data);
-      setFullName(data.fullName || '');
-      setCarMake(data.car?.make || '');
-      setCarModel(data.car?.model || '');
-      setCarColor(data.car?.color || '');
-      setCarPlate(data.car?.plateNumber || '');
       setCourierTransportType(data.courierTransportType || 'FOOT');
     } catch {
       Alert.alert('Ошибка', 'Не удалось загрузить профиль водителя');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const saveCar = async () => {
-    if (!carMake.trim() || !carModel.trim() || !carColor.trim() || !carPlate.trim()) {
-      Alert.alert('Ошибка', 'Заполните все поля автомобиля');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      await apiClient.post('/drivers/car', {
-        make: carMake.trim(),
-        model: carModel.trim(),
-        color: carColor.trim(),
-        plateNumber: carPlate.trim().toUpperCase(),
-      });
-      await loadProfile();
-      Alert.alert('Готово', 'Данные автомобиля обновлены');
-    } catch (e: any) {
-      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось сохранить автомобиль');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveBasicProfile = async () => {
-    if (!fullName.trim()) {
-      Alert.alert('Ошибка', 'Укажи имя для профиля');
-      return;
-    }
-
-    try {
-      setSavingProfile(true);
-      await apiClient.patch('/drivers/profile', { fullName: fullName.trim() });
-      await loadProfile();
-      Alert.alert('Готово', 'Имя профиля обновлено');
-    } catch (e: any) {
-      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось обновить имя');
-    } finally {
-      setSavingProfile(false);
     }
   };
 
@@ -447,9 +417,6 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Данные и документы</Text>
-            <Text style={styles.sectionSubtitle}>
-              Имя профиля, телефон, автомобиль и все документы теперь вынесены в отдельную удобную страницу.
-            </Text>
 
             <View style={styles.documentsSummaryCard}>
               <Text style={styles.documentsSummaryTitle}>
@@ -471,7 +438,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Готовность к работе</Text>
             <Text style={styles.sectionSubtitle}>
-              Здесь сразу видно, чего не хватает для выхода на линию в каждом режиме.
+              Что нужно для выхода на линию.
             </Text>
 
             <ReadinessCard
@@ -480,16 +447,20 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               ready={taxiReady}
               accent="#22C55E"
               steps={taxiSteps}
-              badge={taxiReady ? 'Готов' : 'Нужно доделать'}
+              badge={taxiReady ? 'Готов' : 'Не готов'}
             />
 
             <ReadinessCard
               title="Курьер"
-              subtitle={`Тип доставки: ${TRANSPORT_LABELS[courierTransportType]}`}
+              subtitle={
+                courierTransportType === 'FOOT'
+                  ? 'Пеший • удостоверение личности'
+                  : `${TRANSPORT_LABELS[courierTransportType]} • авто и документы`
+              }
               ready={courierReady}
               accent="#F59E0B"
               steps={courierSteps}
-              badge={courierReady ? 'Готов' : 'Нужно доделать'}
+              badge={courierReady ? 'Готов' : 'Не готов'}
             />
 
             <ReadinessCard
@@ -498,15 +469,12 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               ready={intercityReady}
               accent="#38BDF8"
               steps={intercitySteps}
-              badge={intercityReady ? 'Готов' : 'Нужно доделать'}
+              badge={intercityReady ? 'Готов' : 'Не готов'}
             />
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Режимы работы</Text>
-            <Text style={styles.sectionSubtitle}>
-              Управляй тем, какие сценарии доступны в общем worker-аккаунте.
-            </Text>
 
             <View style={styles.modeCard}>
               <Text style={styles.modeTitle}>Такси</Text>
@@ -549,7 +517,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                   <Text style={styles.modeTitle}>Межгород</Text>
                   <Text style={styles.modeValue}>
                     {profile?.supportsIntercity
-                      ? 'Включен • можно публиковать рейсы'
+                      ? 'Включен • рейсы доступны'
                       : 'Выключен'}
                   </Text>
                 </View>
@@ -567,53 +535,6 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                 />
               </View>
             </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Автомобиль</Text>
-            <Text style={styles.sectionSubtitle}>
-              Эти данные нужны для такси, автокурьера и межгорода.
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Марка"
-              placeholderTextColor="#71717A"
-              value={carMake}
-              onChangeText={setCarMake}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Модель"
-              placeholderTextColor="#71717A"
-              value={carModel}
-              onChangeText={setCarModel}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Цвет"
-              placeholderTextColor="#71717A"
-              value={carColor}
-              onChangeText={setCarColor}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Номер"
-              placeholderTextColor="#71717A"
-              value={carPlate}
-              onChangeText={setCarPlate}
-              autoCapitalize="characters"
-            />
-
-            <TouchableOpacity
-              style={[styles.primaryButton, saving && styles.disabledButton]}
-              onPress={saveCar}
-              disabled={saving}
-            >
-              <Text style={styles.primaryButtonText}>
-                {saving ? 'Сохраняем...' : 'Сохранить автомобиль'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
         </ScrollView>
@@ -807,6 +728,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   readinessCard: {
+    position: 'relative',
+    overflow: 'hidden',
     borderRadius: 20,
     borderWidth: 1,
     padding: 14,
@@ -821,8 +744,20 @@ const styles = StyleSheet.create({
   readinessHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: 10,
     marginBottom: 10,
+  },
+  readinessAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+  },
+  readinessCopy: {
+    flex: 1,
+    paddingRight: 8,
   },
   readinessTitle: {
     color: '#F4F4F5',
@@ -836,7 +771,7 @@ const styles = StyleSheet.create({
   },
   readinessBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#27272A',
+    borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -882,7 +817,7 @@ const styles = StyleSheet.create({
   modeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
   },
   modeTitle: {
@@ -895,6 +830,7 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     fontSize: 13,
     lineHeight: 18,
+    maxWidth: 180,
   },
   transportRow: {
     flexDirection: 'row',
@@ -912,8 +848,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pillButtonActive: {
-    backgroundColor: '#27272A',
-    borderColor: '#52525B',
+    backgroundColor: '#F4F4F5',
+    borderColor: '#FFFFFF',
   },
   pillButtonText: {
     color: '#A1A1AA',
@@ -921,18 +857,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   pillButtonTextActive: {
-    color: '#F4F4F5',
-  },
-  input: {
-    backgroundColor: '#09090B',
-    color: '#F4F4F5',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    borderRadius: 16,
-    marginBottom: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#27272A',
+    color: '#09090B',
   },
   primaryButton: {
     backgroundColor: '#F4F4F5',

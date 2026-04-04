@@ -118,6 +118,10 @@ export async function clearReadNotifications(): Promise<AppNotificationItem[]> {
   return persistNotificationsInbox(next);
 }
 
+export async function resetNotificationsInbox(): Promise<AppNotificationItem[]> {
+  return persistNotificationsInbox([]);
+}
+
 export function subscribeNotificationsInbox(listener: NotificationsListener): () => void {
   listeners.add(listener);
   return () => {

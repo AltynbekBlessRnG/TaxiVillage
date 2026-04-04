@@ -272,12 +272,13 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
           <View
             key={category.id}
             style={styles.section}
-            onLayout={(event) =>
+            onLayout={(event) => {
+              const { y } = event.nativeEvent.layout;
               setCategoryOffsets((current) => ({
                 ...current,
-                [category.id]: event.nativeEvent.layout.y,
-              }))
-            }
+                [category.id]: y,
+              }));
+            }}
           >
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{category.name}</Text>

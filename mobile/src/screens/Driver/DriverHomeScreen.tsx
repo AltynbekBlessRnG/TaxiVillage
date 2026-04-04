@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
+  Modal,
   Platform,
   StatusBar,
   StyleSheet,
@@ -66,6 +66,17 @@ interface RideOffer {
 }
 
 export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
+  type DriverModalState = {
+    visible: boolean;
+    title: string;
+    message: string;
+    primaryLabel: string;
+    secondaryLabel?: string;
+    primaryVariant?: 'light' | 'danger';
+    onPrimary?: (() => void | Promise<void>) | null;
+    onSecondary?: (() => void | Promise<void>) | null;
+  };
+
   const isFocused = useIsFocused();
   const [isOnline, setIsOnline] = useState(false);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
@@ -85,6 +96,12 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [courierRoute, setCourierRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [driverRoute, setDriverRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [metrics, setMetrics] = useState<any>(null);
+  const [driverModal, setDriverModal] = useState<DriverModalState>({
+    visible: false,
+    title: '',
+    message: '',
+    primaryLabel: 'Понятно',
+  });
   const { unreadCount: unreadNotificationsCount } = useNotificationsInbox();
   const { unreadCount: unreadMessagesCount, refresh: refreshMessagesSummary } = useMessagesSummary({ autoRefresh: false });
 
@@ -200,24 +217,58 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       .catch(() => null);
   }, [isFocused]);
 
+  const closeDriverModal = useCallback(() => {
+    setDriverModal((current) => ({
+      ...current,
+      visible: false,
+      onPrimary: null,
+      onSecondary: null,
+    }));
+  }, []);
+
+  const openDriverModal = useCallback((config: Omit<DriverModalState, 'visible'>) => {
+    setDriverModal({
+      visible: true,
+      ...config,
+    });
+  }, []);
+
   const ensureBackgroundPermissions = useCallback(async () => {
     const foreground = await Location.requestForegroundPermissionsAsync();
     if (foreground.status !== 'granted') {
-      Alert.alert('Доступ к геолокации', 'Разрешите доступ к геолокации, чтобы выйти на линию.');
+      openDriverModal({
+        title: 'Доступ к геолокации',
+        message: 'Разрешите доступ к геолокации, чтобы выйти на линию.',
+        primaryLabel: 'Понятно',
+      });
       return false;
     }
 
     const background = await Location.requestBackgroundPermissionsAsync();
     if (background.status !== 'granted') {
-      Alert.alert(
-        'Фоновая геолокация',
-        'Для работы водителя нужно разрешение Always Allow / фоновая геолокация.',
-      );
+      openDriverModal({
+        title: 'Фоновая геолокация',
+        message: 'Для работы водителя нужно разрешение Always Allow / фоновая геолокация.',
+        primaryLabel: 'Понятно',
+      });
       return false;
     }
 
     return true;
-  }, []);
+  }, [openDriverModal]);
+
+  const openProfileActionModal = useCallback(
+    (title: string, message: string) => {
+      openDriverModal({
+        title,
+        message,
+        primaryLabel: 'Открыть профиль',
+        secondaryLabel: 'Позже',
+        onPrimary: () => navigation.navigate('DriverProfile'),
+      });
+    },
+    [navigation, openDriverModal],
+  );
 
   const toggleOnline = useCallback(
     async (value: boolean) => {
@@ -270,13 +321,21 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           if (e?.response?.status === 401) {
             errorMessage = 'Сессия устарела. Попробуйте открыть приложение заново или войти еще раз.';
           }
-          if (errorMessage.includes('не одобрен')) errorMessage = '⏳ Ваш аккаунт ожидает подтверждения.';
-          else if (errorMessage.includes('автомобиле')) errorMessage = '🚗 Заполните информацию об авто в профиле.';
-          else if (errorMessage.includes('удостоверения')) errorMessage = '📄 Загрузите фото прав в профиле.';
+          if (errorMessage.includes('не одобрен') || errorMessage.includes('одобрение профиля')) {
+            errorMessage = 'Аккаунт еще не одобрен. Откройте профиль и проверьте документы.';
+          } else if (errorMessage.includes('автомобиле') || errorMessage.includes('автомобиль')) {
+            errorMessage = 'Заполните автомобиль в профиле, чтобы выйти на линию.';
+          } else if (
+            errorMessage.includes('удостоверения') ||
+            errorMessage.includes('водительское удостоверение') ||
+            errorMessage.includes('СТС')
+          ) {
+            errorMessage = 'Загрузите документы в профиле и дождитесь проверки.';
+          }
 
           await stopDriverBackgroundTracking().catch(() => {});
           setIsOnline(false);
-          Alert.alert('Ошибка', errorMessage, [{ text: 'Понятно' }]);
+          openProfileActionModal('Профиль не готов', errorMessage);
         }
         return;
       }
@@ -296,7 +355,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         // Ignore offline cleanup errors.
       }
     },
-    [ensureBackgroundPermissions, profile?.driverMode],
+    [ensureBackgroundPermissions, openProfileActionModal, profile?.driverMode],
   );
 
   const handleLogout = useCallback(async () => {
@@ -317,11 +376,15 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const switchDriverMode = useCallback(
     async (driverMode: 'TAXI' | 'COURIER' | 'INTERCITY') => {
-      try {
-        if (currentRideId || currentCourierOrder || currentIntercityTrip) {
-          Alert.alert('Активный заказ', 'Сначала завершите текущий активный заказ или рейс.');
-          return;
-        }
+        try {
+          if (currentRideId || currentCourierOrder || currentIntercityTrip) {
+            openDriverModal({
+              title: 'Активный заказ',
+              message: 'Сначала завершите текущий активный заказ или рейс.',
+              primaryLabel: 'Понятно',
+            });
+            return;
+          }
         const response = await apiClient.post('/drivers/mode', { driverMode });
         setProfile(response.data);
         if (driverMode === 'INTERCITY') {
@@ -335,16 +398,24 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         await loadDriverShell(true);
       } catch (error: any) {
         const message = error?.response?.data?.message || 'Не удалось переключить режим';
-        Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+        openDriverModal({
+          title: 'Ошибка',
+          message: Array.isArray(message) ? message.join(', ') : message,
+          primaryLabel: 'Понятно',
+        });
       }
     },
-    [currentCourierOrder, currentIntercityTrip, currentRideId, loadDriverShell],
+    [currentCourierOrder, currentIntercityTrip, currentRideId, loadDriverShell, openDriverModal],
   );
 
   const openIntercityHub = useCallback(async () => {
     try {
       if (currentRideId || currentCourierOrder) {
-        Alert.alert('Активный заказ', 'Сначала завершите текущую поездку или доставку.');
+        openDriverModal({
+          title: 'Активный заказ',
+          message: 'Сначала завершите текущую поездку или доставку.',
+          primaryLabel: 'Понятно',
+        });
         return;
       }
 
@@ -356,9 +427,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       await loadDriverShell(true);
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось открыть межгород';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      openDriverModal({
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+        primaryLabel: 'Понятно',
+      });
     }
-  }, [currentCourierOrder, currentRideId, loadDriverShell, profile?.driverMode]);
+  }, [currentCourierOrder, currentRideId, loadDriverShell, openDriverModal, profile?.driverMode]);
 
   const callPhone = useCallback(async (phone?: string | null) => {
     if (!phone) {
@@ -368,12 +443,16 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     const telUrl = `tel:${phone}`;
     const canOpen = await Linking.canOpenURL(telUrl);
     if (!canOpen) {
-      Alert.alert('Не удалось позвонить', 'Телефонное приложение недоступно на этом устройстве.');
+      openDriverModal({
+        title: 'Не удалось позвонить',
+        message: 'Телефонное приложение недоступно на этом устройстве.',
+        primaryLabel: 'Понятно',
+      });
       return;
     }
 
     await Linking.openURL(telUrl);
-  }, []);
+  }, [openDriverModal]);
 
   const acceptRide = useCallback(
     async (rideId: string) => {
@@ -384,10 +463,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         setCurrentRideId(rideId);
         setCurrentRide(rideRes.data ?? null);
       } catch {
-        Alert.alert('Ошибка', 'Не удалось принять заказ');
+        openDriverModal({
+          title: 'Ошибка',
+          message: 'Не удалось принять заказ',
+          primaryLabel: 'Понятно',
+        });
       }
     },
-    [],
+    [openDriverModal],
   );
 
   const rejectRide = useCallback(async (rideId: string) => {
@@ -406,10 +489,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         await loadDriverShell(true);
       } catch (error: any) {
         const message = error?.response?.data?.message || 'Не удалось принять доставку';
-        Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+        openDriverModal({
+          title: 'Ошибка',
+          message: Array.isArray(message) ? message.join(', ') : message,
+          primaryLabel: 'Понятно',
+        });
       }
     },
-    [loadDriverShell],
+    [loadDriverShell, openDriverModal],
   );
 
   const updateRideStatus = useCallback(
@@ -424,10 +511,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         setCurrentRide(rideRes.data ?? null);
       } catch (error: any) {
         const message = error?.response?.data?.message || 'Не удалось обновить статус поездки';
-        Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+        openDriverModal({
+          title: 'Ошибка',
+          message: Array.isArray(message) ? message.join(', ') : message,
+          primaryLabel: 'Понятно',
+        });
       }
     },
-    [currentRideId],
+    [currentRideId, openDriverModal],
   );
 
   const completeRide = useCallback(async () => {
@@ -442,34 +533,42 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       await loadDriverShell(true);
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось завершить поездку';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      openDriverModal({
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+        primaryLabel: 'Понятно',
+      });
     }
-  }, [currentRideId, loadDriverShell]);
+  }, [currentRideId, loadDriverShell, openDriverModal]);
 
   const cancelRide = useCallback(() => {
     if (!currentRideId) {
       return;
     }
 
-    Alert.alert('Отмена заказа', 'Вы уверены, что хотите отменить этот заказ?', [
-      { text: 'Нет', style: 'cancel' },
-      {
-        text: 'Да, отменить',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await apiClient.post(`/rides/${currentRideId}/status`, { status: 'CANCELED' });
-            setCurrentRideId(null);
-            setCurrentRide(null);
-            await loadDriverShell(true);
-          } catch (error: any) {
-            const message = error?.response?.data?.message || 'Не удалось отменить заказ';
-            Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
-          }
-        },
+    openDriverModal({
+      title: 'Отменить заказ?',
+      message: 'Заказ будет снят, а пассажир увидит отмену.',
+      primaryLabel: 'Отменить заказ',
+      secondaryLabel: 'Назад',
+      primaryVariant: 'danger',
+      onPrimary: async () => {
+        try {
+          await apiClient.post(`/rides/${currentRideId}/status`, { status: 'CANCELED' });
+          setCurrentRideId(null);
+          setCurrentRide(null);
+          await loadDriverShell(true);
+        } catch (error: any) {
+          const message = error?.response?.data?.message || 'Не удалось отменить заказ';
+          openDriverModal({
+            title: 'Ошибка',
+            message: Array.isArray(message) ? message.join(', ') : message,
+            primaryLabel: 'Понятно',
+          });
+        }
       },
-    ]);
-  }, [currentRideId, loadDriverShell]);
+    });
+  }, [currentRideId, loadDriverShell, openDriverModal]);
 
   const updateCourierStatus = useCallback(
     async (status: string) => {
@@ -485,10 +584,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         await loadDriverShell(true);
       } catch (error: any) {
         const message = error?.response?.data?.message || 'Не удалось обновить статус доставки';
-        Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+        openDriverModal({
+          title: 'Ошибка',
+          message: Array.isArray(message) ? message.join(', ') : message,
+          primaryLabel: 'Понятно',
+        });
       }
     },
-    [currentCourierOrder?.id, loadDriverShell],
+    [currentCourierOrder?.id, loadDriverShell, openDriverModal],
   );
 
   useEffect(() => {
@@ -545,7 +648,11 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           if (ride.status === 'CANCELED') {
             if (incomingOffer?.id === ride.id) {
               setIncomingOffer(null);
-              Alert.alert('Заказ отменен', 'Пассажир отменил заказ');
+              openDriverModal({
+                title: 'Заказ отменен',
+                message: 'Пассажир отменил заказ.',
+                primaryLabel: 'Понятно',
+              });
             }
             setCurrentRideId(null);
             setCurrentRide(null);
@@ -588,7 +695,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       cleanupListeners?.();
       socket?.disconnect();
     };
-  }, [incomingOffer?.id, isOnline, profile?.driverMode]);
+  }, [incomingOffer?.id, isOnline, openDriverModal, profile?.driverMode]);
 
   useEffect(() => {
     let socket: ReturnType<typeof createCourierOrdersSocket> | null = null;
@@ -1088,6 +1195,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           currentRide={currentRide}
           profile={profile}
           metrics={metrics}
+          onOpenToday={() => navigation.navigate('RideHistory')}
           onSwitchMode={switchDriverMode}
           currentCourierOrder={currentCourierOrder}
           availableCourierOrders={currentModeIsCourier ? availableCourierOrders : []}
@@ -1119,6 +1227,56 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         }}
         onLogout={handleLogout}
       />
+
+      <Modal
+        visible={driverModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDriverModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{driverModal.title}</Text>
+            <Text style={styles.modalText}>{driverModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.modalPrimaryButton,
+                driverModal.primaryVariant === 'danger' && styles.modalPrimaryButtonDanger,
+              ]}
+              onPress={() => {
+                const action = driverModal.onPrimary;
+                closeDriverModal();
+                if (action) {
+                  void action();
+                }
+              }}
+            >
+              <Text
+                style={[
+                  styles.modalPrimaryButtonText,
+                  driverModal.primaryVariant === 'danger' && styles.modalPrimaryButtonTextDanger,
+                ]}
+              >
+                {driverModal.primaryLabel}
+              </Text>
+            </TouchableOpacity>
+            {driverModal.secondaryLabel ? (
+              <TouchableOpacity
+                style={styles.modalSecondaryButton}
+                onPress={() => {
+                  const action = driverModal.onSecondary;
+                  closeDriverModal();
+                  if (action) {
+                    void action();
+                  }
+                }}
+              >
+                <Text style={styles.modalSecondaryButtonText}>{driverModal.secondaryLabel}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1173,6 +1331,62 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   toggleText: { color: '#F4F4F5', fontSize: 14, fontWeight: '600', marginRight: 10 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(9,9,11,0.72)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#111113',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 20,
+  },
+  modalTitle: {
+    color: '#F4F4F5',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  modalText: {
+    color: '#D4D4D8',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  modalPrimaryButton: {
+    backgroundColor: '#F4F4F5',
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalPrimaryButtonText: {
+    color: '#09090B',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  modalPrimaryButtonDanger: {
+    backgroundColor: '#7F1D1D',
+  },
+  modalPrimaryButtonTextDanger: {
+    color: '#FECACA',
+  },
+  modalSecondaryButton: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalSecondaryButtonText: {
+    color: '#F4F4F5',
+    fontSize: 15,
+    fontWeight: '800',
+  },
   recenterBtn: {
     position: 'absolute',
     bottom: 160,
