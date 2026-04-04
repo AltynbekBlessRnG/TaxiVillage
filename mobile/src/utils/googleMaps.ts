@@ -161,23 +161,15 @@ export async function searchGooglePlaces(
     `&language=ru` +
     `&components=country:kz` +
     `&location=${anchor.lat},${anchor.lng}` +
-    `&radius=10000` +
-    `&types=address` +
-    `&strictbounds=true`;
+    `&radius=50000` +
+    `&types=geocode`;
 
   const data = await fetchGoogleJson<GoogleAutocompleteResponse>(url);
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     throw new Error(data.error_message || `Google autocomplete status: ${data.status}`);
   }
 
-  const predictions = data.predictions ?? [];
-  const almatyPredictions = predictions.filter(
-    (prediction) =>
-      isAlmatyText(prediction.structured_formatting?.secondary_text) ||
-      isAlmatyText(prediction.description),
-  );
-
-  return almatyPredictions.length > 0 ? almatyPredictions : predictions;
+  return data.predictions ?? [];
 }
 
 export async function getGooglePlaceDetails(placeId: string) {
@@ -239,8 +231,7 @@ export async function geocodeAddressWithGoogle(
     `&key=${encodeURIComponent(apiKey)}` +
     `&language=ru` +
     `&region=kz` +
-    `&bounds=43.1,76.7|43.4,77.1` +
-    `&components=country:KZ|locality:Almaty`;
+    `&components=country:KZ`;
 
   const data = await fetchGoogleJson<GoogleGeocodeResponse>(url);
   if (data.status !== 'OK' || !data.results?.length) {
@@ -248,7 +239,6 @@ export async function geocodeAddressWithGoogle(
   }
 
   const preferredResult =
-    data.results.find((result) => isAlmatyText(result.formatted_address)) ??
     data.results.find((result) =>
       result.types?.some((type) =>
         ['street_address', 'premise', 'subpremise', 'route', 'intersection'].includes(type),

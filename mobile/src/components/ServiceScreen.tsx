@@ -14,7 +14,7 @@ type ServiceScreenProps = {
   accentColor: string;
   eyebrow: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   backLabel?: string;
   onBack?: () => void;
   children: React.ReactNode;
@@ -52,7 +52,7 @@ export const ServiceScreen: React.FC<ServiceScreenProps> = ({
             </View>
           </View>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           <View style={styles.headerDivider} />
         </View>
         {children}

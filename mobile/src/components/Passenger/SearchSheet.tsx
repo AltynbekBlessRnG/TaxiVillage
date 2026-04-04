@@ -30,7 +30,6 @@ interface GooglePlacePrediction {
 }
 
 interface Props {
-  anim: Animated.Value;
   visible: boolean;
   initialField?: 'from' | 'to';
   mode: 'route' | 'stop';
@@ -44,13 +43,14 @@ interface Props {
   onMapPick: (field: 'from' | 'to' | 'stop') => void;
   onSubmit: () => void;
   onAddressSelect: (field: 'from' | 'to', address: string, lat: number, lng: number) => void;
+  onDestinationReady?: () => void;
+  onCustomLandmarkSelect?: (field: 'from' | 'to', address: string) => void;
   fromPlaceholder?: string;
   toPlaceholder?: string;
   title?: string;
 }
 
 export const SearchSheet: React.FC<Props> = ({
-  anim: _anim,
   visible,
   initialField = 'to',
   mode,
@@ -64,6 +64,8 @@ export const SearchSheet: React.FC<Props> = ({
   onMapPick,
   onSubmit,
   onAddressSelect,
+  onDestinationReady,
+  onCustomLandmarkSelect,
   fromPlaceholder = 'Откуда?',
   toPlaceholder = 'Куда?',
   title,
@@ -76,7 +78,7 @@ export const SearchSheet: React.FC<Props> = ({
   const [stopAddress, setStopAddress] = useState('');
   const fromInputRef = useRef<any>(null);
   const toInputRef = useRef<any>(null);
-  const snapPoints = useMemo(() => ['80%'], []);
+  const snapPoints = useMemo(() => ['86%'], []);
 
   useEffect(() => {
     if (!visible) {
@@ -165,7 +167,9 @@ export const SearchSheet: React.FC<Props> = ({
     setActiveField(null);
 
     if (field === 'to' && !isStopSelectionMode) {
-      setTimeout(onSubmit, 100);
+      setTimeout(() => {
+        onDestinationReady?.();
+      }, 0);
     } else if (field === 'from') {
       if (!toAddress.trim()) {
         setTimeout(() => toInputRef.current?.focus?.(), 100);
@@ -208,6 +212,35 @@ export const SearchSheet: React.FC<Props> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUseAsLandmark = () => {
+    const normalized = searchQuery.trim();
+    if (!activeField || !normalized || isStopSelectionMode) {
+      return;
+    }
+
+    const selectedField = activeField;
+    onCustomLandmarkSelect?.(activeField, normalized);
+    setSearchQuery('');
+    setSearchResults([]);
+    setActiveField(null);
+
+    if (selectedField === 'to') {
+      setTimeout(() => {
+        onDestinationReady?.();
+      }, 0);
+      return;
+    }
+
+    if (toAddress.trim()) {
+      setTimeout(onSubmit, 0);
+      return;
+    }
+
+    setTimeout(() => {
+      toInputRef.current?.focus?.();
+    }, 100);
   };
 
   const handleFromSubmit = () => {
@@ -257,6 +290,22 @@ export const SearchSheet: React.FC<Props> = ({
       <Text style={styles.suggestionSubText}>Недавний адрес</Text>
     </TouchableOpacity>
   );
+
+  const renderLandmarkFallback = () => {
+    const normalized = searchQuery.trim();
+    if (!activeField || isStopSelectionMode || normalized.length < 3) {
+      return null;
+    }
+
+    return (
+      <TouchableOpacity style={styles.landmarkButton} onPress={handleUseAsLandmark}>
+        <Text style={styles.landmarkTitle}>Использовать как ориентир</Text>
+        <Text style={styles.landmarkValue} numberOfLines={2}>
+          {normalized}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const shouldShowRecent = activeField && searchQuery.trim().length < 3;
 
@@ -383,7 +432,10 @@ export const SearchSheet: React.FC<Props> = ({
                     ListHeaderComponent={renderCurrentLocationButton}
                     ListEmptyComponent={
                       searchQuery.length >= 3 ? (
-                        <Text style={styles.noResultsText}>Адреса не найдены</Text>
+                        <View>
+                          <Text style={styles.noResultsText}>Адреса не найдены</Text>
+                          {renderLandmarkFallback()}
+                        </View>
                       ) : null
                     }
                   />
@@ -466,4 +518,25 @@ const styles = StyleSheet.create({
   loadingContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20 },
   loadingText: { color: '#71717A', fontSize: 14, marginLeft: 8 },
   noResultsText: { color: '#71717A', fontSize: 14, textAlign: 'center', padding: 20 },
+  landmarkButton: {
+    marginHorizontal: 12,
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#111113',
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  landmarkTitle: {
+    color: '#F4F4F5',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  landmarkValue: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    lineHeight: 20,
+  },
 });

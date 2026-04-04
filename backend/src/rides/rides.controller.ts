@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 import { RidesService } from './rides.service';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { RideStatus, UserRole } from '@prisma/client';
+import { AddressPrecision, RideStatus, UserRole } from '@prisma/client';
 import { AuthGuard } from '@nestjs/passport';
 
 class CreateRideDto {
@@ -33,6 +33,14 @@ class CreateRideDto {
   @IsNumber()
   @Type(() => Number)
   toLng?: number;
+
+  @IsOptional()
+  @IsEnum(AddressPrecision)
+  pickupLocationPrecision?: AddressPrecision;
+
+  @IsOptional()
+  @IsEnum(AddressPrecision)
+  dropoffLocationPrecision?: AddressPrecision;
 
   @IsOptional()
   @IsNumber()

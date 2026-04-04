@@ -14,6 +14,7 @@ interface DriverStatusSheetProps {
   onCompleteRide?: () => void;
   onCancelRide?: () => void;
   onOpenRideChat?: () => void;
+  onCallPassenger?: () => void;
   onCourierStatusChange?: (status: string) => void;
   metrics?: {
     todayEarnings?: number;
@@ -38,6 +39,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   onCompleteRide,
   onCancelRide,
   onOpenRideChat,
+  onCallPassenger,
   onCourierStatusChange,
   metrics,
 }) => {
@@ -78,7 +80,14 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                 <View style={styles.routeCardActive}>
                   <View style={styles.routePoint}>
                     <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
-                    <Text style={styles.routeText}>{currentRide?.fromAddress || '-'}</Text>
+                    <View style={styles.routeTextWrap}>
+                      <Text style={styles.routeText}>{currentRide?.fromAddress || '-'}</Text>
+                      {currentRide?.pickupLocationPrecision === 'LANDMARK_TEXT' ? (
+                        <View style={styles.precisionBadge}>
+                          <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                   {(currentRide?.stops ?? []).map((stop: any, index: number) => (
                     <View key={`${stop.address}-${index}`} style={styles.routePoint}>
@@ -88,7 +97,14 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                   ))}
                   <View style={styles.routePoint}>
                     <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-                    <Text style={styles.routeText}>{currentRide?.toAddress || '-'}</Text>
+                    <View style={styles.routeTextWrap}>
+                      <Text style={styles.routeText}>{currentRide?.toAddress || '-'}</Text>
+                      {currentRide?.dropoffLocationPrecision === 'LANDMARK_TEXT' ? (
+                        <View style={styles.precisionBadge}>
+                          <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                   {currentRide?.comment ? (
                     <Text style={styles.commentText}>Комментарий: {currentRide.comment}</Text>
@@ -110,6 +126,12 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                 {rideStatus === 'IN_PROGRESS' ? (
                   <TouchableOpacity style={[styles.actionButton, styles.completeButton]} onPress={onCompleteRide}>
                     <Text style={styles.completeButtonText}>Завершить поездку</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {currentRide?.passenger?.user?.phone ? (
+                  <TouchableOpacity style={styles.secondaryActionButton} onPress={onCallPassenger}>
+                    <Text style={styles.secondaryActionButtonText}>Позвонить клиенту</Text>
                   </TouchableOpacity>
                 ) : null}
 
@@ -510,8 +532,25 @@ const styles = StyleSheet.create({
     borderColor: '#27272A',
   },
   routePoint: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  routeTextWrap: { flex: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
   routeText: { color: '#E4E4E7', fontSize: 14, flex: 1, fontWeight: '600' },
+  precisionBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#111113',
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  precisionBadgeText: {
+    color: '#A1A1AA',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
   commentText: { color: '#A1A1AA', fontSize: 13, marginTop: 4 },
   detailsBlock: {
     backgroundColor: '#18181B',

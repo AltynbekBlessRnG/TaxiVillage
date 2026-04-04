@@ -82,6 +82,7 @@ model Merchant {
   user        User          @relation(fields: [userId], references: [id])
 
   name        String
+  whatsAppPhone String?
   cuisine     String?
   description String?
   etaMinutes  Int           @default(35)
@@ -157,10 +158,12 @@ model Ride {
   fromAddress      String
   fromLat          Float
   fromLng          Float
+  pickupLocationPrecision AddressPrecision @default(EXACT)
 
   toAddress        String
   toLat            Float
   toLng            Float
+  dropoffLocationPrecision AddressPrecision @default(EXACT)
 
   comment          String?
 
@@ -310,6 +313,11 @@ enum PaymentMethod {
   CASH
 }
 
+enum AddressPrecision {
+  EXACT
+  LANDMARK_TEXT
+}
+
 /// Избранные адреса пассажира
 model FavoriteAddress {
   id          String   @id @default(cuid())
@@ -420,6 +428,7 @@ model MenuItem {
   category    MenuCategory @relation(fields: [categoryId], references: [id])
 
   name        String
+  sortOrder   Int          @default(0)
   description String?
   price       Decimal      @db.Decimal(10, 2)
   isAvailable Boolean      @default(true)

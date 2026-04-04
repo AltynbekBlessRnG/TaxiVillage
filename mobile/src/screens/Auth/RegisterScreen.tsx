@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -75,12 +76,14 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
     >
-      <Pressable style={styles.flex} onPress={() => setFocusedField(null)}>
+      <Pressable style={styles.flex} onPress={Keyboard.dismiss}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
@@ -186,9 +189,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingTop: 40,
+    paddingBottom: 56,
   },
   hero: {
     marginBottom: 28,

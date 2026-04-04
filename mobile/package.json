@@ -32,7 +32,8 @@
     "react-native-screens": "~4.23.0",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.16.0",
-    "socket.io-client": "^4.7.0"
+    "socket.io-client": "^4.7.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@react-native-community/cli-server-api": "^11.4.1",

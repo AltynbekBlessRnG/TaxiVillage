@@ -7,7 +7,7 @@ import {
   NotFoundException,
   OnModuleDestroy,
 } from '@nestjs/common';
-import { Prisma, RideStatus, UserRole } from '@prisma/client';
+import { AddressPrecision, Prisma, RideStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RidesGateway } from './rides.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -78,6 +78,8 @@ export class RidesService implements OnModuleDestroy {
       fromLng?: number;
       toLat?: number;
       toLng?: number;
+      pickupLocationPrecision?: AddressPrecision;
+      dropoffLocationPrecision?: AddressPrecision;
       comment?: string;
       stops?: Array<{ address: string; lat: number; lng: number }>;
       paymentMethod?: 'CARD' | 'CASH';
@@ -110,6 +112,10 @@ export class RidesService implements OnModuleDestroy {
     const toLng = data.toLng ?? 0;
     const hasFrom = fromLat !== 0 || fromLng !== 0;
     const hasTo = toLat !== 0 || toLng !== 0;
+    const pickupLocationPrecision =
+      data.pickupLocationPrecision ?? (hasFrom ? AddressPrecision.EXACT : AddressPrecision.LANDMARK_TEXT);
+    const dropoffLocationPrecision =
+      data.dropoffLocationPrecision ?? (hasTo ? AddressPrecision.EXACT : AddressPrecision.LANDMARK_TEXT);
 
     const coordinates: Array<{ lat: number; lng: number }> = [];
     if (hasFrom) {
@@ -164,8 +170,10 @@ export class RidesService implements OnModuleDestroy {
           toAddress: data.toAddress,
           fromLat,
           fromLng,
+          pickupLocationPrecision,
           toLat,
           toLng,
+          dropoffLocationPrecision,
           comment: data.comment || null,
           paymentMethod: data.paymentMethod || 'CARD',
           estimatedPrice: negotiatedPrice,
@@ -196,7 +204,11 @@ export class RidesService implements OnModuleDestroy {
     const rideWithUsers = await this.loadRideRecord(ride.id);
     const ridePayload = {
       ...rideWithUsers,
-      hasRoute: hasFrom && hasTo,
+      hasRoute:
+        hasFrom &&
+        hasTo &&
+        pickupLocationPrecision === AddressPrecision.EXACT &&
+        dropoffLocationPrecision === AddressPrecision.EXACT,
     };
 
     await this.syncRideAssignments(rideWithUsers);

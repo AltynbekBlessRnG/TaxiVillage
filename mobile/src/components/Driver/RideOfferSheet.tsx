@@ -11,15 +11,19 @@ interface RideOffer {
   stops?: Array<{ address: string }>;
   estimatedPrice?: number;
   hasRoute?: boolean;
+  pickupLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
+  dropoffLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
+  passenger?: { user?: { phone?: string | null } | null } | null;
 }
 
 interface Props {
   offer: RideOffer | null;
   onAccept: (id: string) => void;
   onReject: (id: string) => void;
+  onCallPassenger?: (phone: string) => void;
 }
 
-export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject }) => {
+export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject, onCallPassenger }) => {
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
@@ -51,7 +55,14 @@ export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject }) =
         <View style={styles.routeBox}>
           <View style={styles.routePoint}>
             <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
-            <Text style={styles.addressText} numberOfLines={1}>{offer.fromAddress}</Text>
+            <View style={styles.addressWrap}>
+              <Text style={styles.addressText} numberOfLines={1}>{offer.fromAddress}</Text>
+              {offer.pickupLocationPrecision === 'LANDMARK_TEXT' ? (
+                <View style={styles.precisionBadge}>
+                  <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
           
           {offer.stops?.map((stop, idx) => (
@@ -63,7 +74,14 @@ export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject }) =
 
           <View style={styles.routePoint}>
             <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-            <Text style={styles.addressText} numberOfLines={1}>{offer.toAddress}</Text>
+            <View style={styles.addressWrap}>
+              <Text style={styles.addressText} numberOfLines={1}>{offer.toAddress}</Text>
+              {offer.dropoffLocationPrecision === 'LANDMARK_TEXT' ? (
+                <View style={styles.precisionBadge}>
+                  <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -71,6 +89,12 @@ export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject }) =
           <View style={styles.commentBox}>
             <Text style={styles.commentText}>💬 {offer.comment}</Text>
           </View>
+        ) : null}
+
+        {offer.passenger?.user?.phone ? (
+          <TouchableOpacity style={styles.callBtn} onPress={() => onCallPassenger?.(offer.passenger!.user!.phone!)}>
+            <Text style={styles.callBtnText}>Позвонить клиенту</Text>
+          </TouchableOpacity>
         ) : null}
 
         <View style={styles.buttonsRow}>
@@ -109,10 +133,37 @@ const styles = StyleSheet.create({
   warningText: { color: '#F59E0B', fontSize: 13, fontWeight: '600', textAlign: 'center' },
   routeBox: { backgroundColor: '#18181B', padding: 14, borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: '#27272A' },
   routePoint: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
+  addressWrap: { flex: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 15 },
-  addressText: { color: '#E4E4E7', fontSize: 14, flex: 1, fontWeight: '500' },
+  addressText: { color: '#E4E4E7', fontSize: 14, fontWeight: '500' },
+  precisionBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#111113',
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  precisionBadgeText: {
+    color: '#A1A1AA',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
   commentBox: { marginBottom: 14, paddingHorizontal: 2 },
   commentText: { color: '#71717A', fontSize: 13, fontStyle: 'italic' },
+  callBtn: {
+    backgroundColor: '#18181B',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginBottom: 14,
+  },
+  callBtnText: { color: '#F4F4F5', fontSize: 15, fontWeight: '800' },
   buttonsRow: { flexDirection: 'row', gap: 12 },
   rejectBtn: { flex: 1, backgroundColor: '#1C1C1E', paddingVertical: 15, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
   rejectBtnText: { color: '#A1A1AA', fontSize: 16, fontWeight: '700' },

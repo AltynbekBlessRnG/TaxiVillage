@@ -12,7 +12,7 @@ import {
 type Props = NativeStackScreenProps<RootStackParamList, 'Cart'>;
 
 export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { restaurantId, restaurantName, items } = route.params;
+  const { restaurantId, restaurantName, merchantWhatsAppPhone, items } = route.params;
   const subtotal = items.reduce((sum, item) => sum + parseInt(item.price, 10) * item.qty, 0);
   const delivery = 1200;
   const total = subtotal + delivery;
@@ -22,7 +22,7 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
       accentColor="#FB923C"
       eyebrow="Корзина"
       title={restaurantName}
-      subtitle="Плавающая корзина для flow еды. Здесь потом легко добавить промокоды, адреса и способы оплаты."
+      subtitle="Собери заказ и передай его ресторану в WhatsApp."
       backLabel="К меню"
       onBack={() => navigation.goBack()}
     >
@@ -45,11 +45,12 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
       </ServiceCard>
 
       <PrimaryButton
-        title="Перейти к оформлению"
+        title="К адресу и WhatsApp"
         onPress={() =>
           navigation.navigate('FoodCheckout', {
             restaurantId,
             restaurantName,
+            merchantWhatsAppPhone,
             total: `${total}`,
             items,
           })

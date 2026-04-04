@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -62,51 +64,59 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
     >
-      <Pressable style={styles.content} onPress={() => setFocusedField(null)}>
-        <View style={styles.hero}>
-          <Text style={styles.eyebrow}>TaxiVillage</Text>
-          <Text style={styles.title}>Вход в аккаунт</Text>
-          <Text style={styles.subtitle}>Продолжайте работу в приложении без лишнего шума.</Text>
-        </View>
-
-        <View style={styles.formCard}>
-          <TextInput
-            style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
-            placeholder="Телефон"
-            placeholderTextColor="#71717A"
-            keyboardType="phone-pad"
-            autoCapitalize="none"
-            value={phone}
-            onChangeText={setPhone}
-            onFocus={() => setFocusedField('phone')}
-            onBlur={() => setFocusedField((current) => (current === 'phone' ? null : current))}
-          />
-          <TextInput
-            style={[styles.input, focusedField === 'password' && styles.inputFocused]}
-            placeholder="Пароль"
-            placeholderTextColor="#71717A"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            onFocus={() => setFocusedField('password')}
-            onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
-          />
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.buttonText}>{loading ? 'Вход...' : 'Войти'}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.linkRow}>
-            <Text style={styles.linkText}>Нет аккаунта?</Text>
-            <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
-              Зарегистрироваться
-            </Text>
+      <Pressable style={styles.flex} onPress={Keyboard.dismiss}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.hero}>
+            <Text style={styles.eyebrow}>TaxiVillage</Text>
+            <Text style={styles.title}>Вход в аккаунт</Text>
+            <Text style={styles.subtitle}>Продолжайте работу в приложении без лишнего шума.</Text>
           </View>
-        </View>
+
+          <View style={styles.formCard}>
+            <TextInput
+              style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
+              placeholder="Телефон"
+              placeholderTextColor="#71717A"
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+              value={phone}
+              onChangeText={setPhone}
+              onFocus={() => setFocusedField('phone')}
+              onBlur={() => setFocusedField((current) => (current === 'phone' ? null : current))}
+            />
+            <TextInput
+              style={[styles.input, focusedField === 'password' && styles.inputFocused]}
+              placeholder="Пароль"
+              placeholderTextColor="#71717A"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
+            />
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+              <Text style={styles.buttonText}>{loading ? 'Вход...' : 'Войти'}</Text>
+            </TouchableOpacity>
+
+            <View style={styles.linkRow}>
+              <Text style={styles.linkText}>Нет аккаунта?</Text>
+              <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
+                Зарегистрироваться
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
       </Pressable>
     </KeyboardAvoidingView>
   );
@@ -117,8 +127,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#09090B',
   },
-  content: {
+  flex: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 32,

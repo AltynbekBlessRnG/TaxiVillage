@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   StatusBar,
   StyleSheet,
@@ -59,6 +60,9 @@ interface RideOffer {
   toLat?: number;
   toLng?: number;
   hasRoute?: boolean;
+  pickupLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
+  dropoffLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
+  passenger?: { user?: { phone?: string | null } | null } | null;
 }
 
 export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -355,6 +359,21 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
     }
   }, [currentCourierOrder, currentRideId, loadDriverShell, profile?.driverMode]);
+
+  const callPhone = useCallback(async (phone?: string | null) => {
+    if (!phone) {
+      return;
+    }
+
+    const telUrl = `tel:${phone}`;
+    const canOpen = await Linking.canOpenURL(telUrl);
+    if (!canOpen) {
+      Alert.alert('Не удалось позвонить', 'Телефонное приложение недоступно на этом устройстве.');
+      return;
+    }
+
+    await Linking.openURL(telUrl);
+  }, []);
 
   const acceptRide = useCallback(
     async (rideId: string) => {
@@ -1054,7 +1073,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       ) : null}
 
       {incomingOffer ? (
-        <RideOfferSheet offer={incomingOffer} onAccept={acceptRide} onReject={rejectRide} />
+        <RideOfferSheet
+          offer={incomingOffer}
+          onAccept={acceptRide}
+          onReject={rejectRide}
+          onCallPassenger={(phone) => {
+            void callPhone(phone);
+          }}
+        />
       ) : (
         <DriverStatusSheet
           isOnline={isOnline}
@@ -1069,6 +1095,9 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           onRideStatusChange={updateRideStatus}
           onCompleteRide={completeRide}
           onCancelRide={cancelRide}
+          onCallPassenger={() => {
+            void callPhone(currentRide?.passenger?.user?.phone);
+          }}
           onOpenRideChat={() => {
             if (currentRideId) {
               navigation.navigate('ChatScreen', { rideId: currentRideId });

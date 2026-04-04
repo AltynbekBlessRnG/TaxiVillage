@@ -1,76 +1,65 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient } from '../../api/client';
 import {
-  ChipRow,
   PrimaryButton,
   SectionTitle,
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { openWhatsAppOrder } from '../../utils/foodWhatsapp';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodCheckout'>;
 
 export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { restaurantId, total, items } = route.params;
+  const { restaurantName, merchantWhatsAppPhone, total, items } = route.params;
   const [address, setAddress] = useState('Жубанова 1а');
   const [comment, setComment] = useState('');
-  const [promoCode, setPromoCode] = useState('');
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [validatedPromoCode, setValidatedPromoCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const totalNumber = Number(total || 0);
   const deliveryFee = totalNumber > 0 ? 700 : 0;
-  const finalTotal = Math.max(totalNumber + deliveryFee - discountAmount, 0);
+  const finalTotal = Math.max(totalNumber + deliveryFee, 0);
 
-  const validatePromoCode = async () => {
-    if (!promoCode.trim()) {
-      setDiscountAmount(0);
-      setValidatedPromoCode(null);
+  const submitOrder = async () => {
+    if (!address.trim()) {
+      Alert.alert('Нужен адрес', 'Укажи адрес доставки перед отправкой заказа.');
       return;
     }
 
-    try {
-      const response = await apiClient.post('/food-orders/validate-promo', {
-        merchantId: restaurantId,
-        promoCode: promoCode.trim(),
-        items: items.map((item) => ({
-          menuItemId: item.menuItemId,
-          qty: item.qty,
-        })),
-      });
-      setDiscountAmount(Number(response.data?.discountAmount || 0));
-      setValidatedPromoCode(response.data?.code || promoCode.trim().toUpperCase());
-      Alert.alert('Промокод применен', `Скидка ${Math.round(Number(response.data?.discountAmount || 0))} тг`);
-    } catch (error: any) {
-      const message = error?.response?.data?.message || 'Промокод не подошел';
-      setDiscountAmount(0);
-      setValidatedPromoCode(null);
-      Alert.alert('Промокод', Array.isArray(message) ? message.join(', ') : message);
+    if (!merchantWhatsAppPhone?.trim()) {
+      Alert.alert('Нет номера ресторана', 'У этого заведения пока не указан WhatsApp для заказов.');
+      return;
     }
-  };
 
-  const submitOrder = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.post('/food-orders', {
-        merchantId: restaurantId,
-        deliveryAddress: address,
+      const opened = await openWhatsAppOrder({
+        restaurantName,
+        phone: merchantWhatsAppPhone,
+        items,
+        address: address.trim(),
         comment: comment || undefined,
-        items: items.map((item) => ({
-          menuItemId: item.menuItemId,
-          qty: item.qty,
-        })),
-        promoCode: validatedPromoCode || undefined,
+        total: finalTotal,
       });
 
-      navigation.navigate('FoodOrderStatus', { orderId: response.data.id });
-    } catch (error: any) {
-      const message = error?.response?.data?.message || 'Не удалось оформить заказ';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      if (!opened) {
+        Alert.alert(
+          'WhatsApp недоступен',
+          `Напишите ресторану вручную: ${merchantWhatsAppPhone}`,
+          [
+            { text: 'Отмена', style: 'cancel' },
+            {
+              text: 'Позвонить',
+              onPress: () => Linking.openURL(`tel:${merchantWhatsAppPhone}`).catch(() => null),
+            },
+          ],
+        );
+        return;
+      }
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось открыть WhatsApp для заказа.');
     } finally {
       setLoading(false);
     }
@@ -81,7 +70,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
       accentColor="#FB923C"
       eyebrow="Checkout"
       title="Оформление заказа"
-      subtitle="Проверь адрес, промокод и сумму перед подтверждением заказа."
+      subtitle="Укажи адрес и отправь собранный заказ ресторану в WhatsApp."
       backLabel="К корзине"
       onBack={() => navigation.goBack()}
     >
@@ -117,24 +106,16 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
           placeholderTextColor="#71717A"
           multiline
         />
-        <TextInput
-          value={promoCode}
-          onChangeText={(value) => {
-            setPromoCode(value);
-            setValidatedPromoCode(null);
-            setDiscountAmount(0);
-          }}
-          style={styles.input}
-          placeholder="Промокод"
-          placeholderTextColor="#71717A"
-          autoCapitalize="characters"
-        />
-        <PrimaryButton title="Применить промокод" onPress={validatePromoCode} accentColor="#F4F4F5" />
+        <View style={styles.whatsAppNotice}>
+          <Text style={styles.whatsAppNoticeLabel}>Заказ уйдет в WhatsApp</Text>
+          <Text style={styles.whatsAppNoticeValue}>
+            {merchantWhatsAppPhone || 'Номер ресторана пока не указан'}
+          </Text>
+        </View>
       </ServiceCard>
 
       <ServiceCard compact>
-        <SectionTitle>Оплата</SectionTitle>
-        <ChipRow items={['Наличные', 'Kaspi', 'Карта']} />
+        <SectionTitle>Итого</SectionTitle>
         <View style={styles.totalBox}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Блюда</Text>
@@ -144,12 +125,6 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={styles.totalLabel}>Доставка</Text>
             <Text style={styles.totalValueSmall}>{deliveryFee} тг</Text>
           </View>
-          {discountAmount > 0 ? (
-            <View style={styles.totalRow}>
-              <Text style={styles.discountLabel}>Скидка {validatedPromoCode ? `(${validatedPromoCode})` : ''}</Text>
-              <Text style={styles.discountValue}>−{Math.round(discountAmount)} тг</Text>
-            </View>
-          ) : null}
           <View style={styles.totalDivider} />
           <View style={styles.totalRow}>
             <Text style={styles.totalPrimaryLabel}>Итого</Text>
@@ -161,8 +136,8 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
       <PrimaryButton
         title={
           loading
-            ? 'Создаем заказ...'
-            : `Подтвердить за ${Math.round(finalTotal)} тг`
+            ? 'Открываем WhatsApp...'
+            : `Заказать в WhatsApp • ${Math.round(finalTotal)} тг`
         }
         onPress={submitOrder}
       />
@@ -220,6 +195,25 @@ const styles = StyleSheet.create({
     minHeight: 88,
     textAlignVertical: 'top',
   },
+  whatsAppNotice: {
+    marginTop: 2,
+    backgroundColor: '#143124',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  whatsAppNoticeLabel: {
+    color: '#86EFAC',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  whatsAppNoticeValue: {
+    color: '#F4F4F5',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   totalBox: {
     marginTop: 14,
     backgroundColor: '#1C1917',
@@ -242,16 +236,6 @@ const styles = StyleSheet.create({
   },
   totalValueSmall: {
     color: '#E7E5E4',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  discountLabel: {
-    color: '#FDBA74',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  discountValue: {
-    color: '#FED7AA',
     fontSize: 13,
     fontWeight: '800',
   },

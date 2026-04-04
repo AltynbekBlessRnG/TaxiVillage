@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -17,10 +18,11 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 
 interface Props {
-  translateY: unknown;
   serviceType?: 'taxi' | 'courier';
   fromAddress: string;
   toAddress: string;
+  fromLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
+  toLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
   price: string;
   setPrice: (t: string) => void;
   onOrder: () => void;
@@ -45,6 +47,8 @@ export const ConfirmationSheet: React.FC<Props> = ({
   serviceType = 'taxi',
   fromAddress,
   toAddress,
+  fromLocationPrecision = 'EXACT',
+  toLocationPrecision = 'EXACT',
   price,
   setPrice,
   onOrder,
@@ -66,7 +70,27 @@ export const ConfirmationSheet: React.FC<Props> = ({
 }) => {
   const [isCommentModalVisible, setCommentModalVisible] = useState(false);
   const [tempComment, setTempComment] = useState(comment);
-  const snapPoints = useMemo(() => (serviceType === 'courier' ? ['60%'] : ['52%']), [serviceType]);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const snapPoints = useMemo(() => {
+    if (isKeyboardVisible) {
+      return serviceType === 'courier' ? ['78%'] : ['72%'];
+    }
+
+    return serviceType === 'courier' ? ['52%'] : ['44%'];
+  }, [isKeyboardVisible, serviceType]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const handleSaveComment = () => {
     setComment(tempComment);
@@ -93,40 +117,53 @@ export const ConfirmationSheet: React.FC<Props> = ({
           keyboardBehavior="interactive"
           keyboardBlurBehavior="restore"
           android_keyboardInputMode="adjustResize"
+          enableDynamicSizing={false}
         >
           <BottomSheetView style={styles.sheetContent}>
             <View style={styles.addressBox}>
-              <TouchableOpacity style={styles.row} onPress={onEditAddress}>
+              <View style={styles.routeRow}>
                 <View style={styles.dotBlueSmall} />
-                <View style={styles.addressContainer}>
+                <TouchableOpacity style={styles.addressContainer} onPress={onEditAddress}>
+                  <Text style={styles.routeLabel}>Откуда</Text>
                   <Text style={styles.addressText} numberOfLines={1}>
                     {fromAddress}
                   </Text>
+                  {fromLocationPrecision === 'LANDMARK_TEXT' ? (
+                    <View style={styles.precisionBadge}>
+                      <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                    </View>
+                  ) : null}
                   {comment ? (
                     <Text style={styles.commentText} numberOfLines={1}>
                       {comment}
                     </Text>
                   ) : null}
-                </View>
+                </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.actionBtn}
+                  style={styles.sideActionBtn}
                   onPress={() => {
                     setTempComment(comment);
                     setCommentModalVisible(true);
                   }}
                 >
-                  <Text style={styles.actionText}>Комментарий</Text>
+                  <Text style={styles.sideActionText}>Комментарий</Text>
                 </TouchableOpacity>
-              </TouchableOpacity>
+              </View>
 
               <View style={styles.divider} />
 
-              <View style={styles.row}>
+              <View style={styles.routeRow}>
                 <View style={styles.squareRedSmall} />
                 <TouchableOpacity style={styles.addressContainer} onPress={onEditAddress}>
+                  <Text style={styles.routeLabel}>Куда</Text>
                   <Text style={styles.addressText} numberOfLines={1}>
                     {toAddress || (serviceType === 'courier' ? 'Куда доставить?' : 'Куда едем?')}
                   </Text>
+                  {toLocationPrecision === 'LANDMARK_TEXT' ? (
+                    <View style={styles.precisionBadge}>
+                      <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                    </View>
+                  ) : null}
                   {serviceType === 'taxi' &&
                     stops.map((stop, index) => (
                       <TouchableOpacity key={`${stop.address}-${index}`} onPress={() => handleStopPress(index, stop.address)}>
@@ -139,11 +176,11 @@ export const ConfirmationSheet: React.FC<Props> = ({
 
                 {serviceType === 'taxi' && stops.length < 3 ? (
                   <TouchableOpacity
-                    style={[styles.actionBtn, isAddStopDisabled && styles.actionBtnDisabled]}
+                    style={[styles.sideActionBtn, styles.plusBtn, isAddStopDisabled && styles.actionBtnDisabled]}
                     onPress={onAddStop}
                     disabled={isAddStopDisabled}
                   >
-                    <Text style={styles.actionText}>+</Text>
+                    <Text style={styles.plusText}>+</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -177,20 +214,28 @@ export const ConfirmationSheet: React.FC<Props> = ({
               </View>
             ) : null}
 
-            <View style={styles.priceRow}>
-              <Text style={styles.currencyIcon}>₸</Text>
-              <BottomSheetTextInput
-                style={styles.priceInput}
-                placeholder={serviceType === 'courier' ? 'Цена доставки' : 'Ваша цена'}
-                placeholderTextColor="#71717A"
-                keyboardType="numeric"
-                value={price}
-                onChangeText={setPrice}
-              />
+            <View style={styles.priceCard}>
+              <View style={styles.priceRow}>
+                <Text style={styles.currencyIcon}>₸</Text>
+                <BottomSheetTextInput
+                  style={styles.priceInput}
+                  placeholder={serviceType === 'courier' ? 'Цена доставки' : 'Ваша цена'}
+                  placeholderTextColor="#71717A"
+                  keyboardType="numeric"
+                  value={price}
+                  onChangeText={setPrice}
+                />
+              </View>
             </View>
 
             <TouchableOpacity style={styles.finalBtn} onPress={onOrder} disabled={loading}>
-              {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.finalBtnText}>Заказать</Text>}
+              {loading ? (
+                <ActivityIndicator color="#09090B" />
+              ) : (
+                <Text style={styles.finalBtnText}>
+                  {serviceType === 'courier' ? 'Подтвердить доставку' : 'Подтвердить поездку'}
+                </Text>
+              )}
             </TouchableOpacity>
           </BottomSheetView>
         </BottomSheet>
@@ -246,25 +291,53 @@ const styles = StyleSheet.create({
   },
   sheetContent: {
     paddingHorizontal: 24,
-    paddingBottom: 42,
+    paddingBottom: 12,
   },
   addressBox: {
     backgroundColor: '#18181B',
     borderRadius: 20,
-    padding: 10,
+    padding: 8,
     borderWidth: 1,
     borderColor: '#27272A',
   },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 10 },
+  routeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 10 },
+  routeLabel: { color: '#71717A', fontSize: 10, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase' },
   addressContainer: { flex: 1 },
   dotBlueSmall: { width: 8, height: 8, backgroundColor: '#3B82F6', borderRadius: 4, marginRight: 15 },
   squareRedSmall: { width: 8, height: 8, backgroundColor: '#EF4444', marginRight: 15 },
-  addressText: { color: '#E4E4E7', fontSize: 15 },
-  commentText: { color: '#71717A', fontSize: 12, marginTop: 4 },
-  stopsText: { color: '#71717A', fontSize: 12, marginTop: 4 },
-  actionBtn: { backgroundColor: '#1C1C1E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginLeft: 10 },
+  addressText: { color: '#F4F4F5', fontSize: 16, fontWeight: '600' },
+  precisionBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#111113',
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  precisionBadgeText: {
+    color: '#A1A1AA',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  commentText: { color: '#71717A', fontSize: 11, marginTop: 3 },
+  stopsText: { color: '#71717A', fontSize: 11, marginTop: 3 },
   actionBtnDisabled: { opacity: 0.4 },
-  actionText: { color: '#A1A1AA', fontSize: 12, fontWeight: '600' },
+  sideActionBtn: {
+    backgroundColor: '#F4F4F5',
+    minWidth: 72,
+    height: 40,
+    borderRadius: 14,
+    marginLeft: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  sideActionText: { color: '#09090B', fontSize: 12, fontWeight: '800' },
+  plusBtn: { minWidth: 40, width: 40 },
+  plusText: { color: '#09090B', fontSize: 20, fontWeight: '700', marginTop: -1 },
   divider: { height: 1, backgroundColor: '#27272A', marginHorizontal: 10 },
   courierFields: { marginTop: 14, gap: 10 },
   courierRow: { flexDirection: 'row', gap: 10 },
@@ -279,28 +352,31 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   courierInputHalf: { flex: 1 },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  priceCard: {
     backgroundColor: '#18181B',
-    height: 64,
     borderRadius: 20,
-    marginTop: 20,
-    paddingHorizontal: 20,
+    marginTop: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#27272A',
   },
-  currencyIcon: { color: '#3B82F6', fontSize: 22, fontWeight: '900', marginRight: 15 },
-  priceInput: { flex: 1, color: '#fff', fontSize: 20, fontWeight: '700' },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  currencyIcon: { color: '#F4F4F5', fontSize: 20, fontWeight: '900', marginRight: 10 },
+  priceInput: { flex: 1, color: '#F4F4F5', fontSize: 22, fontWeight: '700', paddingVertical: 0 },
   finalBtn: {
     backgroundColor: '#F4F4F5',
-    height: 60,
-    borderRadius: 20,
+    height: 54,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 25,
+    marginTop: 12,
   },
-  finalBtnText: { color: '#000', fontSize: 18, fontWeight: '900' },
+  finalBtnText: { color: '#09090B', fontSize: 16, fontWeight: '900' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
