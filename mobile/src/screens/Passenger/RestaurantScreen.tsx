@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   ImageBackground,
   Linking,
@@ -17,6 +16,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { PrimaryButton, ServiceScreen } from '../../components/ServiceScreen';
 import { openWhatsAppOrder } from '../../utils/foodWhatsapp';
 
@@ -32,15 +32,48 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [categoryOffsets, setCategoryOffsets] = useState<Record<string, number>>({});
+  const [modal, setModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    primaryLabel?: string;
+    secondaryLabel?: string;
+    primaryVariant?: 'default' | 'danger';
+    onPrimary?: () => void;
+    onSecondary?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
   const scrollRef = useRef<ScrollView>(null);
   const isProgrammaticScrollRef = useRef(false);
+
+  const closeModal = () =>
+    setModal({
+      visible: false,
+      title: '',
+      message: '',
+    });
+
+  const openModal = (next: Omit<typeof modal, 'visible'>) =>
+    setModal({
+      visible: true,
+      ...next,
+    });
 
   const loadMerchant = useCallback(() => {
     setLoading(true);
     apiClient
       .get(`/merchants/${restaurantId}/menu`)
       .then((response) => setMerchant(response.data))
-      .catch(() => Alert.alert('Ошибка', 'Не удалось загрузить меню'))
+      .catch(() =>
+        openModal({
+          title: 'Ошибка',
+          message: 'Не удалось загрузить меню',
+          primaryLabel: 'Понятно',
+        }),
+      )
       .finally(() => setLoading(false));
   }, [restaurantId]);
 
@@ -213,17 +246,17 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                 });
 
                 if (!opened) {
-                  Alert.alert(
-                    'WhatsApp недоступен',
-                    `Напишите ресторану вручную: ${merchant.whatsAppPhone}`,
-                    [
-                      { text: 'Отмена', style: 'cancel' },
-                      {
-                        text: 'Позвонить',
-                        onPress: () => Linking.openURL(`tel:${merchant.whatsAppPhone}`).catch(() => null),
-                      },
-                    ],
-                  );
+                  openModal({
+                    title: 'WhatsApp недоступен',
+                    message: `Напишите ресторану вручную: ${merchant.whatsAppPhone}`,
+                    primaryLabel: 'Позвонить',
+                    secondaryLabel: 'Позже',
+                    onPrimary: () => {
+                      closeModal();
+                      Linking.openURL(`tel:${merchant.whatsAppPhone}`).catch(() => null);
+                    },
+                    onSecondary: closeModal,
+                  });
                 }
               }}
             >
@@ -328,8 +361,37 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                 merchantWhatsAppPhone: merchant?.whatsAppPhone || null,
                 items: cart,
               })
-            : Alert.alert('Корзина пуста', 'Сначала добавь хотя бы одно блюдо.')
+            : openModal({
+                title: 'Корзина пуста',
+                message: 'Сначала добавь хотя бы одно блюдо.',
+                primaryLabel: 'Понятно',
+              })
         }
+      />
+
+      <DarkAlertModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        primaryLabel={modal.primaryLabel}
+        secondaryLabel={modal.secondaryLabel}
+        primaryVariant={modal.primaryVariant}
+        onPrimary={() => {
+          const action = modal.onPrimary;
+          if (action) {
+            action();
+            return;
+          }
+          closeModal();
+        }}
+        onSecondary={() => {
+          const action = modal.onSecondary;
+          if (action) {
+            action();
+            return;
+          }
+          closeModal();
+        }}
       />
     </ServiceScreen>
   );

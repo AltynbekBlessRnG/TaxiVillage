@@ -12,6 +12,7 @@ interface Props {
   unreadNotificationsCount: number;
   unreadMessagesCount: number;
   onClose: () => void;
+  onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onOpenMessages: () => void;
   onOpenRideHistory: () => void;
@@ -28,6 +29,7 @@ export const PassengerSideDrawer: React.FC<Props> = ({
   unreadNotificationsCount,
   unreadMessagesCount,
   onClose,
+  onOpenProfile,
   onOpenNotifications,
   onOpenMessages,
   onOpenRideHistory,
@@ -43,11 +45,30 @@ export const PassengerSideDrawer: React.FC<Props> = ({
 
     <Animated.View style={[styles.sideDrawer, { transform: [{ translateX: sideMenuAnim }] }]}>
       <View style={styles.drawerHeader}>
-        <Text style={styles.drName}>{fullName || 'Загрузка...'}</Text>
-        <Text style={styles.drPhone}>{phone || ''}</Text>
+        <View style={styles.avatarRow}>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>
+              {((fullName || phone || 'П')
+                .trim()
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((part) => part[0])
+                .join('') || 'П')
+                .toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.drName}>{fullName || phone || 'Профиль'}</Text>
+            {phone ? <Text style={styles.drPhone}>{phone}</Text> : null}
+          </View>
+        </View>
       </View>
 
       <ScrollView style={styles.drawerScroll}>
+        <TouchableOpacity style={styles.drawerItem} onPress={onOpenProfile}>
+          <Text style={styles.drawerText}>Личный кабинет</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.drawerItem} onPress={onOpenNotifications}>
           <View style={styles.drawerItemRow}>
             <Text style={styles.drawerText}>Уведомления</Text>
@@ -105,6 +126,29 @@ const styles = StyleSheet.create({
     borderColor: '#18181B',
   },
   drawerHeader: { backgroundColor: '#18181B', padding: 28, paddingTop: 65 },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  avatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#E2E8F0',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  headerTextWrap: {
+    flex: 1,
+  },
   drName: { color: '#fff', fontSize: 22, fontWeight: '800' },
   drPhone: { color: '#71717A', fontSize: 15, marginTop: 6 },
   drawerScroll: { padding: 20 },

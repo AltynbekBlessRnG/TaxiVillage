@@ -12,7 +12,7 @@ import {
 
 type ServiceScreenProps = {
   accentColor: string;
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   subtitle?: string;
   backLabel?: string;
@@ -46,11 +46,13 @@ export const ServiceScreen: React.FC<ServiceScreenProps> = ({
               <Text style={styles.backText}>← {backLabel}</Text>
             </TouchableOpacity>
           ) : null}
-          <View style={styles.headerBadgeRow}>
-            <View style={[styles.eyebrowBadge, { borderColor: `${accentColor}55`, backgroundColor: `${accentColor}15` }]}>
-              <Text style={[styles.eyebrow, { color: accentColor }]}>{eyebrow}</Text>
+          {eyebrow ? (
+            <View style={styles.headerBadgeRow}>
+              <View style={[styles.eyebrowBadge, { borderColor: `${accentColor}55`, backgroundColor: `${accentColor}15` }]}>
+                <Text style={[styles.eyebrow, { color: accentColor }]}>{eyebrow}</Text>
+              </View>
             </View>
-          </View>
+          ) : null}
           <Text style={styles.title}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           <View style={styles.headerDivider} />

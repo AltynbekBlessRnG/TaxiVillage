@@ -1,13 +1,6 @@
 cd C:\Users\Duman\TaxiVillage\backend
-Remove-Item Env:ENV_FILE -ErrorAction SilentlyContinue
 npm run start:dev
 
 
 cd C:\Users\Duman\TaxiVillage\mobile
-npx expo start --dev-client -c
-
-
-adb reverse tcp:8081 tcp:8081
-
-SearchingSheet.tsx
-
+npx expo start --dev-client --host lan -c

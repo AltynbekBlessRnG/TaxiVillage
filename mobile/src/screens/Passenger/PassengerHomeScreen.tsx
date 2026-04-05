@@ -689,6 +689,10 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         unreadNotificationsCount={unreadNotificationsCount}
         unreadMessagesCount={unreadMessagesCount}
         onClose={() => toggleMenu(false)}
+        onOpenProfile={() => {
+          toggleMenu(false);
+          navigation.navigate('PassengerProfile');
+        }}
         onOpenNotifications={() => {
           toggleMenu(false);
           navigation.navigate('Notifications');

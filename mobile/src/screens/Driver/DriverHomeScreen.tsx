@@ -966,9 +966,8 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <ServiceScreen
         accentColor="#38BDF8"
-        eyebrow="Driver mode"
+        eyebrow=""
         title="Межгород"
-        subtitle="Рабочий режим для рейсов, заявок пассажиров и оперативного управления поездкой."
         backLabel="На главную"
         onBack={() => switchDriverMode(profile?.supportsTaxi ? 'TAXI' : 'COURIER')}
       >
@@ -980,8 +979,8 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
           <Text style={styles.intercityHeroText}>
             {currentIntercityTrip
-              ? 'Активный рейс уже в работе. Ниже быстрый доступ к пассажирам и заявкам.'
-              : 'Публикуй свои рейсы, смотри клиентские заявки и собирай поездку без лишних экранов.'}
+              ? 'Рейс уже активен. Ниже быстрый доступ к пассажирам и бронированиям.'
+              : 'Публикуй рейсы и смотри заявки пассажиров.'}
           </Text>
         </View>
 
@@ -1184,9 +1183,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           offer={incomingOffer}
           onAccept={acceptRide}
           onReject={rejectRide}
-          onCallPassenger={(phone) => {
-            void callPhone(phone);
-          }}
+          variant="taxi"
         />
       ) : (
         <DriverStatusSheet
@@ -1212,6 +1209,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             }
           }}
           onCourierStatusChange={updateCourierStatus}
+          onShowDriverNotice={(title, message) =>
+            openDriverModal({
+              title,
+              message,
+              primaryLabel: 'Понятно',
+            })
+          }
         />
       )}
 
@@ -1389,7 +1393,7 @@ const styles = StyleSheet.create({
   },
   recenterBtn: {
     position: 'absolute',
-    bottom: 160,
+    bottom: 262,
     right: 20,
     width: 50,
     height: 50,
@@ -1481,8 +1485,8 @@ const styles = StyleSheet.create({
   },
   intercityHeroText: {
     color: '#94A3B8',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
   },
   courierTitle: {
     color: '#F4F4F5',

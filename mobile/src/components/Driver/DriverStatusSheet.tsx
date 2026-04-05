@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface DriverStatusSheetProps {
   isOnline: boolean;
@@ -17,6 +18,7 @@ interface DriverStatusSheetProps {
   onOpenRideChat?: () => void;
   onCallPassenger?: () => void;
   onCourierStatusChange?: (status: string) => void;
+  onShowDriverNotice?: (title: string, message: string) => void;
   metrics?: {
     todayEarnings?: number;
     dailyBuckets?: Array<{ date: string; label: string; earnings: number }>;
@@ -43,10 +45,13 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   onOpenRideChat,
   onCallPassenger,
   onCourierStatusChange,
+  onShowDriverNotice,
   metrics,
 }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
+  const [isWaitingExpanded, setIsWaitingExpanded] = useState(false);
+  const [isActiveExpanded, setIsActiveExpanded] = useState(false);
   const maxEarnings = Math.max(...(metrics?.dailyBuckets?.map((bucket) => bucket.earnings) ?? [0]), 1);
 
   useEffect(() => {
@@ -62,143 +67,206 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
     }
   }, [isOnline, currentRideId]);
 
+  useEffect(() => {
+    if (currentRide || currentCourierOrder) {
+      setIsActiveExpanded(false);
+    }
+  }, [currentRide, currentCourierOrder]);
+
   if (currentRide || currentCourierOrder) {
     const rideStatus = currentRide?.status;
     const courierStatus = currentCourierOrder?.status;
+    const compactActions = currentRide
+      ? buildRideActions({
+          rideStatus,
+          onRideStatusChange,
+          onCompleteRide,
+          onCancelRide,
+          onOpenRideChat,
+          onCallPassenger,
+          onShowDriverNotice,
+          hasPassengerPhone: !!currentRide?.passenger?.user?.phone,
+        })
+      : buildCourierActions({
+          courierStatus,
+          onCourierStatusChange,
+        });
+    const iconActions = compactActions.filter((action) => action.placement === 'icon');
+    const primaryAction = compactActions.find((action) => action.placement === 'primary');
+    const cancelAction = compactActions.find((action) => action.placement === 'cancel');
 
     return (
       <View style={styles.container}>
         <View style={styles.workspace}>
           <View style={[styles.activeCard, currentCourierOrder && styles.activeCardCourier]}>
-            <View style={styles.row}>
-              <View style={[styles.dotGreen, currentCourierOrder && styles.dotCourier]} />
-              <Text style={styles.activeText}>
-                {currentCourierOrder ? 'Активная доставка' : 'Активный заказ'}
-              </Text>
-            </View>
+            <View style={styles.handleLineActive} />
+            <TouchableOpacity
+              style={styles.activeSummaryBar}
+              onPress={() => setIsActiveExpanded((prev) => !prev)}
+              activeOpacity={0.9}
+            >
+              <View style={styles.activeSummaryMain}>
+                <Text style={styles.activeSummaryTime}>
+                  {rideStatus === 'IN_PROGRESS' || courierStatus === 'TO_RECIPIENT' ? 'В пути' : 'Подача'}
+                </Text>
+                <Text style={styles.activeSummaryAddress} numberOfLines={1}>
+                  {currentRide?.fromAddress || currentCourierOrder?.pickupAddress || '-'}
+                </Text>
+              </View>
+              <View style={styles.activeSummarySide}>
+                <Text style={[styles.activeSummaryPrice, currentCourierOrder && styles.activeSummaryPriceCourier]}>
+                  {Math.round(
+                    Number(
+                      currentRide?.finalPrice ??
+                        currentRide?.estimatedPrice ??
+                        currentCourierOrder?.estimatedPrice ??
+                        0,
+                    ),
+                  )}{' '}
+                  ₸
+                </Text>
+                <Text style={styles.activeSummaryChevron}>{isActiveExpanded ? '⌄' : '⌃'}</Text>
+              </View>
+            </TouchableOpacity>
 
-            {currentRide ? (
+            {isActiveExpanded ? (
               <>
-                <Text style={styles.priceTitle}>{Math.round(Number(currentRide?.finalPrice ?? currentRide?.estimatedPrice ?? 0))} ₸</Text>
-                <View style={styles.routeCardActive}>
-                  <View style={styles.routePoint}>
-                    <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
-                    <View style={styles.routeTextWrap}>
-                      <Text style={styles.routeText}>{currentRide?.fromAddress || '-'}</Text>
-                      {currentRide?.pickupLocationPrecision === 'LANDMARK_TEXT' ? (
-                        <View style={styles.precisionBadge}>
-                          <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                <View style={styles.summaryDivider} />
+                <View style={styles.activeExpandedRow}>
+                  <View style={styles.activeExpandedMain}>
+                    {currentRide ? (
+                      <View style={styles.routeCardActive}>
+                        <View style={styles.routePointCompact}>
+                          <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
+                          <View style={styles.routeTextWrap}>
+                            <Text style={styles.routeText}>{currentRide?.fromAddress || '-'}</Text>
+                            {currentRide?.pickupLocationPrecision === 'LANDMARK_TEXT' ? (
+                              <View style={styles.precisionBadge}>
+                                <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                              </View>
+                            ) : null}
+                          </View>
                         </View>
-                      ) : null}
-                    </View>
-                  </View>
-                  {(currentRide?.stops ?? []).map((stop: any, index: number) => (
-                    <View key={`${stop.address}-${index}`} style={styles.routePoint}>
-                      <View style={[styles.dot, { backgroundColor: '#F97316' }]} />
-                      <Text style={styles.routeText}>Заезд: {stop.address}</Text>
-                    </View>
-                  ))}
-                  <View style={styles.routePoint}>
-                    <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-                    <View style={styles.routeTextWrap}>
-                      <Text style={styles.routeText}>{currentRide?.toAddress || '-'}</Text>
-                      {currentRide?.dropoffLocationPrecision === 'LANDMARK_TEXT' ? (
-                        <View style={styles.precisionBadge}>
-                          <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                        {(currentRide?.stops ?? []).length > 0 || currentRide?.toAddress ? (
+                          <View style={styles.routeArrowWrap}>
+                            <Ionicons name="arrow-down" size={16} color="#5F5F68" />
+                          </View>
+                        ) : null}
+                        {(currentRide?.stops ?? []).map((stop: any, index: number) => (
+                          <React.Fragment key={`${stop.address}-${index}`}>
+                            <View style={styles.routePointCompact}>
+                              <View style={[styles.dot, { backgroundColor: '#F97316' }]} />
+                              <Text style={styles.routeText}>{stop.address}</Text>
+                            </View>
+                            <View style={styles.routeArrowWrap}>
+                              <Ionicons name="arrow-down" size={16} color="#5F5F68" />
+                            </View>
+                          </React.Fragment>
+                        ))}
+                        <View style={styles.routePointCompact}>
+                          <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
+                          <View style={styles.routeTextWrap}>
+                            <Text style={styles.routeText}>{currentRide?.toAddress || '-'}</Text>
+                            {currentRide?.dropoffLocationPrecision === 'LANDMARK_TEXT' ? (
+                              <View style={styles.precisionBadge}>
+                                <Text style={styles.precisionBadgeText}>Ориентир</Text>
+                              </View>
+                            ) : null}
+                          </View>
                         </View>
-                      ) : null}
+                      </View>
+                    ) : null}
+
+                    {currentCourierOrder ? (
+                      <View style={styles.routeCardActive}>
+                        <View style={styles.routePointCompact}>
+                          <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
+                          <Text style={styles.routeText}>{currentCourierOrder?.pickupAddress || '-'}</Text>
+                        </View>
+                        <View style={styles.routeArrowWrap}>
+                          <Ionicons name="arrow-down" size={16} color="#5F5F68" />
+                        </View>
+                        <View style={styles.routePointCompact}>
+                          <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
+                          <Text style={styles.routeText}>{currentCourierOrder?.dropoffAddress || '-'}</Text>
+                        </View>
+                        {currentCourierOrder?.itemDescription ? (
+                          <Text style={styles.courierMiniMeta}>{currentCourierOrder.itemDescription}</Text>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {iconActions.length > 0 ? (
+                    <View style={styles.actionIconColumn}>
+                      {iconActions.map((action) => (
+                        <TouchableOpacity
+                          key={action.label}
+                          style={styles.actionIconBtn}
+                          onPress={action.onPress}
+                        >
+                          <Ionicons name={action.icon} size={22} color="#F4F4F5" />
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                  </View>
-                  {currentRide?.comment ? (
-                    <Text style={styles.commentText}>Комментарий: {currentRide.comment}</Text>
                   ) : null}
                 </View>
 
-                {(rideStatus === 'ON_THE_WAY' || rideStatus === 'DRIVER_ASSIGNED') ? (
-                  <TouchableOpacity style={[styles.actionButton, styles.arrivedButton]} onPress={() => onRideStatusChange?.('DRIVER_ARRIVED')}>
-                    <Text style={styles.actionButtonText}>Я на месте</Text>
-                  </TouchableOpacity>
-                ) : null}
+                {primaryAction && cancelAction ? (
+                  <View style={styles.bottomActionRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.bottomHalfAction,
+                        primaryAction.tone === 'success'
+                          ? styles.bottomHalfActionSuccess
+                          : styles.bottomHalfActionPrimary,
+                      ]}
+                      onPress={primaryAction.onPress}
+                    >
+                      <Ionicons
+                        name={primaryAction.icon}
+                        size={18}
+                        color={primaryAction.tone === 'success' ? '#062117' : '#04131A'}
+                        style={styles.bottomPrimaryIcon}
+                      />
+                      <Text
+                        style={[
+                          styles.bottomHalfActionText,
+                          primaryAction.tone === 'success' && styles.bottomHalfActionTextSuccess,
+                        ]}
+                      >
+                        {primaryAction.label}
+                      </Text>
+                    </TouchableOpacity>
 
-                {rideStatus === 'DRIVER_ARRIVED' ? (
-                  <TouchableOpacity style={[styles.actionButton, styles.inProgressButton]} onPress={() => onRideStatusChange?.('IN_PROGRESS')}>
-                    <Text style={styles.actionButtonText}>В путь</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {rideStatus === 'IN_PROGRESS' ? (
-                  <TouchableOpacity style={[styles.actionButton, styles.completeButton]} onPress={onCompleteRide}>
-                    <Text style={styles.completeButtonText}>Завершить поездку</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {currentRide?.passenger?.user?.phone ? (
-                  <TouchableOpacity style={styles.secondaryActionButton} onPress={onCallPassenger}>
-                    <Text style={styles.secondaryActionButtonText}>Позвонить клиенту</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                <TouchableOpacity style={styles.secondaryActionButton} onPress={onOpenRideChat}>
-                  <Text style={styles.secondaryActionButtonText}>Чат с клиентом</Text>
-                </TouchableOpacity>
-
-                {(rideStatus === 'ON_THE_WAY' || rideStatus === 'DRIVER_ASSIGNED' || rideStatus === 'DRIVER_ARRIVED') ? (
-                  <TouchableOpacity style={styles.cancelButton} onPress={onCancelRide}>
-                    <Text style={styles.cancelButtonText}>Отменить заказ</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </>
-            ) : null}
-
-            {currentCourierOrder ? (
-              <>
-                <View style={styles.routeCardActive}>
-                  <View style={styles.routePoint}>
-                    <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
-                    <Text style={styles.routeText}>{currentCourierOrder?.pickupAddress || '-'}</Text>
+                    <TouchableOpacity style={styles.bottomHalfActionCancel} onPress={cancelAction.onPress}>
+                      <Text style={styles.bottomHalfActionCancelText}>{cancelAction.label}</Text>
+                    </TouchableOpacity>
                   </View>
-                  <View style={styles.routePoint}>
-                    <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-                    <Text style={styles.routeText}>{currentCourierOrder?.dropoffAddress || '-'}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailsBlock}>
-                  <Text style={styles.detailLabel}>Посылка</Text>
-                  <Text style={styles.detailValue}>{currentCourierOrder?.itemDescription || '-'}</Text>
-                  <Text style={styles.detailLabel}>Вес</Text>
-                  <Text style={styles.detailValue}>{currentCourierOrder?.packageWeight || 'Не указан'}</Text>
-                  {currentCourierOrder?.packageSize ? (
-                    <>
-                      <Text style={styles.detailLabel}>Размер</Text>
-                      <Text style={styles.detailValue}>{currentCourierOrder.packageSize}</Text>
-                    </>
-                  ) : null}
-                  {currentCourierOrder?.comment ? (
-                    <>
-                      <Text style={styles.detailLabel}>Комментарий</Text>
-                      <Text style={styles.detailValue}>{currentCourierOrder.comment}</Text>
-                    </>
-                  ) : null}
-                  <Text style={styles.detailLabel}>Цена</Text>
-                  <Text style={styles.priceCourier}>{Math.round(Number(currentCourierOrder?.estimatedPrice || 0))} ₸</Text>
-                </View>
-
-                {courierStatus === 'TO_PICKUP' ? (
-                  <TouchableOpacity style={[styles.actionButton, styles.arrivedButtonCourier]} onPress={() => onCourierStatusChange?.('COURIER_ARRIVED')}>
-                    <Text style={styles.actionButtonText}>На месте</Text>
-                  </TouchableOpacity>
                 ) : null}
 
-                {(courierStatus === 'COURIER_ARRIVED' || courierStatus === 'PICKED_UP') ? (
-                  <TouchableOpacity style={[styles.actionButton, styles.inProgressButton]} onPress={() => onCourierStatusChange?.('TO_RECIPIENT')}>
-                    <Text style={styles.actionButtonText}>Еду к получателю</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {(courierStatus === 'TO_RECIPIENT' || courierStatus === 'DELIVERING') ? (
-                  <TouchableOpacity style={[styles.actionButton, styles.completeButton]} onPress={() => onCourierStatusChange?.('DELIVERED')}>
-                    <Text style={styles.completeButtonText}>Доставлено</Text>
+                {primaryAction && !cancelAction ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.bottomPrimaryFull,
+                      primaryAction.tone === 'success' && styles.bottomPrimaryFullSuccess,
+                    ]}
+                    onPress={primaryAction.onPress}
+                  >
+                    <Ionicons
+                      name={primaryAction.icon}
+                      size={18}
+                      color={primaryAction.tone === 'success' ? '#062117' : '#04131A'}
+                      style={styles.bottomPrimaryIcon}
+                    />
+                    <Text
+                      style={[
+                        styles.bottomPrimaryFullText,
+                        primaryAction.tone === 'success' && styles.bottomPrimaryFullTextSuccess,
+                      ]}
+                    >
+                      {primaryAction.label}
+                    </Text>
                   </TouchableOpacity>
                 ) : null}
               </>
@@ -238,94 +306,125 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
         </View>
         
         {isOnline ? (
-          <View style={styles.statusRow}>
-            <Animated.View style={[styles.statusDot, { backgroundColor: '#10B981', opacity: pulseAnim }]} />
-            <Text style={styles.statusText}>
-              {profile?.driverMode === 'COURIER' ? 'Поиск доставок...' : 'Поиск заказов...'}
-            </Text>
-          </View>
-        ) : null}
-
-        {profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
-          <View style={styles.offerBlock}>
-            <Text style={styles.offerTitle}>Доступные доставки</Text>
-            {availableCourierOrders.slice(0, 2).map((order) => (
-              <TouchableOpacity key={order.id} style={styles.offerCard} onPress={() => onAcceptCourierOrder?.(order.id)}>
-                <Text style={styles.offerRoute}>{order.pickupAddress}</Text>
-                <Text style={styles.offerMeta}>
-                  {order.dropoffAddress} • {Math.round(Number(order.estimatedPrice || 0))} тг
+          <View style={styles.onlineShell}>
+            <View style={styles.onlineBar}>
+              <View style={styles.handleLine} />
+              <TouchableOpacity
+                style={styles.onlineCenter}
+                onPress={() => setIsWaitingExpanded((prev) => !prev)}
+                activeOpacity={0.88}
+              >
+                <View style={styles.onlineCenterTop}>
+                  <Animated.View style={[styles.onlineDot, { opacity: pulseAnim }]} />
+                  <Text style={styles.onlineTitle}>Вы в сети</Text>
+                </View>
+                <Text style={[styles.onlineSubtitle, profile?.driverMode === 'COURIER' ? styles.onlineSubtitleCourier : styles.onlineSubtitleTaxi]}>
+                  Сегодня {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
                 </Text>
               </TouchableOpacity>
-            ))}
+
+              <TouchableOpacity
+                style={styles.expandToggle}
+                onPress={() => setIsWaitingExpanded((prev) => !prev)}
+                activeOpacity={0.88}
+              >
+                {profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
+                  <View style={styles.radarCountBadge}>
+                    <Text style={styles.radarCountText}>{availableCourierOrders.length}</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.expandToggleText}>{isWaitingExpanded ? '⌄' : '☰'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {isWaitingExpanded ? (
+              <View style={styles.waitingPanel}>
+                <View style={styles.infoCardCompact}>
+                  <TouchableOpacity
+                    style={styles.infoHeaderRow}
+                    onPress={() => setIsStatsExpanded((prev) => !prev)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.infoHeader}>
+                      <Text style={styles.infoTitle}>7 дней</Text>
+                      {!isStatsExpanded ? (
+                        <Text style={styles.infoSummary}>
+                          Сегодня {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.infoChevron}>{isStatsExpanded ? '⌃' : '⌄'}</Text>
+                  </TouchableOpacity>
+                  {isStatsExpanded ? (
+                    <View style={styles.chartRow}>
+                      {(metrics?.dailyBuckets ?? []).map((bucket) => (
+                        <View key={bucket.date} style={styles.chartItem}>
+                          <View style={styles.chartTrack}>
+                            <View
+                              style={[
+                                styles.chartBar,
+                                {
+                                  height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
+                                  backgroundColor: profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.chartValue}>{Math.round(bucket.earnings)}</Text>
+                          <Text style={styles.chartLabel}>{bucket.label}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+
+                <TouchableOpacity style={styles.card} onPress={onOpenToday}>
+                  <Text style={styles.cardTitle}>Сегодня</Text>
+                  <View style={styles.cardRight}>
+                    <Text style={styles.cardValue}>{Math.round(Number(metrics?.todayEarnings ?? 0))} ₸</Text>
+                    <Text style={styles.chevron}>›</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View style={styles.metricsCard}>
+                  <View style={styles.metricBox}>
+                    <Text style={styles.metricLabel}>Баланс</Text>
+                    <Text style={styles.metricValueWhite}>{Math.round(Number(metrics?.balance ?? profile?.balance ?? 0))} ₸</Text>
+                  </View>
+                  
+                  <View style={styles.verticalDivider} />
+                  
+                  <View style={styles.metricBox}>
+                    <Text style={styles.metricLabel}>Завершено</Text>
+                    <Text style={styles.metricValueWhite}>
+                      {(metrics?.completedTaxiRides ?? 0) + (metrics?.completedCourierDeliveries ?? 0)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.verticalDivider} />
+                  
+                  <View style={styles.metricBox}>
+                    <Text style={styles.metricLabel}>Рейтинг</Text>
+                    <Text style={styles.metricValueYellow}>{Number(metrics?.rating ?? profile?.rating ?? 5).toFixed(1)} ★</Text>
+                  </View>
+                </View>
+
+                {profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
+                  <View style={styles.offerBlockCompact}>
+                    {availableCourierOrders.slice(0, 2).map((order) => (
+                      <TouchableOpacity key={order.id} style={styles.offerCard} onPress={() => onAcceptCourierOrder?.(order.id)}>
+                        <Text style={styles.offerRoute}>{order.pickupAddress}</Text>
+                        <Text style={styles.offerMeta}>
+                          {order.dropoffAddress} • {Math.round(Number(order.estimatedPrice || 0))} ₸
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         ) : null}
-
-        <View style={styles.infoCard}>
-          <TouchableOpacity
-            style={styles.infoHeaderRow}
-            onPress={() => setIsStatsExpanded((prev) => !prev)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.infoHeader}>
-              <Text style={styles.infoEyebrow}>Неделя</Text>
-              <Text style={styles.infoTitle}>Статистика за 7 дней</Text>
-            </View>
-            <Text style={styles.infoChevron}>{isStatsExpanded ? '⌃' : '⌄'}</Text>
-          </TouchableOpacity>
-          {isStatsExpanded ? (
-            <View style={styles.chartRow}>
-              {(metrics?.dailyBuckets ?? []).map((bucket) => (
-                <View key={bucket.date} style={styles.chartItem}>
-                  <View style={styles.chartTrack}>
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
-                          backgroundColor: profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.chartValue}>{Math.round(bucket.earnings)}</Text>
-                  <Text style={styles.chartLabel}>{bucket.label}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </View>
-
-        <TouchableOpacity style={styles.card} onPress={onOpenToday}>
-          <Text style={styles.cardTitle}>Сегодня</Text>
-          <View style={styles.cardRight}>
-            <Text style={styles.cardValue}>{Math.round(Number(metrics?.todayEarnings ?? 0))} ₸</Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.metricsCard}>
-          <View style={styles.metricBox}>
-            <Text style={styles.metricLabel}>Баланс</Text>
-            <Text style={styles.metricValueWhite}>{Math.round(Number(metrics?.balance ?? profile?.balance ?? 0))} ₸</Text>
-          </View>
-          
-          <View style={styles.verticalDivider} />
-          
-          <View style={styles.metricBox}>
-            <Text style={styles.metricLabel}>Завершено</Text>
-            <Text style={styles.metricValueWhite}>
-              {(metrics?.completedTaxiRides ?? 0) + (metrics?.completedCourierDeliveries ?? 0)}
-            </Text>
-          </View>
-          
-          <View style={styles.verticalDivider} />
-          
-          <View style={styles.metricBox}>
-            <Text style={styles.metricLabel}>Рейтинг</Text>
-            <Text style={styles.metricValueYellow}>{Number(metrics?.rating ?? profile?.rating ?? 5).toFixed(1)} ★</Text>
-          </View>
-        </View>
-
       </View>
     </View>
   );
@@ -339,8 +438,14 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     borderTopLeftRadius: 24, 
     borderTopRightRadius: 24, 
-    borderTopWidth: 1, 
-    borderColor: '#27272A' 
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: '#2F2F35',
+    shadowColor: '#000',
+    shadowOpacity: 0.26,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 18,
   },
   modeTabs: {
     flexDirection: 'row',
@@ -360,7 +465,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   modeTabActive: {
-    backgroundColor: '#27272A',
+    backgroundColor: '#082F49',
+    borderWidth: 1,
+    borderColor: '#0EA5E9',
   },
   modeTabActiveCourier: {
     backgroundColor: '#3F2B05',
@@ -377,12 +484,116 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, justifyContent: 'center' },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
   statusText: { color: '#F4F4F5', fontSize: 15, fontWeight: '600' },
+  onlineShell: {
+    marginBottom: 14,
+  },
+  onlineBar: {
+    minHeight: 74,
+    borderRadius: 20,
+    backgroundColor: '#121214',
+    borderWidth: 1,
+    borderColor: '#2A2A30',
+    paddingTop: 18,
+    paddingBottom: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  onlineCenter: {
+    justifyContent: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  onlineCenterTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#10B981',
+    marginRight: 8,
+  },
+  onlineTitle: {
+    color: '#F4F4F5',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  onlineSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 5,
+  },
+  onlineSubtitleTaxi: {
+    color: '#60A5FA',
+  },
+  onlineSubtitleCourier: {
+    color: '#FACC15',
+  },
+  expandToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    minWidth: 40,
+  },
+  radarCountBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    backgroundColor: '#0EA5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  radarCountText: {
+    color: '#03131C',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  expandToggleText: {
+    color: '#A1A1AA',
+    fontSize: 18,
+    fontWeight: '800',
+    marginLeft: 6,
+  },
+  handleLine: {
+    position: 'absolute',
+    top: 8,
+    left: '50%',
+    marginLeft: -21,
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#3A3A40',
+  },
+  waitingPanel: {
+    backgroundColor: '#09090B',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#24242A',
+    padding: 14,
+    marginTop: 10,
+  },
+  offerBlockCompact: {
+    marginTop: 10,
+  },
 
   infoCard: {
     backgroundColor: '#18181B',
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  infoCardCompact: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#27272A',
   },
@@ -394,17 +605,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  infoEyebrow: {
-    color: '#71717A',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-    letterSpacing: 0.6,
-  },
   infoTitle: {
     color: '#F4F4F5',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   infoChevron: {
@@ -412,6 +615,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     marginLeft: 12,
+  },
+  infoSummary: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
   },
   infoText: {
     color: '#A1A1AA',
@@ -539,23 +748,79 @@ const styles = StyleSheet.create({
     fontWeight: '800' 
   },
 
-  activeCard: { backgroundColor: '#09090B', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#27272A' },
+  activeCard: { backgroundColor: '#09090B', paddingHorizontal: 14, paddingTop: 18, paddingBottom: 14, borderRadius: 20, borderWidth: 1, borderColor: '#27272A' },
   activeCardCourier: { backgroundColor: '#09090B', borderColor: '#27272A' },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
-  dotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#fff', marginRight: 10 },
-  dotCourier: { backgroundColor: '#F59E0B' },
-  activeText: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  priceTitle: { color: '#F4F4F5', fontSize: 28, fontWeight: '900', marginTop: 8, marginBottom: 12 },
-  routeCardActive: {
-    backgroundColor: '#18181B',
-    borderRadius: 18,
-    padding: 12,
-    marginTop: 8,
+  handleLineActive: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#3A3A40',
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#27272A',
   },
-  routePoint: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  activeSummaryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  activeSummaryMain: {
+    flex: 1,
+    marginRight: 12,
+  },
+  activeSummaryTime: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  activeSummaryAddress: {
+    color: '#F4F4F5',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  activeSummarySide: {
+    alignItems: 'flex-end',
+  },
+  activeSummaryPrice: {
+    color: '#60A5FA',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  activeSummaryPriceCourier: {
+    color: '#FACC15',
+  },
+  activeSummaryChevron: {
+    color: '#71717A',
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  routeCardActive: {
+    paddingTop: 2,
+  },
+  summaryDivider: {
+    height: 2,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 999,
+    marginTop: 12,
+    marginBottom: 12,
+    opacity: 0.95,
+  },
+  routeArrowWrap: {
+    marginLeft: 22,
+    marginVertical: 4,
+  },
+  activeExpandedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+  },
+  activeExpandedMain: {
+    flex: 1,
+    marginRight: 12,
+  },
+  routePointCompact: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   routeTextWrap: { flex: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
   routeText: { color: '#E4E4E7', fontSize: 14, flex: 1, fontWeight: '600' },
@@ -575,46 +840,189 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
   },
-  commentText: { color: '#A1A1AA', fontSize: 13, marginTop: 4 },
-  detailsBlock: {
-    backgroundColor: '#18181B',
+  courierMiniMeta: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  actionIconColumn: {
+    width: 56,
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 6,
+  },
+  actionIconBtn: {
+    width: 56,
+    height: 56,
     borderRadius: 18,
-    padding: 12,
-    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#27272A',
-  },
-  detailLabel: { color: '#71717A', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginTop: 4, marginBottom: 2 },
-  detailValue: { color: '#F4F4F5', fontSize: 14, fontWeight: '600' },
-  priceCourier: { color: '#60A5FA', fontSize: 20, fontWeight: '900', marginTop: 2 },
-  actionButton: { borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
-  actionButtonText: { color: '#09090B', fontSize: 17, fontWeight: '900' },
-  arrivedButton: { backgroundColor: '#F59E0B' },
-  arrivedButtonCourier: { backgroundColor: '#F59E0B' },
-  inProgressButton: { backgroundColor: '#3B82F6' },
-  completeButton: { backgroundColor: '#10B981' },
-  completeButtonText: { color: '#fff', fontSize: 17, fontWeight: '900' },
-  secondaryActionButton: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: '#2C2C33',
     backgroundColor: '#18181B',
-    marginBottom: 10,
-  },
-  secondaryActionButtonText: {
-    color: '#F4F4F5',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  cancelButton: {
-    paddingVertical: 14,
     alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#3F3F46',
-    backgroundColor: '#1C1C1E',
+    justifyContent: 'center',
   },
-  cancelButtonText: { color: '#EF4444', fontSize: 15, fontWeight: '800' },
+  bottomActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    gap: 10,
+  },
+  bottomHalfAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  bottomHalfActionPrimary: {
+    backgroundColor: '#0EA5E9',
+  },
+  bottomHalfActionSuccess: {
+    backgroundColor: '#10B981',
+  },
+  bottomHalfActionCancel: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: '#2B1114',
+    borderWidth: 1,
+    borderColor: '#7F1D1D',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  bottomHalfActionText: {
+    color: '#04131A',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  bottomHalfActionTextSuccess: {
+    color: '#062117',
+  },
+  bottomHalfActionCancelText: {
+    color: '#F87171',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  bottomPrimaryFull: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: '#0EA5E9',
+    paddingVertical: 15,
+    paddingHorizontal: 18,
+  },
+  bottomPrimaryFullSuccess: {
+    backgroundColor: '#10B981',
+  },
+  bottomPrimaryIcon: {
+    marginRight: 8,
+  },
+  bottomPrimaryFullText: {
+    color: '#04131A',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  bottomPrimaryFullTextSuccess: {
+    color: '#062117',
+  },
 });
+
+function buildRideActions({
+  rideStatus,
+  onRideStatusChange,
+  onCompleteRide,
+  onCancelRide,
+  onOpenRideChat,
+  onCallPassenger,
+  onShowDriverNotice,
+  hasPassengerPhone,
+}: {
+  rideStatus?: string;
+  onRideStatusChange?: (status: string) => void;
+  onCompleteRide?: () => void;
+  onCancelRide?: () => void;
+  onOpenRideChat?: () => void;
+  onCallPassenger?: () => void;
+  onShowDriverNotice?: (title: string, message: string) => void;
+  hasPassengerPhone: boolean;
+}) {
+  const actions: Array<{
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    tone: 'default' | 'primary' | 'success' | 'danger';
+    placement?: 'icon' | 'primary' | 'cancel';
+    onPress?: () => void;
+  }> =
+    [];
+
+  if (rideStatus === 'ON_THE_WAY' || rideStatus === 'DRIVER_ASSIGNED') {
+    actions.push({
+      label: 'На месте',
+      icon: 'paper-plane-outline',
+      tone: 'primary',
+      placement: 'primary',
+      onPress: () => {
+        onRideStatusChange?.('DRIVER_ARRIVED');
+        onShowDriverNotice?.('Вы на месте', 'Клиент получил уведомление, что вы подъехали.');
+      },
+    });
+  }
+
+  if (rideStatus === 'DRIVER_ARRIVED') {
+    actions.push({ label: 'В путь', icon: 'paper-plane-outline', tone: 'primary', placement: 'primary', onPress: () => onRideStatusChange?.('IN_PROGRESS') });
+  }
+
+  if (rideStatus === 'IN_PROGRESS') {
+    actions.push({ label: 'Завершить', icon: 'checkmark-outline', tone: 'success', placement: 'primary', onPress: onCompleteRide });
+  }
+
+  if (hasPassengerPhone) {
+    actions.push({ label: 'Позвонить', icon: 'call-outline', tone: 'default', placement: 'icon', onPress: onCallPassenger });
+  }
+
+  actions.push({ label: 'Чат', icon: 'chatbubble-ellipses-outline', tone: 'default', placement: 'icon', onPress: onOpenRideChat });
+
+  if (rideStatus === 'ON_THE_WAY' || rideStatus === 'DRIVER_ASSIGNED' || rideStatus === 'DRIVER_ARRIVED') {
+    actions.push({ label: 'Отменить заказ', icon: 'close-outline', tone: 'danger', placement: 'cancel', onPress: onCancelRide });
+  }
+
+  return actions.filter((action) => !!action.onPress);
+}
+
+function buildCourierActions({
+  courierStatus,
+  onCourierStatusChange,
+}: {
+  courierStatus?: string;
+  onCourierStatusChange?: (status: string) => void;
+}) {
+  const actions: Array<{
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    tone: 'default' | 'primary' | 'success' | 'danger';
+    placement?: 'icon' | 'primary' | 'cancel';
+    onPress?: () => void;
+  }> =
+    [];
+
+  if (courierStatus === 'TO_PICKUP') {
+    actions.push({ label: 'На месте', icon: 'paper-plane-outline', tone: 'primary', placement: 'primary', onPress: () => onCourierStatusChange?.('COURIER_ARRIVED') });
+  }
+
+  if (courierStatus === 'COURIER_ARRIVED' || courierStatus === 'PICKED_UP') {
+    actions.push({ label: 'К получателю', icon: 'paper-plane-outline', tone: 'primary', placement: 'primary', onPress: () => onCourierStatusChange?.('TO_RECIPIENT') });
+  }
+
+  if (courierStatus === 'TO_RECIPIENT' || courierStatus === 'DELIVERING') {
+    actions.push({ label: 'Доставлено', icon: 'checkmark-outline', tone: 'success', placement: 'primary', onPress: () => onCourierStatusChange?.('DELIVERED') });
+  }
+
+  return actions.filter((action) => !!action.onPress);
+}

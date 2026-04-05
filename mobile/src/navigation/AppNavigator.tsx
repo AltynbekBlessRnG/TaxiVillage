@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen } from '../screens/Auth/LoginScreen';
 import { RegisterScreen } from '../screens/Auth/RegisterScreen';
 import { PassengerHomeScreen } from '../screens/Passenger/PassengerHomeScreen';
+import { PassengerProfileScreen } from '../screens/Passenger/PassengerProfileScreen';
 import { RideDetailsScreen } from '../screens/Passenger/RideStatusScreen';
 import { FavoriteAddressesScreen } from '../screens/Passenger/FavoriteAddressesScreen';
 import { FoodHomeScreen } from '../screens/Passenger/FoodHomeScreen';
@@ -37,6 +38,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   PassengerHome: { selectedAddress?: { address: string; lat: number; lng: number } };
+  PassengerProfile: undefined;
   FoodHome: undefined;
   Restaurant: { restaurantId: string; restaurantName: string };
   Cart: {
@@ -151,6 +153,7 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="PassengerHome" component={PassengerHomeScreen} />
+      <Stack.Screen name="PassengerProfile" component={PassengerProfileScreen} />
       <Stack.Screen
         name="FoodHome"
         component={FoodHomeScreen}

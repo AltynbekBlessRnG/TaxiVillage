@@ -25,7 +25,7 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MenuEditor'>;
 
-export const MenuEditorScreen: React.FC<Props> = () => {
+export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
   const [merchant, setMerchant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [creatingCategory, setCreatingCategory] = useState(false);
@@ -294,9 +294,9 @@ export const MenuEditorScreen: React.FC<Props> = () => {
   return (
     <ServiceScreen
       accentColor="#FB923C"
-      eyebrow="Меню"
       title="Редактор меню"
-      subtitle="Категории, блюда и фото в одном месте без техничного вида."
+      backLabel="К кабинету"
+      onBack={() => navigation.goBack()}
     >
       <ServiceCard>
         <SectionTitle>Новая категория</SectionTitle>

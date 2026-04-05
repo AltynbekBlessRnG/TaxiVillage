@@ -20,10 +20,10 @@ interface Props {
   offer: RideOffer | null;
   onAccept: (id: string) => void;
   onReject: (id: string) => void;
-  onCallPassenger?: (phone: string) => void;
+  variant?: 'taxi' | 'courier';
 }
 
-export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject, onCallPassenger }) => {
+export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject, variant = 'taxi' }) => {
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
@@ -37,13 +37,15 @@ export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject, onC
   if (!offer) return null;
 
   const price = offer.estimatedPrice ? Math.round(offer.estimatedPrice) : '—';
+  const accentColor = variant === 'courier' ? '#F59E0B' : '#3B82F6';
 
   return (
     <Animated.View style={[styles.container, { transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.workspace}>
+        <View style={styles.handleLine} />
         <View style={styles.header}>
           <Text style={styles.newOrderText}>Новый заказ</Text>
-          <Text style={styles.priceText}>{price} ₸</Text>
+          <Text style={[styles.priceText, { color: accentColor }]}>{price} ₸</Text>
         </View>
 
         {offer.hasRoute === false && (
@@ -91,17 +93,11 @@ export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject, onC
           </View>
         ) : null}
 
-        {offer.passenger?.user?.phone ? (
-          <TouchableOpacity style={styles.callBtn} onPress={() => onCallPassenger?.(offer.passenger!.user!.phone!)}>
-            <Text style={styles.callBtnText}>Позвонить клиенту</Text>
-          </TouchableOpacity>
-        ) : null}
-
         <View style={styles.buttonsRow}>
           <TouchableOpacity style={styles.rejectBtn} onPress={() => onReject(offer.id)}>
             <Text style={styles.rejectBtnText}>Пропустить</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.acceptBtn} onPress={() => onAccept(offer.id)}>
+          <TouchableOpacity style={[styles.acceptBtn, { backgroundColor: accentColor }]} onPress={() => onAccept(offer.id)}>
             <Text style={styles.acceptBtnText}>Принять</Text>
           </TouchableOpacity>
         </View>
@@ -118,12 +114,20 @@ const styles = StyleSheet.create({
   workspace: { 
     backgroundColor: '#121212', 
     paddingHorizontal: 18,
-    paddingTop: 16,
+    paddingTop: 20,
     paddingBottom: 24,
     borderTopLeftRadius: 24, 
     borderTopRightRadius: 24, 
     borderTopWidth: 1, 
     borderColor: '#27272A' 
+  },
+  handleLine: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#3A3A40',
+    marginBottom: 12,
   },
   
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
@@ -154,19 +158,9 @@ const styles = StyleSheet.create({
   },
   commentBox: { marginBottom: 14, paddingHorizontal: 2 },
   commentText: { color: '#71717A', fontSize: 13, fontStyle: 'italic' },
-  callBtn: {
-    backgroundColor: '#18181B',
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    marginBottom: 14,
-  },
-  callBtnText: { color: '#F4F4F5', fontSize: 15, fontWeight: '800' },
   buttonsRow: { flexDirection: 'row', gap: 12 },
-  rejectBtn: { flex: 1, backgroundColor: '#1C1C1E', paddingVertical: 15, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
-  rejectBtnText: { color: '#A1A1AA', fontSize: 16, fontWeight: '700' },
-  acceptBtn: { flex: 2, backgroundColor: '#F4F4F5', paddingVertical: 15, borderRadius: 16, alignItems: 'center' },
-  acceptBtnText: { color: '#000', fontSize: 18, fontWeight: '900' },
+  rejectBtn: { flex: 1, backgroundColor: '#2B1114', paddingVertical: 15, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#7F1D1D' },
+  rejectBtnText: { color: '#F87171', fontSize: 16, fontWeight: '800' },
+  acceptBtn: { flex: 2, paddingVertical: 15, borderRadius: 16, alignItems: 'center' },
+  acceptBtnText: { color: '#04131A', fontSize: 18, fontWeight: '900' },
 });

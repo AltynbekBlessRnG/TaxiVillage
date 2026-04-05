@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
   activeRide?: any | null;
@@ -22,7 +23,14 @@ export const ActiveOrderSheet: React.FC<Props> = ({
   onCancel,
 }) => {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => [activeRide ? '43%' : '35%'], [activeRide]);
+  const isCourier = !!activeCourierOrder;
+  const status = activeRide?.status ?? activeCourierOrder?.status;
+  const snapPoints = useMemo(() => {
+    if (activeRide) {
+      return ['31%', '55%'];
+    }
+    return ['28%', '48%'];
+  }, [activeRide]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -30,8 +38,12 @@ export const ActiveOrderSheet: React.FC<Props> = ({
     });
   }, [activeRide, activeCourierOrder]);
 
-  const isCourier = !!activeCourierOrder;
-  const status = activeRide?.status ?? activeCourierOrder?.status;
+  const etaMinutes = etaSeconds ? Math.max(1, Math.round(etaSeconds / 60)) : null;
+  const driverName = activeRide?.driver?.fullName || 'Водитель';
+  const carInfo = [activeRide?.driver?.car?.color, activeRide?.driver?.car?.make, activeRide?.driver?.car?.model]
+    .filter(Boolean)
+    .join(' ');
+  const plate = activeRide?.driver?.car?.plateNumber || '—';
 
   return (
     <View style={styles.fullOverlay} pointerEvents="box-none">
@@ -47,102 +59,100 @@ export const ActiveOrderSheet: React.FC<Props> = ({
         style={styles.sheetShadow}
       >
         <BottomSheetView style={styles.content}>
-          <View style={styles.statusHeader}>
-            <View style={[styles.statusDot, getStatusDotColor(status)]} />
-            <Text style={styles.statusTitle}>
-              {isCourier ? translateCourierStatus(status) : translateStatus(status)}
+          <View style={styles.headlineCard}>
+            <Text style={styles.headlineText}>
+              {isCourier
+                ? courierHeadline(status, etaMinutes)
+                : rideHeadline(status, etaMinutes, activeRide?.driver?.car)}
             </Text>
           </View>
 
-          {activeRide && etaSeconds && (activeRide.status === 'ON_THE_WAY' || activeRide.status === 'DRIVER_ASSIGNED' || activeRide.status === 'DRIVER_ARRIVED') ? (
-            <View style={styles.etaBadge}>
-              <Text style={styles.etaLabel}>До подачи примерно</Text>
-              <Text style={styles.etaValue}>{`${Math.max(1, Math.round(etaSeconds / 60))} мин`}</Text>
+          {activeRide?.driver ? (
+            <View style={styles.driverCard}>
+              <View style={styles.driverMeta}>
+                <Text style={styles.driverName}>{driverName}</Text>
+                <Text style={styles.driverCar}>{carInfo || 'Автомобиль в пути'}</Text>
+              </View>
+              <View style={styles.plateBox}>
+                <Text style={styles.plateText}>{plate}</Text>
+              </View>
             </View>
           ) : null}
 
-        {activeRide?.driver ? (
-          <View style={styles.rideCard}>
-            <View style={styles.driverRow}>
-              <View>
-                <Text style={styles.driverName}>{activeRide.driver.fullName || 'Водитель'}</Text>
-                <Text style={styles.carInfo}>
-                  {[activeRide.driver.car?.make, activeRide.driver.car?.model, activeRide.driver.car?.color].filter(Boolean).join(' • ')}
+          {activeRide ? (
+            <View style={styles.routeCard}>
+              <Text style={styles.sectionLabel}>Подача</Text>
+              <View style={styles.routeRow}>
+                <View style={styles.routeDotBlue} />
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {activeRide.fromAddress}
                 </Text>
               </View>
-              <View style={styles.plateBox}>
-                <Text style={styles.plateText}>{activeRide.driver.car?.plateNumber || '—'}</Text>
+              {(activeRide?.stops ?? []).map((stop: any, index: number) => (
+                <View key={`${stop.address}-${index}`} style={styles.routeRow}>
+                  <View style={styles.routeDotStop} />
+                  <Text style={styles.addressText} numberOfLines={1}>
+                    {stop.address}
+                  </Text>
+                </View>
+              ))}
+              <View style={styles.routeDivider} />
+              <Text style={styles.sectionLabel}>Прибытие</Text>
+              <View style={styles.routeRow}>
+                <View style={styles.routeDotRed} />
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {activeRide.toAddress}
+                </Text>
               </View>
             </View>
-          </View>
-        ) : null}
-
-        {activeRide ? (
-          <View style={styles.rideCard}>
-            <View style={styles.routePointRow}>
-              <View style={styles.routeDotBlue} />
-              <Text style={styles.addressText} numberOfLines={1}>{activeRide.fromAddress}</Text>
-            </View>
-            {activeRide?.stops?.map((stop: any, index: number) => (
-              <View key={`${stop.address}-${index}`} style={styles.routePointRow}>
-                <View style={styles.routeDotStop} />
-                <Text style={styles.addressText} numberOfLines={1}>{`Заезд: ${stop.address}`}</Text>
+          ) : activeCourierOrder ? (
+            <View style={styles.routeCard}>
+              <Text style={styles.sectionLabel}>Забрать</Text>
+              <View style={styles.routeRow}>
+                <View style={styles.routeDotBlue} />
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {activeCourierOrder.pickupAddress}
+                </Text>
               </View>
-            ))}
-            <View style={styles.routePointRow}>
-              <View style={styles.routeDotRed} />
-              <Text style={styles.addressText} numberOfLines={1}>{activeRide.toAddress}</Text>
+              <View style={styles.routeDivider} />
+              <Text style={styles.sectionLabel}>Доставить</Text>
+              <View style={styles.routeRow}>
+                <View style={styles.routeDotRed} />
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {activeCourierOrder.dropoffAddress}
+                </Text>
+              </View>
             </View>
-            <View style={styles.rideDivider} />
-            <View style={styles.priceRowActive}>
-              <Text style={styles.priceLabel}>Стоимость поездки</Text>
-              <Text style={styles.priceValue}>{Math.round(Number(activeRide.finalPrice || activeRide.estimatedPrice || 0))} ₸</Text>
-            </View>
-          </View>
-        ) : activeCourierOrder ? (
-          <View style={styles.rideCard}>
-            <View style={styles.routePointRow}>
-              <View style={styles.routeDotBlue} />
-              <Text style={styles.addressText} numberOfLines={1}>{activeCourierOrder.pickupAddress}</Text>
-            </View>
-            <View style={styles.routePointRow}>
-              <View style={styles.routeDotRed} />
-              <Text style={styles.addressText} numberOfLines={1}>{activeCourierOrder.dropoffAddress}</Text>
-            </View>
-            <View style={styles.rideDivider} />
-            <Text style={styles.courierPayloadTitle}>Посылка</Text>
-            <Text style={styles.courierPayloadText}>{activeCourierOrder.itemDescription || '-'}</Text>
-            {activeCourierOrder.packageWeight ? <Text style={styles.courierMeta}>Вес: {activeCourierOrder.packageWeight}</Text> : null}
-            {activeCourierOrder.packageSize ? <Text style={styles.courierMeta}>Размер: {activeCourierOrder.packageSize}</Text> : null}
-            {activeCourierOrder.comment ? <Text style={styles.courierMeta}>Комментарий: {activeCourierOrder.comment}</Text> : null}
-            <View style={styles.priceRowActive}>
-              <Text style={styles.priceLabel}>Стоимость доставки</Text>
-              <Text style={styles.priceValue}>{Math.round(Number(activeCourierOrder.estimatedPrice || 0))} ₸</Text>
-            </View>
-          </View>
-        ) : null}
+          ) : null}
 
-          <View style={styles.buttonsRow}>
-            {activeRide && ACTIVE_CANCELABLE_STATUSES.includes(activeRide.status) ? (
-              <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-                <Text style={styles.cancelBtnText}>Отменить</Text>
-              </TouchableOpacity>
-            ) : null}
-            {activeCourierOrder && activeCourierOrder.status !== 'DELIVERED' && activeCourierOrder.status !== 'CANCELED' ? (
-              <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-                <Text style={styles.cancelBtnText}>Отменить</Text>
-              </TouchableOpacity>
-            ) : null}
-            {activeRide?.driver && onOpenRideChat ? (
-              <TouchableOpacity style={styles.chatBtn} onPress={onOpenRideChat}>
-                <Text style={styles.chatBtnText}>Чат с водителем</Text>
-                {rideUnreadCount > 0 ? (
-                  <View style={styles.chatBadge}>
-                    <Text style={styles.chatBadgeText}>{rideUnreadCount > 99 ? '99+' : rideUnreadCount}</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            ) : null}
+          <View style={styles.bottomBar}>
+            <View style={styles.priceBlock}>
+              <Text style={styles.priceLabel}>{isCourier ? 'Доставка' : 'Поездка'}</Text>
+              <Text style={styles.priceValue}>
+                {Math.round(Number(activeRide?.finalPrice || activeRide?.estimatedPrice || activeCourierOrder?.estimatedPrice || 0))} ₸
+              </Text>
+            </View>
+
+            <View style={styles.actionRow}>
+              {activeRide?.driver && onOpenRideChat ? (
+                <TouchableOpacity style={styles.iconButton} onPress={onOpenRideChat}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={20} color="#09090B" />
+                  {rideUnreadCount > 0 ? (
+                    <View style={styles.chatBadge}>
+                      <Text style={styles.chatBadgeText}>{rideUnreadCount > 99 ? '99+' : rideUnreadCount}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              ) : null}
+
+              {((activeRide && ACTIVE_CANCELABLE_STATUSES.includes(activeRide.status)) ||
+                (activeCourierOrder && activeCourierOrder.status !== 'DELIVERED' && activeCourierOrder.status !== 'CANCELED')) && onCancel ? (
+                <TouchableOpacity style={styles.secondaryButton} onPress={onCancel}>
+                  <Ionicons name="close-outline" size={20} color="#F87171" />
+                  <Text style={styles.secondaryButtonText}>Отменить</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
         </BottomSheetView>
       </BottomSheet>
@@ -150,50 +160,43 @@ export const ActiveOrderSheet: React.FC<Props> = ({
   );
 };
 
-function getStatusDotColor(status: string) {
-  switch (status) {
-    case 'COMPLETED':
-    case 'DELIVERED':
-      return { backgroundColor: '#10B981' };
-    case 'CANCELED':
-      return { backgroundColor: '#EF4444' };
-    case 'IN_PROGRESS':
-      return { backgroundColor: '#3B82F6' };
-    case 'ON_THE_WAY':
-    case 'DRIVER_ASSIGNED':
-    case 'DRIVER_ARRIVED':
-    case 'TO_PICKUP':
-    case 'COURIER_ARRIVED':
-    case 'TO_RECIPIENT':
-      return { backgroundColor: '#F59E0B' };
-    default:
-      return { backgroundColor: '#71717A' };
+function rideHeadline(status: string, etaMinutes: number | null, car?: any) {
+  if (status === 'DRIVER_ASSIGNED' || status === 'ON_THE_WAY') {
+    const carLabel = [car?.color, car?.make, car?.model].filter(Boolean).join(' ');
+    return `Через ~${etaMinutes ?? 3} мин приедет ${carLabel || 'водитель'}`;
   }
+  if (status === 'DRIVER_ARRIVED') {
+    return 'Водитель уже на месте';
+  }
+  if (status === 'IN_PROGRESS') {
+    return 'Вы в пути';
+  }
+  if (status === 'COMPLETED') {
+    return 'Поездка завершена';
+  }
+  if (status === 'CANCELED') {
+    return 'Заказ отменен';
+  }
+  return 'Ищем водителя';
 }
 
-function translateStatus(status: string): string {
-  const t: Record<string, string> = {
-    SEARCHING_DRIVER: 'Ищем водителя',
-    DRIVER_ASSIGNED: 'Водитель едет к вам',
-    ON_THE_WAY: 'Водитель едет к вам',
-    DRIVER_ARRIVED: 'Водитель прибыл',
-    IN_PROGRESS: 'Вы в пути',
-    COMPLETED: 'Поездка завершена',
-    CANCELED: 'Отменена',
-  };
-  return t[status] || status;
-}
-
-function translateCourierStatus(status: string): string {
-  const t: Record<string, string> = {
-    SEARCHING_COURIER: 'Ищем курьера',
-    TO_PICKUP: 'Курьер едет к вам',
-    COURIER_ARRIVED: 'Курьер на месте',
-    TO_RECIPIENT: 'Курьер едет к получателю',
-    DELIVERED: 'Доставлено',
-    CANCELED: 'Отменено',
-  };
-  return t[status] || status;
+function courierHeadline(status: string, etaMinutes: number | null) {
+  if (status === 'TO_PICKUP') {
+    return `Через ~${etaMinutes ?? 3} мин приедет курьер`;
+  }
+  if (status === 'COURIER_ARRIVED') {
+    return 'Курьер уже на месте';
+  }
+  if (status === 'TO_RECIPIENT') {
+    return 'Курьер в пути к получателю';
+  }
+  if (status === 'DELIVERED') {
+    return 'Доставка завершена';
+  }
+  if (status === 'CANCELED') {
+    return 'Заказ отменен';
+  }
+  return 'Ищем курьера';
 }
 
 const styles = StyleSheet.create({
@@ -208,8 +211,8 @@ const styles = StyleSheet.create({
   },
   background: {
     backgroundColor: '#09090B',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     borderWidth: 1,
     borderColor: '#27272A',
   },
@@ -217,91 +220,190 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   handleIndicator: {
-    backgroundColor: '#27272A',
-    width: 40,
+    backgroundColor: '#3A3A40',
+    width: 42,
     height: 4,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    paddingTop: 4,
+    paddingHorizontal: 18,
+    paddingBottom: 26,
+    paddingTop: 2,
   },
-  statusHeader: {
+  headlineCard: {
+    backgroundColor: '#161618',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#232329',
+  },
+  headlineText: {
+    color: '#F4F4F5',
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
+  driverCard: {
+    backgroundColor: '#121214',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  statusDot: { width: 12, height: 12, borderRadius: 6, marginRight: 10 },
-  statusTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
-  etaBadge: {
-    alignSelf: 'center',
-    backgroundColor: '#18181B',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#27272A',
-    marginBottom: 16,
+    borderColor: '#232329',
   },
-  etaLabel: { color: '#A1A1AA', fontSize: 12, textAlign: 'center', marginBottom: 4 },
-  etaValue: { color: '#F4F4F5', fontSize: 18, fontWeight: '800', textAlign: 'center' },
-  rideCard: {
-    backgroundColor: '#18181B',
+  driverMeta: {
+    flex: 1,
+    marginRight: 12,
+  },
+  driverName: {
+    color: '#F4F4F5',
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 2,
+  },
+  driverCar: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  plateBox: {
+    backgroundColor: '#F4F4F5',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  plateText: {
+    color: '#09090B',
+    fontSize: 16,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  routeCard: {
+    backgroundColor: '#121214',
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: '#232329',
   },
-  driverRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  driverName: { color: '#F4F4F5', fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  carInfo: { color: '#A1A1AA', fontSize: 14, fontWeight: '500' },
-  plateBox: { backgroundColor: '#27272A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  plateText: { color: '#F4F4F5', fontSize: 14, fontWeight: '700', textTransform: 'uppercase' },
-  routePointRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
-  routeDotBlue: { width: 10, height: 10, borderRadius: 5, marginRight: 12, backgroundColor: '#3B82F6' },
-  routeDotStop: { width: 10, height: 10, borderRadius: 5, marginRight: 12, backgroundColor: '#F97316' },
-  routeDotRed: { width: 10, height: 10, borderRadius: 5, marginRight: 12, backgroundColor: '#EF4444' },
-  addressText: { color: '#E4E4E7', fontSize: 15, fontWeight: '500', flex: 1 },
-  rideDivider: { height: 1, backgroundColor: '#27272A', marginVertical: 12 },
-  priceRowActive: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  priceLabel: { color: '#A1A1AA', fontSize: 14, fontWeight: '500' },
-  priceValue: { color: '#3B82F6', fontSize: 22, fontWeight: '800' },
-  buttonsRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
-  cancelBtn: {
-    flex: 1,
-    backgroundColor: '#1C1C1E',
-    paddingVertical: 16,
-    borderRadius: 16,
+  sectionLabel: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  routeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#27272A',
+    marginBottom: 8,
   },
-  cancelBtnText: { color: '#EF4444', fontSize: 16, fontWeight: '600' },
-  chatBtn: {
-    flex: 2,
-    backgroundColor: '#F4F4F5',
-    paddingVertical: 16,
+  routeDotBlue: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+    backgroundColor: '#3B82F6',
+  },
+  routeDotStop: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+    backgroundColor: '#F97316',
+  },
+  routeDotRed: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+    backgroundColor: '#EF4444',
+  },
+  addressText: {
+    color: '#E4E4E7',
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+  },
+  routeDivider: {
+    height: 1,
+    backgroundColor: '#27272A',
+    marginVertical: 10,
+  },
+  bottomBar: {
+    backgroundColor: '#121214',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#232329',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  priceBlock: {
+    flex: 1,
+    marginRight: 12,
+  },
+  priceLabel: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  priceValue: {
+    color: '#60A5FA',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  iconButton: {
+    width: 52,
+    height: 52,
     borderRadius: 16,
+    backgroundColor: '#F4F4F5',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chatBtnText: { color: '#000', fontSize: 16, fontWeight: '800' },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1E',
+    borderWidth: 1,
+    borderColor: '#3F3F46',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    height: 52,
+  },
+  secondaryButtonText: {
+    color: '#F87171',
+    fontSize: 14,
+    fontWeight: '800',
+    marginLeft: 8,
+  },
   chatBadge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    paddingHorizontal: 7,
+    top: -6,
+    right: -6,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
     backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chatBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  courierPayloadTitle: { color: '#F4F4F5', fontSize: 14, fontWeight: '800', marginBottom: 6 },
-  courierPayloadText: { color: '#E4E4E7', fontSize: 15, fontWeight: '600', marginBottom: 6 },
-  courierMeta: { color: '#A1A1AA', fontSize: 13, marginBottom: 4 },
+  chatBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+  },
 });

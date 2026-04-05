@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
 import {
   PrimaryButton,
   SectionTitle,
@@ -17,19 +18,54 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
   const [address, setAddress] = useState('Жубанова 1а');
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    primaryLabel?: string;
+    secondaryLabel?: string;
+    primaryVariant?: 'default' | 'danger';
+    onPrimary?: () => void;
+    onSecondary?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const totalNumber = Number(total || 0);
   const deliveryFee = totalNumber > 0 ? 700 : 0;
   const finalTotal = Math.max(totalNumber + deliveryFee, 0);
 
+  const closeModal = () =>
+    setModal({
+      visible: false,
+      title: '',
+      message: '',
+    });
+
+  const openModal = (next: Omit<typeof modal, 'visible'>) =>
+    setModal({
+      visible: true,
+      ...next,
+    });
+
   const submitOrder = async () => {
     if (!address.trim()) {
-      Alert.alert('Нужен адрес', 'Укажи адрес доставки перед отправкой заказа.');
+      openModal({
+        title: 'Нужен адрес',
+        message: 'Укажи адрес доставки перед отправкой заказа.',
+        primaryLabel: 'Понятно',
+      });
       return;
     }
 
     if (!merchantWhatsAppPhone?.trim()) {
-      Alert.alert('Нет номера ресторана', 'У этого заведения пока не указан WhatsApp для заказов.');
+      openModal({
+        title: 'Нет номера ресторана',
+        message: 'У этого заведения пока не указан WhatsApp для заказов.',
+        primaryLabel: 'Понятно',
+      });
       return;
     }
 
@@ -45,21 +81,25 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
       });
 
       if (!opened) {
-        Alert.alert(
-          'WhatsApp недоступен',
-          `Напишите ресторану вручную: ${merchantWhatsAppPhone}`,
-          [
-            { text: 'Отмена', style: 'cancel' },
-            {
-              text: 'Позвонить',
-              onPress: () => Linking.openURL(`tel:${merchantWhatsAppPhone}`).catch(() => null),
-            },
-          ],
-        );
+        openModal({
+          title: 'WhatsApp недоступен',
+          message: `Напишите ресторану вручную: ${merchantWhatsAppPhone}`,
+          primaryLabel: 'Позвонить',
+          secondaryLabel: 'Позже',
+          onPrimary: () => {
+            closeModal();
+            Linking.openURL(`tel:${merchantWhatsAppPhone}`).catch(() => null);
+          },
+          onSecondary: closeModal,
+        });
         return;
       }
     } catch {
-      Alert.alert('Ошибка', 'Не удалось открыть WhatsApp для заказа.');
+      openModal({
+        title: 'Ошибка',
+        message: 'Не удалось открыть WhatsApp для заказа.',
+        primaryLabel: 'Понятно',
+      });
     } finally {
       setLoading(false);
     }
@@ -140,6 +180,31 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
             : `Заказать в WhatsApp • ${Math.round(finalTotal)} тг`
         }
         onPress={submitOrder}
+      />
+
+      <DarkAlertModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        primaryLabel={modal.primaryLabel}
+        secondaryLabel={modal.secondaryLabel}
+        primaryVariant={modal.primaryVariant}
+        onPrimary={() => {
+          const action = modal.onPrimary;
+          if (action) {
+            action();
+            return;
+          }
+          closeModal();
+        }}
+        onSecondary={() => {
+          const action = modal.onSecondary;
+          if (action) {
+            action();
+            return;
+          }
+          closeModal();
+        }}
       />
     </ServiceScreen>
   );

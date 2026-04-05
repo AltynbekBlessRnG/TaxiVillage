@@ -54,8 +54,23 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
       {/* Само меню */}
       <Animated.View style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.header}>
-          <Text style={styles.name}>{profile?.fullName || 'Водитель'}</Text>
-          <Text style={styles.phone}>{profile?.phone || 'Загрузка...'}</Text>
+          <View style={styles.avatarRow}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>
+                {((profile?.fullName || profile?.phone || 'В')
+                  .trim()
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((part) => part[0])
+                  .join('') || 'В')
+                  .toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.name}>{profile?.fullName || profile?.phone || 'Водитель'}</Text>
+              {profile?.phone ? <Text style={styles.phone}>{profile.phone}</Text> : null}
+            </View>
+          </View>
           
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
@@ -117,6 +132,19 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 900 },
   drawer: { position: 'absolute', top: 0, bottom: 0, left: 0, width: width * 0.8, backgroundColor: '#09090B', zIndex: 1000, borderRightWidth: 1, borderColor: '#18181B' },
   header: { backgroundColor: '#18181B', padding: 24, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: '#27272A' },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  avatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: '#E2E8F0', fontSize: 20, fontWeight: '900' },
+  headerTextWrap: { flex: 1 },
   name: { color: '#fff', fontSize: 22, fontWeight: '800' },
   phone: { color: '#94A3B8', fontSize: 14, marginTop: 4 },
   statsRow: { flexDirection: 'row', marginTop: 20, gap: 15 },
