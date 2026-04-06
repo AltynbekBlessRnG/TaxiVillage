@@ -1,6 +1,0 @@
-cd C:\Users\Duman\TaxiVillage\backend
-npm run start:dev
-
-
-cd C:\Users\Duman\TaxiVillage\mobile
-npx expo start --dev-client --host lan -c

@@ -34,3 +34,6 @@ backend/uploads/*
 .DS_Store
 .vscode/
 .idea/
+
+repomix-output.xml
+запуск
