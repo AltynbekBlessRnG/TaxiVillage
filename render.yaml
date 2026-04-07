@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: taxivillage-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run prisma:generate && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: PORT
+        value: 10000
+
+  - type: static_site
+    name: taxivillage-admin
+    rootDir: admin
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+
+  - type: static_site
+    name: taxivillage-docs
+    rootDir: docs
+    buildCommand: ""
+    staticPublishPath: .

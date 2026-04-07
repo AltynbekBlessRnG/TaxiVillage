@@ -545,6 +545,19 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={[styles.progressFill, { width: `${readinessScore}%` }]} />
               </View>
             </View>
+            <View style={styles.balanceStatusRow}>
+              <Text style={styles.balanceStatusText}>
+                {Number(profile?.balance || 0) > 0
+                  ? 'Можно выйти на линию'
+                  : 'Пополните баланс для выхода на линию'}
+              </Text>
+              <TouchableOpacity
+                style={styles.balanceButton}
+                onPress={() => navigation.navigate('DriverBalance')}
+              >
+                <Text style={styles.balanceButtonText}>Баланс</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.section}>
@@ -882,6 +895,31 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 999,
     backgroundColor: '#22C55E',
+  },
+  balanceStatusRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  balanceStatusText: {
+    flex: 1,
+    color: '#D4D4D8',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  balanceButton: {
+    backgroundColor: '#F4F4F5',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  balanceButtonText: {
+    color: '#09090B',
+    fontSize: 13,
+    fontWeight: '900',
   },
   statCard: {
     flex: 1,

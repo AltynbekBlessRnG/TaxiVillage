@@ -55,6 +55,8 @@ function openNotificationTarget(data: Record<string, unknown>) {
   const rideId = typeof data.rideId === 'string' ? data.rideId : null;
   const courierOrderId = typeof data.courierOrderId === 'string' ? data.courierOrderId : null;
   const orderId = typeof data.orderId === 'string' ? data.orderId : null;
+  const bookingId = typeof data.bookingId === 'string' ? data.bookingId : null;
+  const tripId = typeof data.tripId === 'string' ? data.tripId : null;
   const threadType =
     data.threadType === 'ORDER' || data.threadType === 'BOOKING' || data.threadType === 'TRIP'
       ? data.threadType
@@ -71,6 +73,18 @@ function openNotificationTarget(data: Record<string, unknown>) {
 
   if (type === 'INTERCITY_TRIP_INVITE' && orderId) {
     return navigateRoot('IntercityOrderStatus', { orderId });
+  }
+
+  if (type === 'INTERCITY_ORDER_STATUS' && orderId) {
+    return navigateRoot('IntercityOrderStatus', { orderId });
+  }
+
+  if (type === 'INTERCITY_TRIP_STATUS' && bookingId) {
+    return navigateRoot('IntercityTripStatus', { bookingId });
+  }
+
+  if (type === 'INTERCITY_TRIP_STATUS' && tripId) {
+    return navigateRoot('IntercityTrip', { tripId });
   }
 
   if (type === 'FOOD_ORDER_STATUS' && orderId) {

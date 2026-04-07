@@ -585,6 +585,14 @@ export class IntercityTripsService {
     const updatedTrip = await this.getTripForDriver(invite.trip.driver.userId, invite.tripId);
     this.intercityGateway.emitTripUpdated(updatedTrip);
     this.intercityGateway.emitBookingUpdated(booking);
+    await this.notificationsService.sendPush(invite.trip.driver.user?.pushToken, {
+      title: 'Пассажир принял приглашение',
+      body: `${invite.order.passenger.fullName || invite.order.passenger.user?.phone || 'Пассажир'} вошел в ваш рейс`,
+      data: {
+        type: 'INTERCITY_TRIP_STATUS',
+        tripId: invite.tripId,
+      },
+    });
 
     return booking;
   }
@@ -619,6 +627,14 @@ export class IntercityTripsService {
     if (updatedOrder) {
       this.intercityGateway.emitOrderUpdated(updatedOrder);
     }
+    await this.notificationsService.sendPush(invite.trip.driver.user?.pushToken, {
+      title: 'Пассажир отклонил приглашение',
+      body: `${invite.order.passenger.fullName || invite.order.passenger.user?.phone || 'Пассажир'} отказался от места в рейсе`,
+      data: {
+        type: 'INTERCITY_TRIP_STATUS',
+        tripId: invite.tripId,
+      },
+    });
 
     return updatedInvite;
   }
@@ -710,6 +726,19 @@ export class IntercityTripsService {
       include: this.passengerBookingInclude(),
     });
     affectedBookings.forEach((booking) => this.intercityGateway.emitBookingUpdated(booking));
+
+    await Promise.all(
+      affectedBookings.map((booking) =>
+        this.notificationsService.sendPush(booking.passenger?.user?.pushToken, {
+          title: 'Статус рейса обновлен',
+          body: this.buildTripStatusNotificationBody(updatedTrip.status),
+          data: {
+            type: 'INTERCITY_TRIP_STATUS',
+            bookingId: booking.id,
+          },
+        }),
+      ),
+    );
 
     return updatedTrip;
   }
@@ -867,6 +896,21 @@ export class IntercityTripsService {
         orderBy: { createdAt: 'desc' as const },
       },
     } satisfies Prisma.IntercityOrderInclude;
+  }
+
+  private buildTripStatusNotificationBody(status: IntercityTripStatus) {
+    switch (status) {
+      case IntercityTripStatus.BOARDING:
+        return 'Водитель начал посадку';
+      case IntercityTripStatus.IN_PROGRESS:
+        return 'Рейс выехал';
+      case IntercityTripStatus.COMPLETED:
+        return 'Рейс завершен';
+      case IntercityTripStatus.CANCELED:
+        return 'Рейс отменен';
+      default:
+        return 'Статус рейса обновлен';
+    }
   }
 
   private driverTripInclude() {

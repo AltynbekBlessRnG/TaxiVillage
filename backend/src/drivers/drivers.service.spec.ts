@@ -6,6 +6,7 @@ describe('DriversService', () => {
   let prisma: any;
   let ridesGateway: { emitDriverMoved: jest.Mock };
   let redisService: any;
+  let configService: any;
   let service: DriversService;
 
   beforeEach(() => {
@@ -36,8 +37,11 @@ describe('DriversService', () => {
       findNearbyUsers: jest.fn(),
       getCachedLocations: jest.fn(),
     };
+    configService = {
+      get: jest.fn(),
+    };
 
-    service = new DriversService(prisma, ridesGateway as any, redisService);
+    service = new DriversService(prisma, ridesGateway as any, redisService, configService);
   });
 
   it('rejects going online in courier car mode without car info', async () => {
@@ -47,6 +51,7 @@ describe('DriversService', () => {
       driverMode: DriverMode.COURIER,
       supportsCourier: true,
       courierTransportType: CourierTransportType.CAR,
+      balance: 100,
       car: null,
       documents: [{ type: DocumentType.COURIER_ID, approved: true }],
     });

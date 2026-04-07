@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen } from '../screens/Auth/LoginScreen';
 import { RegisterScreen } from '../screens/Auth/RegisterScreen';
+import { VerifyPhoneScreen } from '../screens/Auth/VerifyPhoneScreen';
 import { PassengerHomeScreen } from '../screens/Passenger/PassengerHomeScreen';
 import { PassengerProfileScreen } from '../screens/Passenger/PassengerProfileScreen';
 import { RideDetailsScreen } from '../screens/Passenger/RideStatusScreen';
@@ -20,6 +21,7 @@ import { IntercityOrderStatusScreen } from '../screens/Passenger/IntercityOrderS
 import { IntercityChatScreen } from '../screens/Passenger/IntercityChatScreen';
 import { DriverHomeScreen } from '../screens/Driver/DriverHomeScreen';
 import { DriverProfileScreen } from '../screens/Driver/DriverProfileScreen';
+import { DriverBalanceScreen } from '../screens/Driver/DriverBalanceScreen';
 import { DriverDocumentsScreen } from '../screens/Driver/DriverDocumentsScreen';
 import { MerchantDashboardScreen } from '../screens/Merchant/MerchantDashboardScreen';
 import { MerchantOrdersScreen } from '../screens/Merchant/MerchantOrdersScreen';
@@ -39,6 +41,13 @@ import { registerPushToken } from '../utils/notifications';
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  VerifyPhone: {
+    flow: 'LOGIN' | 'REGISTER';
+    sessionId: string;
+    phone: string;
+    telegramBotUrl: string | null;
+    debugCode?: string;
+  };
   PassengerHome: { selectedAddress?: { address: string; lat: number; lng: number } };
   PassengerProfile: undefined;
   FoodHome: undefined;
@@ -91,6 +100,7 @@ export type RootStackParamList = {
   ChatScreen: { rideId: string };
   DriverHome: undefined;
   DriverProfile: undefined;
+  DriverBalance: undefined;
   DriverDocuments: undefined;
   MerchantDashboard: undefined;
   MerchantOrders: { orderId?: string } | undefined;
@@ -154,6 +164,7 @@ export const AppNavigator: React.FC = () => {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} />
       <Stack.Screen name="PassengerHome" component={PassengerHomeScreen} />
       <Stack.Screen name="PassengerProfile" component={PassengerProfileScreen} />
       <Stack.Screen
@@ -184,6 +195,7 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="ChatScreen" component={ChatScreen} />
       <Stack.Screen name="DriverHome" component={DriverHomeScreen} />
       <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
+      <Stack.Screen name="DriverBalance" component={DriverBalanceScreen} />
       <Stack.Screen name="DriverDocuments" component={DriverDocumentsScreen} />
       <Stack.Screen name="MerchantDashboard" component={MerchantDashboardScreen} />
       <Stack.Screen name="MerchantOrders" component={MerchantOrdersScreen} />

@@ -59,6 +59,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
     const courierOrderId =
       typeof item.data.courierOrderId === 'string' ? item.data.courierOrderId : null;
     const orderId = typeof item.data.orderId === 'string' ? item.data.orderId : null;
+    const bookingId = typeof item.data.bookingId === 'string' ? item.data.bookingId : null;
+    const tripId = typeof item.data.tripId === 'string' ? item.data.tripId : null;
     const threadType =
       item.data.threadType === 'ORDER' || item.data.threadType === 'BOOKING' || item.data.threadType === 'TRIP'
         ? item.data.threadType
@@ -77,6 +79,21 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
     if (type === 'INTERCITY_TRIP_INVITE' && orderId) {
       navigation.navigate('IntercityOrderStatus', { orderId });
+      return;
+    }
+
+    if (type === 'INTERCITY_ORDER_STATUS' && orderId) {
+      navigation.navigate('IntercityOrderStatus', { orderId });
+      return;
+    }
+
+    if (type === 'INTERCITY_TRIP_STATUS' && bookingId) {
+      navigation.navigate('IntercityTripStatus', { bookingId });
+      return;
+    }
+
+    if (type === 'INTERCITY_TRIP_STATUS' && tripId) {
+      navigation.navigate('IntercityTrip', { tripId });
       return;
     }
 

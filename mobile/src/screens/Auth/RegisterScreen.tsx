@@ -13,9 +13,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient, setAuthToken } from '../../api/client';
-import { saveAuth } from '../../storage/authStorage';
-import { registerPushToken } from '../../utils/notifications';
+import { apiClient } from '../../api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 type FieldName = 'fullName' | 'phone' | 'password' | null;
@@ -33,31 +31,19 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post('/auth/register', {
+      const response = await apiClient.post('/auth/register/start', {
         phone,
         password,
         fullName,
         role,
       });
-      const { accessToken, refreshToken, user } = response.data;
-      setAuthToken(accessToken);
-      await saveAuth({
-        accessToken,
-        refreshToken,
-        role: user.role,
-        userId: user.id,
+      navigation.navigate('VerifyPhone', {
+        flow: 'REGISTER',
+        sessionId: response.data.sessionId,
+        phone,
+        telegramBotUrl: response.data.telegramBotUrl ?? null,
+        debugCode: response.data.debugCode,
       });
-      await registerPushToken().catch(() => null);
-
-      if (user.role === 'DRIVER' || user.role === 'DRIVER_TAXI' || user.role === 'COURIER') {
-        navigation.replace('DriverHome');
-      } else if (user.role === 'MERCHANT') {
-        navigation.replace('MerchantDashboard');
-      } else if (user.role === 'DRIVER_INTERCITY') {
-        navigation.replace('DriverHome');
-      } else {
-        navigation.replace('PassengerHome', {});
-      }
     } catch (e: any) {
       let errorMessage =
         e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';

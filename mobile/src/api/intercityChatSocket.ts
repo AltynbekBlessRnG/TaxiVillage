@@ -6,6 +6,7 @@ export interface IntercityMessage {
   id: string;
   content: string;
   intercityTripId?: string | null;
+  senderAvatarUrl?: string | null;
   senderId: string;
   senderType: 'PASSENGER' | 'DRIVER';
   receiverId: string;

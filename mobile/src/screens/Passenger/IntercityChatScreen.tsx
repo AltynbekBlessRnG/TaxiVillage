@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -18,6 +19,7 @@ import {
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { loadAuth } from '../../storage/authStorage';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { resolveApiAssetUrl } from '../../utils/assets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityChat'>;
 
@@ -189,19 +191,38 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
     const senderName = item.senderName || 'Участник';
     const receiverName = item.receiverName || 'Чат рейса';
     const isTripThread = threadType === 'TRIP';
+    const avatarUri = resolveApiAssetUrl(item.senderAvatarUrl);
+    const initials =
+      senderName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('') || '?';
 
     return (
       <View style={[styles.messageContainer, isOwnMessage && styles.ownMessage]}>
         <View style={styles.messageHeader}>
-          <Text style={styles.senderName}>
-            {isTripThread ? (isOwnMessage ? 'Вы' : senderName) : isOwnMessage ? `Вы → ${receiverName}` : `${senderName} → Вам`}
-          </Text>
-          <Text style={styles.timestamp}>
-            {new Date(item.createdAt).toLocaleTimeString('ru-RU', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
+          <View style={styles.messageAuthorRow}>
+            <View style={styles.avatarWrap}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{initials}</Text>
+              )}
+            </View>
+            <View style={styles.messageMeta}>
+              <Text style={styles.senderName}>
+                {isTripThread ? (isOwnMessage ? 'Вы' : senderName) : isOwnMessage ? `Вы → ${receiverName}` : `${senderName} → Вам`}
+              </Text>
+              <Text style={styles.timestamp}>
+                {new Date(item.createdAt).toLocaleTimeString('ru-RU', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+            </View>
+          </View>
         </View>
         <View style={[styles.messageContent, isOwnMessage && styles.ownBubble]}>
           <Text style={styles.messageText}>{item.content}</Text>
@@ -316,13 +337,38 @@ const styles = StyleSheet.create({
   messageContainer: { marginVertical: 8, maxWidth: '84%', alignSelf: 'flex-start' },
   ownMessage: { alignSelf: 'flex-end' },
   messageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  senderName: { fontSize: 12, color: '#71717A', fontWeight: '500' },
-  timestamp: { fontSize: 10, color: '#71717A' },
+  messageAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  avatarWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    overflow: 'hidden',
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarText: {
+    color: '#F4F4F5',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  messageMeta: {
+    flex: 1,
+  },
+  senderName: { fontSize: 12, color: '#A1A1AA', fontWeight: '700' },
+  timestamp: { fontSize: 10, color: '#71717A', marginTop: 2 },
   messageContent: {
     backgroundColor: '#18181B',
     padding: 12,

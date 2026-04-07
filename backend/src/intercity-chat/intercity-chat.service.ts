@@ -35,6 +35,8 @@ type ParticipantContext = {
   receiverUserId?: string;
   receiverUserIds?: string[];
   driverUserId?: string;
+  displayNamesByUserId?: Record<string, string>;
+  avatarUrlsByUserId?: Record<string, string | null>;
 };
 
 @Injectable()
@@ -393,6 +395,16 @@ export class IntercityChatService {
           receiverUserId: order.driver.userId,
           senderName: order.passenger.fullName ?? order.passenger.user.phone ?? 'Пассажир',
           receiverName: order.driver.fullName ?? order.driver.user.phone ?? 'Водитель',
+          displayNamesByUserId: {
+            [order.passenger.userId]:
+              order.passenger.fullName ?? order.passenger.user.phone ?? 'Пассажир',
+            [order.driver.userId]:
+              order.driver.fullName ?? order.driver.user.phone ?? 'Водитель',
+          },
+          avatarUrlsByUserId: {
+            [order.passenger.userId]: order.passenger.user.avatarUrl ?? null,
+            [order.driver.userId]: order.driver.user.avatarUrl ?? null,
+          },
         };
       }
 
@@ -404,6 +416,16 @@ export class IntercityChatService {
           receiverUserId: order.passenger.userId,
           senderName: order.driver.fullName ?? order.driver.user.phone ?? 'Водитель',
           receiverName: order.passenger.fullName ?? order.passenger.user.phone ?? 'Пассажир',
+          displayNamesByUserId: {
+            [order.passenger.userId]:
+              order.passenger.fullName ?? order.passenger.user.phone ?? 'Пассажир',
+            [order.driver.userId]:
+              order.driver.fullName ?? order.driver.user.phone ?? 'Водитель',
+          },
+          avatarUrlsByUserId: {
+            [order.passenger.userId]: order.passenger.user.avatarUrl ?? null,
+            [order.driver.userId]: order.driver.user.avatarUrl ?? null,
+          },
         };
       }
     }
@@ -437,6 +459,16 @@ export class IntercityChatService {
           receiverUserId: booking.trip.driver.userId,
           senderName: booking.passenger.fullName ?? booking.passenger.user.phone ?? 'Пассажир',
           receiverName: booking.trip.driver.fullName ?? booking.trip.driver.user.phone ?? 'Водитель',
+          displayNamesByUserId: {
+            [booking.passenger.userId]:
+              booking.passenger.fullName ?? booking.passenger.user.phone ?? 'Пассажир',
+            [booking.trip.driver.userId]:
+              booking.trip.driver.fullName ?? booking.trip.driver.user.phone ?? 'Водитель',
+          },
+          avatarUrlsByUserId: {
+            [booking.passenger.userId]: booking.passenger.user.avatarUrl ?? null,
+            [booking.trip.driver.userId]: booking.trip.driver.user.avatarUrl ?? null,
+          },
         };
       }
 
@@ -448,6 +480,16 @@ export class IntercityChatService {
           receiverUserId: booking.passenger.userId,
           senderName: booking.trip.driver.fullName ?? booking.trip.driver.user.phone ?? 'Водитель',
           receiverName: booking.passenger.fullName ?? booking.passenger.user.phone ?? 'Пассажир',
+          displayNamesByUserId: {
+            [booking.passenger.userId]:
+              booking.passenger.fullName ?? booking.passenger.user.phone ?? 'Пассажир',
+            [booking.trip.driver.userId]:
+              booking.trip.driver.fullName ?? booking.trip.driver.user.phone ?? 'Водитель',
+          },
+          avatarUrlsByUserId: {
+            [booking.passenger.userId]: booking.passenger.user.avatarUrl ?? null,
+            [booking.trip.driver.userId]: booking.trip.driver.user.avatarUrl ?? null,
+          },
         };
       }
     }
@@ -498,6 +540,21 @@ export class IntercityChatService {
           ...trip.bookings.map((booking) => booking.passenger.userId),
         ].filter((participantId) => participantId !== userId),
         driverUserId: trip.driver.userId,
+        displayNamesByUserId: {
+          [trip.driver.userId]: trip.driver.fullName ?? trip.driver.user.phone ?? 'Водитель',
+          ...Object.fromEntries(
+            trip.bookings.map((booking) => [
+              booking.passenger.userId,
+              booking.passenger.fullName ?? booking.passenger.user.phone ?? 'Пассажир',
+            ]),
+          ),
+        },
+        avatarUrlsByUserId: {
+          [trip.driver.userId]: trip.driver.user.avatarUrl ?? null,
+          ...Object.fromEntries(
+            trip.bookings.map((booking) => [booking.passenger.userId, booking.passenger.user.avatarUrl ?? null]),
+          ),
+        },
       };
     }
 
@@ -515,9 +572,13 @@ export class IntercityChatService {
   }
 
   private serializeMessage(message: any, participant: ParticipantContext) {
+    const senderDisplayName =
+      participant.displayNamesByUserId?.[message.senderUserId] ??
+      message.senderUser?.phone ??
+      participant.senderName;
     const senderName =
       participant.threadType === 'TRIP'
-        ? message.senderUser?.phone ?? participant.senderName
+        ? senderDisplayName
         : message.senderType === participant.senderType
         ? participant.senderName
         : participant.receiverName;
@@ -542,6 +603,7 @@ export class IntercityChatService {
       readAt: message.readAt,
       senderName,
       receiverName,
+      senderAvatarUrl: participant.avatarUrlsByUserId?.[message.senderUserId] ?? null,
     };
   }
 }

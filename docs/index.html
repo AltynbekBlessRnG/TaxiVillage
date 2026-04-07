@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TaxiVillage Docs</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09090b;
+        --panel: #141418;
+        --line: #27272a;
+        --text: #f4f4f5;
+        --muted: #a1a1aa;
+        --accent: #38bdf8;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: radial-gradient(circle at top, #111827 0%, var(--bg) 45%);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 840px;
+        margin: 0 auto;
+        padding: 48px 20px 72px;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 40px;
+        line-height: 1.05;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+        margin-top: 28px;
+      }
+      .card {
+        display: block;
+        text-decoration: none;
+        background: rgba(20, 20, 24, 0.9);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 22px;
+        color: inherit;
+      }
+      .card:hover {
+        border-color: var(--accent);
+      }
+      .eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+      }
+      .title {
+        font-size: 24px;
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>TaxiVillage</h1>
+      <p>Публичные страницы для стора и пользователей.</p>
+
+      <div class="grid">
+        <a class="card" href="./privacy-policy.html">
+          <div class="eyebrow">Public Page</div>
+          <div class="title">Privacy Policy</div>
+          <p>Что собирает TaxiVillage, как используются данные и как с нами связаться по вопросам приватности.</p>
+        </a>
+
+        <a class="card" href="./delete-account.html">
+          <div class="eyebrow">Public Page</div>
+          <div class="title">Delete Account</div>
+          <p>Как удалить аккаунт в приложении и как отправить запрос на удаление аккаунта вне приложения.</p>
+        </a>
+      </div>
+    </main>
+  </body>
+  </html>

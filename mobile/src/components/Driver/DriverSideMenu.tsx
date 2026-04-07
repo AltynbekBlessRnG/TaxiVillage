@@ -120,6 +120,9 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
           <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('DriverProfile')}>
             <Text style={styles.menuItemText}>👤 Мой профиль</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('DriverBalance')}>
+            <Text style={styles.menuItemText}>💸 Баланс</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('RideHistory')}>
             <Text style={styles.menuItemText}>🕒 История поездок</Text>
           </TouchableOpacity>

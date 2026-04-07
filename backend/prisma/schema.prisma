@@ -16,6 +16,7 @@ model User {
   phone     String   @unique
   email     String?  @unique
   password  String
+  phoneVerifiedAt DateTime?
   refreshTokenHash String?
   pushToken String?
   avatarUrl String?
@@ -30,6 +31,28 @@ model User {
   merchant  Merchant?
   sentChatMessages ChatMessage[] @relation("SentChatMessages")
   receivedChatMessages ChatMessage[] @relation("ReceivedChatMessages")
+}
+
+model PhoneOtpSession {
+  id               String          @id @default(cuid())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  phone            String
+  code             String
+  expiresAt        DateTime
+  attempts         Int             @default(0)
+  usedAt           DateTime?
+  verifiedAt       DateTime?
+  verificationToken String?        @unique
+  telegramChatId   String?
+  telegramDeliveredAt DateTime?
+  channel          PhoneOtpChannel @default(TELEGRAM)
+  purpose          PhoneOtpPurpose
+  payload          Json?
+
+  @@index([phone, purpose])
+  @@index([expiresAt])
 }
 
 /// Профиль пассажира
@@ -321,6 +344,15 @@ enum MessageSender {
 enum PaymentMethod {
   CARD
   CASH
+}
+
+enum PhoneOtpChannel {
+  TELEGRAM
+}
+
+enum PhoneOtpPurpose {
+  REGISTER
+  LOGIN
 }
 
 enum AddressPrecision {

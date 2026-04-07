@@ -347,11 +347,23 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             errorMessage.includes('СТС')
           ) {
             errorMessage = 'Загрузите документы в профиле и дождитесь проверки.';
+          } else if (errorMessage.toLowerCase().includes('баланс')) {
+            errorMessage = 'Баланс пустой. Пополните баланс, чтобы выйти на линию.';
           }
 
           await stopDriverBackgroundTracking().catch(() => {});
           setIsOnline(false);
-          openProfileActionModal('Профиль не готов', errorMessage);
+          if (errorMessage.toLowerCase().includes('баланс')) {
+            openDriverModal({
+              title: 'Нужен баланс',
+              message: errorMessage,
+              primaryLabel: 'Открыть баланс',
+              secondaryLabel: 'Позже',
+              onPrimary: () => navigation.navigate('DriverBalance'),
+            });
+          } else {
+            openProfileActionModal('Профиль не готов', errorMessage);
+          }
         }
         return;
       }

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, CourierOrderStatus, CourierTransportType, DocumentType, DriverMode, DriverStatus, RideStatus } from '@prisma/client/index';
 import { RidesGateway } from '../rides/rides.gateway';
@@ -28,6 +29,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly ridesGateway: RidesGateway,
     private readonly redisService: RedisService,
+    private readonly configService: ConfigService,
   ) {}
 
   private locationCache = new Map<string, { lat: number; lng: number; lastUpdate: Date }>();
@@ -184,6 +186,10 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       // Check driver approval status
       if (driver.status !== DriverStatus.APPROVED) {
         throw new BadRequestException('Водитель не одобрен администратором');
+      }
+
+      if (Number(driver.balance ?? 0) <= 0) {
+        throw new BadRequestException('Баланс пустой. Пополните баланс, чтобы выйти на линию.');
       }
 
       if (driver.driverMode === DriverMode.INTERCITY) {
@@ -499,6 +505,32 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       completedCourierDeliveries: completedDeliveries.length,
       rating: Number(driver.rating ?? 5),
       balance: Number(driver.balance ?? 0),
+    };
+  }
+
+  async getTopUpInfo(userId: string) {
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+      select: {
+        balance: true,
+      },
+    });
+
+    if (!driver) {
+      throw new NotFoundException('Driver profile not found');
+    }
+
+    return {
+      balance: Number(driver.balance ?? 0),
+      canGoOnline: Number(driver.balance ?? 0) > 0,
+      title: this.configService.get<string>('DRIVER_TOPUP_TITLE') || 'Пополнение баланса',
+      recipient: this.configService.get<string>('DRIVER_TOPUP_RECIPIENT') || 'TaxiVillage',
+      requisites:
+        this.configService.get<string>('DRIVER_TOPUP_REQUISITES') ||
+        'Kaspi: +7 700 000 00 00',
+      note:
+        this.configService.get<string>('DRIVER_TOPUP_NOTE') ||
+        'После перевода администратор пополнит баланс вручную.',
     };
   }
 

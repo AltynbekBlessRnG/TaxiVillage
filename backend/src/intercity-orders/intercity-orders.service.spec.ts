@@ -20,12 +20,14 @@ function createPrismaMock() {
 describe('IntercityOrdersService', () => {
   let prisma: ReturnType<typeof createPrismaMock>;
   let gateway: { emitOrderUpdated: jest.Mock };
+  let notifications: { sendPush: jest.Mock };
   let service: IntercityOrdersService;
 
   beforeEach(() => {
     prisma = createPrismaMock();
     gateway = { emitOrderUpdated: jest.fn() };
-    service = new IntercityOrdersService(prisma as any, gateway as any);
+    notifications = { sendPush: jest.fn() };
+    service = new IntercityOrdersService(prisma as any, gateway as any, notifications as any);
   });
 
   it('creates confirmed order immediately when specific driver is selected', async () => {

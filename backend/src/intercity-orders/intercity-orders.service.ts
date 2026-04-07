@@ -11,12 +11,14 @@ import {
 } from '@prisma/client/index';
 import { PrismaService } from '../prisma/prisma.service';
 import { IntercityGateway } from '../intercity-trips/intercity.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class IntercityOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly intercityGateway: IntercityGateway,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createOrderForPassenger(
@@ -231,6 +233,14 @@ export class IntercityOrdersService {
 
     const fullOrder = await this.getOrderByIdForDriver(userId, orderId);
     this.intercityGateway.emitOrderUpdated(fullOrder);
+    await this.notificationsService.sendPush(fullOrder.passenger?.user?.pushToken, {
+      title: 'Водитель откликнулся',
+      body: `${fullOrder.driver?.fullName || fullOrder.driver?.user?.phone || 'Водитель'} принял вашу межгороднюю заявку`,
+      data: {
+        type: 'INTERCITY_ORDER_STATUS',
+        orderId: fullOrder.id,
+      },
+    });
     return fullOrder;
   }
 
@@ -261,6 +271,14 @@ export class IntercityOrdersService {
 
     const fullOrder = await this.getOrderByIdForDriver(userId, orderId);
     this.intercityGateway.emitOrderUpdated(fullOrder);
+    await this.notificationsService.sendPush(fullOrder.passenger?.user?.pushToken, {
+      title: 'Статус межгорода обновлен',
+      body: this.buildOrderStatusNotificationBody(fullOrder.status),
+      data: {
+        type: 'INTERCITY_ORDER_STATUS',
+        orderId: fullOrder.id,
+      },
+    });
     return fullOrder;
   }
 
@@ -305,6 +323,14 @@ export class IntercityOrdersService {
 
     const fullOrder = await this.getOrderByIdForPassenger(userId, orderId);
     this.intercityGateway.emitOrderUpdated(fullOrder);
+    await this.notificationsService.sendPush(fullOrder.driver?.user?.pushToken, {
+      title: 'Пассажир отменил заявку',
+      body: `${fullOrder.passenger?.fullName || fullOrder.passenger?.user?.phone || 'Пассажир'} отменил межгороднюю заявку`,
+      data: {
+        type: 'INTERCITY_ORDER_STATUS',
+        orderId: fullOrder.id,
+      },
+    });
     return fullOrder;
   }
 
@@ -342,7 +368,32 @@ export class IntercityOrdersService {
 
     const fullOrder = await this.getOrderByIdForDriver(userId, orderId);
     this.intercityGateway.emitOrderUpdated(fullOrder);
+    await this.notificationsService.sendPush(fullOrder.passenger?.user?.pushToken, {
+      title: 'Водитель отменил заявку',
+      body: `${fullOrder.driver?.fullName || fullOrder.driver?.user?.phone || 'Водитель'} отменил межгороднюю заявку`,
+      data: {
+        type: 'INTERCITY_ORDER_STATUS',
+        orderId: fullOrder.id,
+      },
+    });
     return fullOrder;
+  }
+
+  private buildOrderStatusNotificationBody(status: IntercityOrderStatus) {
+    switch (status) {
+      case IntercityOrderStatus.DRIVER_EN_ROUTE:
+        return 'Водитель выехал к вам';
+      case IntercityOrderStatus.BOARDING:
+        return 'Водитель начал посадку';
+      case IntercityOrderStatus.IN_PROGRESS:
+        return 'Поездка началась';
+      case IntercityOrderStatus.COMPLETED:
+        return 'Межгородняя поездка завершена';
+      case IntercityOrderStatus.CANCELED:
+        return 'Межгородняя заявка отменена';
+      default:
+        return 'Статус межгородней заявки обновлен';
+    }
   }
 
   private async requireIntercityDriverProfile(userId: string) {

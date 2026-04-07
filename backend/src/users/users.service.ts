@@ -13,6 +13,7 @@ export class UsersService {
     passwordHash: string;
     role: UserRole;
     fullName?: string;
+    phoneVerifiedAt?: Date;
   }) {
     if (params.role === 'PASSENGER') {
       return this.prisma.user.create({
@@ -20,6 +21,7 @@ export class UsersService {
           phone: params.phone,
           email: params.email,
           password: params.passwordHash,
+          phoneVerifiedAt: params.phoneVerifiedAt,
           role: 'PASSENGER',
           passenger: {
             create: {
@@ -36,6 +38,7 @@ export class UsersService {
           phone: params.phone,
           email: params.email,
           password: params.passwordHash,
+          phoneVerifiedAt: params.phoneVerifiedAt,
           role: 'DRIVER',
           driver: {
             create: {
@@ -57,6 +60,7 @@ export class UsersService {
           phone: params.phone,
           email: params.email,
           password: params.passwordHash,
+          phoneVerifiedAt: params.phoneVerifiedAt,
           role: 'COURIER',
           driver: {
             create: {
@@ -79,6 +83,7 @@ export class UsersService {
           phone: params.phone,
           email: params.email,
           password: params.passwordHash,
+          phoneVerifiedAt: params.phoneVerifiedAt,
           role: 'MERCHANT',
           merchant: {
             create: {
@@ -95,6 +100,7 @@ export class UsersService {
           phone: params.phone,
           email: params.email,
           password: params.passwordHash,
+          phoneVerifiedAt: params.phoneVerifiedAt,
           role: 'DRIVER_INTERCITY',
           driver: {
             create: {
@@ -114,6 +120,7 @@ export class UsersService {
         phone: params.phone,
         email: params.email,
         password: params.passwordHash,
+        phoneVerifiedAt: params.phoneVerifiedAt,
         role: 'ADMIN',
       },
     });
@@ -126,6 +133,7 @@ export class UsersService {
         phone: true,
         email: true,
         avatarUrl: true,
+        phoneVerifiedAt: true,
         isDeleted: true,
         deletedAt: true,
         role: true,
@@ -151,6 +159,13 @@ export class UsersService {
         driver: true,
         merchant: true,
       },
+    });
+  }
+
+  markPhoneVerified(userId: string, date = new Date()) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { phoneVerifiedAt: date },
     });
   }
 

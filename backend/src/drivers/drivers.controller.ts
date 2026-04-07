@@ -168,6 +168,14 @@ export class DriversController {
     return this.driversService.getMetrics(userId, days);
   }
 
+  @Get('top-up-info')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  getTopUpInfo(@Req() req: any) {
+    const userId: string = req.user.userId;
+    return this.driversService.getTopUpInfo(userId);
+  }
+
   @Post('mode')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.DRIVER)
