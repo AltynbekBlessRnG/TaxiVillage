@@ -60,7 +60,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       typeof item.data.courierOrderId === 'string' ? item.data.courierOrderId : null;
     const orderId = typeof item.data.orderId === 'string' ? item.data.orderId : null;
     const threadType =
-      item.data.threadType === 'ORDER' || item.data.threadType === 'BOOKING'
+      item.data.threadType === 'ORDER' || item.data.threadType === 'BOOKING' || item.data.threadType === 'TRIP'
         ? item.data.threadType
         : null;
     const threadId = typeof item.data.threadId === 'string' ? item.data.threadId : null;
@@ -72,6 +72,11 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
     if (type === 'INTERCITY_CHAT_MESSAGE' && threadType && threadId) {
       navigation.navigate('IntercityChat', { threadType, threadId });
+      return;
+    }
+
+    if (type === 'INTERCITY_TRIP_INVITE' && orderId) {
+      navigation.navigate('IntercityOrderStatus', { orderId });
       return;
     }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface DriverStatusSheetProps {
@@ -48,24 +48,9 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   onShowDriverNotice,
   metrics,
 }) => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
-  const [isWaitingExpanded, setIsWaitingExpanded] = useState(false);
   const [isActiveExpanded, setIsActiveExpanded] = useState(false);
   const maxEarnings = Math.max(...(metrics?.dailyBuckets?.map((bucket) => bucket.earnings) ?? [0]), 1);
-
-  useEffect(() => {
-    if (isOnline && !currentRideId) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 0.2, duration: 1000, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true })
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isOnline, currentRideId]);
 
   useEffect(() => {
     if (currentRide || currentCourierOrder) {
@@ -305,40 +290,8 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
           ) : null}
         </View>
         
-        {isOnline ? (
-          <View style={styles.onlineShell}>
-            <View style={styles.onlineBar}>
-              <View style={styles.handleLine} />
-              <TouchableOpacity
-                style={styles.onlineCenter}
-                onPress={() => setIsWaitingExpanded((prev) => !prev)}
-                activeOpacity={0.88}
-              >
-                <View style={styles.onlineCenterTop}>
-                  <Animated.View style={[styles.onlineDot, { opacity: pulseAnim }]} />
-                  <Text style={styles.onlineTitle}>Вы в сети</Text>
-                </View>
-                <Text style={[styles.onlineSubtitle, profile?.driverMode === 'COURIER' ? styles.onlineSubtitleCourier : styles.onlineSubtitleTaxi]}>
-                  Сегодня {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.expandToggle}
-                onPress={() => setIsWaitingExpanded((prev) => !prev)}
-                activeOpacity={0.88}
-              >
-                {profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
-                  <View style={styles.radarCountBadge}>
-                    <Text style={styles.radarCountText}>{availableCourierOrders.length}</Text>
-                  </View>
-                ) : null}
-                <Text style={styles.expandToggleText}>{isWaitingExpanded ? '⌄' : '☰'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {isWaitingExpanded ? (
-              <View style={styles.waitingPanel}>
+        <View style={styles.onlineShell}>
+          <View style={styles.waitingPanel}>
                 <View style={styles.infoCardCompact}>
                   <TouchableOpacity
                     style={styles.infoHeaderRow}
@@ -409,7 +362,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                   </View>
                 </View>
 
-                {profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
+                {isOnline && profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
                   <View style={styles.offerBlockCompact}>
                     {availableCourierOrders.slice(0, 2).map((order) => (
                       <TouchableOpacity key={order.id} style={styles.offerCard} onPress={() => onAcceptCourierOrder?.(order.id)}>
@@ -421,10 +374,8 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                     ))}
                   </View>
                 ) : null}
-              </View>
-            ) : null}
           </View>
-        ) : null}
+        </View>
       </View>
     </View>
   );
@@ -446,6 +397,9 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: -6 },
     elevation: 18,
+  },
+  onlineShell: {
+    marginBottom: 0,
   },
   modeTabs: {
     flexDirection: 'row',
@@ -484,98 +438,8 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, justifyContent: 'center' },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
   statusText: { color: '#F4F4F5', fontSize: 15, fontWeight: '600' },
-  onlineShell: {
-    marginBottom: 14,
-  },
-  onlineBar: {
-    minHeight: 74,
-    borderRadius: 20,
-    backgroundColor: '#121214',
-    borderWidth: 1,
-    borderColor: '#2A2A30',
-    paddingTop: 18,
-    paddingBottom: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  onlineCenter: {
-    justifyContent: 'center',
-    flex: 1,
-    marginRight: 10,
-  },
-  onlineCenterTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  onlineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-    marginRight: 8,
-  },
-  onlineTitle: {
-    color: '#F4F4F5',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  onlineSubtitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 5,
-  },
-  onlineSubtitleTaxi: {
-    color: '#60A5FA',
-  },
-  onlineSubtitleCourier: {
-    color: '#FACC15',
-  },
-  expandToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    minWidth: 40,
-  },
-  radarCountBadge: {
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    paddingHorizontal: 7,
-    backgroundColor: '#0EA5E9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  radarCountText: {
-    color: '#03131C',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  expandToggleText: {
-    color: '#A1A1AA',
-    fontSize: 18,
-    fontWeight: '800',
-    marginLeft: 6,
-  },
-  handleLine: {
-    position: 'absolute',
-    top: 8,
-    left: '50%',
-    marginLeft: -21,
-    width: 42,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#3A3A40',
-  },
   waitingPanel: {
     backgroundColor: '#09090B',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#24242A',
-    padding: 14,
-    marginTop: 10,
   },
   offerBlockCompact: {
     marginTop: 10,

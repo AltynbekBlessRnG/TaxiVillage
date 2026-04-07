@@ -56,6 +56,7 @@ export class CourierOrdersGateway implements OnGatewayConnection, OnGatewayDisco
       await client.join(`user:${userId}`);
       (client as any).userId = userId;
       await this.redisService.setUserPresence(userId, 'app', client.id);
+      this.redisService.attachPresenceHeartbeat(client, userId, 'app');
     } catch {
       this.logger.warn('Courier socket connection rejected: invalid token');
       this.rejectUnauthorized(client);
@@ -63,6 +64,7 @@ export class CourierOrdersGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   handleDisconnect(client: import('socket.io').Socket) {
+    this.redisService.clearPresenceHeartbeat(client);
     void this.redisService.removeSocketPresence(client.id).catch(() => null);
     this.logger.log(`Courier socket client ${client.id} disconnected`);
   }

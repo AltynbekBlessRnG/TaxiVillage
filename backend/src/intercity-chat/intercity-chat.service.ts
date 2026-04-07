@@ -4,11 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MessageSender } from '@prisma/client';
+import { IntercityBookingStatus, MessageSender } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
-export type IntercityThreadType = 'ORDER' | 'BOOKING';
+export type IntercityThreadType = 'ORDER' | 'BOOKING' | 'TRIP';
 
 interface GetMessagesParams {
   cursor?: string;
@@ -24,6 +25,17 @@ export interface IntercityThreadSummary {
   lastMessageAt: Date;
   unreadCount: number;
 }
+
+type ParticipantContext = {
+  threadType: IntercityThreadType;
+  threadId: string;
+  senderType: MessageSender;
+  senderName: string;
+  receiverName: string;
+  receiverUserId?: string;
+  receiverUserIds?: string[];
+  driverUserId?: string;
+};
 
 @Injectable()
 export class IntercityChatService {
@@ -41,11 +53,7 @@ export class IntercityChatService {
     const participant = await this.getParticipant(userId, threadType, threadId);
     const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
 
-    const where =
-      threadType === 'ORDER'
-        ? { intercityOrderId: threadId }
-        : { intercityBookingId: threadId };
-
+    const where = this.buildThreadWhere(threadType, threadId);
     const messages = await this.prisma.chatMessage.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -58,8 +66,19 @@ export class IntercityChatService {
       },
     });
 
-    const hasMore = messages.length > limit;
-    const pageItems = hasMore ? messages.slice(0, limit) : messages;
+    const normalizedMessages =
+      threadType === 'TRIP'
+        ? messages.filter(
+            (message, index, collection) =>
+              collection.findIndex(
+                (candidate) =>
+                  (candidate.messageGroupId ?? candidate.id) === (message.messageGroupId ?? message.id),
+              ) === index,
+          )
+        : messages;
+
+    const hasMore = normalizedMessages.length > limit;
+    const pageItems = hasMore ? normalizedMessages.slice(0, limit) : normalizedMessages;
     const orderedItems = [...pageItems].reverse();
 
     return {
@@ -81,12 +100,16 @@ export class IntercityChatService {
 
     const participant = await this.getParticipant(userId, threadType, threadId);
 
+    if (threadType === 'TRIP') {
+      return this.sendTripMessage(userId, threadId, content.trim(), participant);
+    }
+
     const created = await this.prisma.chatMessage.create({
       data: {
         intercityOrderId: threadType === 'ORDER' ? threadId : undefined,
         intercityBookingId: threadType === 'BOOKING' ? threadId : undefined,
         senderUserId: userId,
-        receiverUserId: participant.receiverUserId,
+        receiverUserId: participant.receiverUserId!,
         senderType: participant.senderType,
         receiverType:
           participant.senderType === MessageSender.PASSENGER
@@ -115,14 +138,10 @@ export class IntercityChatService {
 
   async markMessagesAsRead(userId: string, threadType: IntercityThreadType, threadId: string) {
     await this.getParticipant(userId, threadType, threadId);
-    const where =
-      threadType === 'ORDER'
-        ? { intercityOrderId: threadId }
-        : { intercityBookingId: threadId };
 
     const result = await this.prisma.chatMessage.updateMany({
       where: {
-        ...where,
+        ...this.buildThreadWhere(threadType, threadId),
         receiverUserId: userId,
         readAt: null,
       },
@@ -142,6 +161,7 @@ export class IntercityChatService {
         OR: [
           { intercityOrderId: { not: null } },
           { intercityBookingId: { not: null } },
+          { intercityTripId: { not: null } },
         ],
       },
     });
@@ -158,6 +178,7 @@ export class IntercityChatService {
               OR: [
                 { intercityOrderId: { not: null } },
                 { intercityBookingId: { not: null } },
+                { intercityTripId: { not: null } },
               ],
             },
             {
@@ -183,6 +204,11 @@ export class IntercityChatService {
               },
             },
           },
+          intercityTrip: {
+            include: {
+              driver: { include: { user: true } },
+            },
+          },
         },
       }),
       this.prisma.chatMessage.findMany({
@@ -192,11 +218,13 @@ export class IntercityChatService {
           OR: [
             { intercityOrderId: { not: null } },
             { intercityBookingId: { not: null } },
+            { intercityTripId: { not: null } },
           ],
         },
         select: {
           intercityOrderId: true,
           intercityBookingId: true,
+          intercityTripId: true,
         },
       }),
     ]);
@@ -206,6 +234,8 @@ export class IntercityChatService {
         ? `ORDER:${item.intercityOrderId}`
         : item.intercityBookingId
         ? `BOOKING:${item.intercityBookingId}`
+        : item.intercityTripId
+        ? `TRIP:${item.intercityTripId}`
         : null;
       if (!key) {
         return acc;
@@ -218,8 +248,14 @@ export class IntercityChatService {
     const items: IntercityThreadSummary[] = [];
 
     for (const message of messages) {
-      const threadType = message.intercityOrderId ? 'ORDER' : message.intercityBookingId ? 'BOOKING' : null;
-      const threadId = message.intercityOrderId ?? message.intercityBookingId ?? null;
+      const threadType = message.intercityOrderId
+        ? 'ORDER'
+        : message.intercityBookingId
+        ? 'BOOKING'
+        : message.intercityTripId
+        ? 'TRIP'
+        : null;
+      const threadId = message.intercityOrderId ?? message.intercityBookingId ?? message.intercityTripId ?? null;
       if (!threadType || !threadId) {
         continue;
       }
@@ -238,7 +274,7 @@ export class IntercityChatService {
           threadType,
           threadId,
           title: counterpart?.fullName ?? counterpart?.user?.phone ?? 'Чат по заявке',
-          subtitle: `${order.fromCity} -> ${order.toCity}`,
+          subtitle: `${order.fromCity} → ${order.toCity}`,
           lastMessage: message.content,
           lastMessageAt: message.createdAt,
           unreadCount: unreadByThread[threadKey] ?? 0,
@@ -253,7 +289,19 @@ export class IntercityChatService {
           threadType,
           threadId,
           title: counterpart?.fullName ?? counterpart?.user?.phone ?? 'Чат по брони',
-          subtitle: `${booking.trip.fromCity} -> ${booking.trip.toCity}`,
+          subtitle: `${booking.trip.fromCity} → ${booking.trip.toCity}`,
+          lastMessage: message.content,
+          lastMessageAt: message.createdAt,
+          unreadCount: unreadByThread[threadKey] ?? 0,
+        });
+      }
+
+      if (threadType === 'TRIP' && message.intercityTrip) {
+        items.push({
+          threadType,
+          threadId,
+          title: `Рейс ${message.intercityTrip.fromCity} → ${message.intercityTrip.toCity}`,
+          subtitle: formatTripSubtitle(message.intercityTrip.departureAt),
           lastMessage: message.content,
           lastMessageAt: message.createdAt,
           unreadCount: unreadByThread[threadKey] ?? 0,
@@ -268,7 +316,58 @@ export class IntercityChatService {
     await this.getParticipant(userId, threadType, threadId);
   }
 
-  private async getParticipant(userId: string, threadType: IntercityThreadType, threadId: string) {
+  private async sendTripMessage(
+    userId: string,
+    threadId: string,
+    content: string,
+    participant: ParticipantContext,
+  ) {
+    const messageGroupId = randomUUID();
+    const recipients = Array.from(new Set([userId, ...(participant.receiverUserIds ?? [])]));
+
+    const createdMessages = await this.prisma.$transaction(
+      recipients.map((receiverUserId) =>
+        this.prisma.chatMessage.create({
+          data: {
+            intercityTripId: threadId,
+            messageGroupId,
+            senderUserId: userId,
+            receiverUserId,
+            senderType: participant.senderType,
+            receiverType: receiverUserId === participant.driverUserId ? MessageSender.DRIVER : MessageSender.PASSENGER,
+            content,
+          },
+          include: {
+            senderUser: true,
+            receiverUser: true,
+          },
+        }),
+      ),
+    );
+
+    await Promise.all(
+      createdMessages
+        .filter((message) => message.receiverUserId !== userId)
+        .map((message) =>
+          this.notificationsService.sendPush(message.receiverUser?.pushToken, {
+            title: 'Новое сообщение по рейсу',
+            body: content,
+            data: {
+              type: 'INTERCITY_CHAT_MESSAGE',
+              threadType: 'TRIP',
+              threadId,
+            },
+          }),
+        ),
+    );
+
+    const currentUserMessage =
+      createdMessages.find((message) => message.receiverUserId === userId) ?? createdMessages[0];
+
+    return this.serializeMessage(currentUserMessage, participant);
+  }
+
+  private async getParticipant(userId: string, threadType: IntercityThreadType, threadId: string): Promise<ParticipantContext> {
     if (threadType === 'ORDER') {
       const order = await this.prisma.intercityOrder.findUnique({
         where: { id: threadId },
@@ -353,26 +452,87 @@ export class IntercityChatService {
       }
     }
 
+    if (threadType === 'TRIP') {
+      const trip = await this.prisma.intercityTrip.findUnique({
+        where: { id: threadId },
+        include: {
+          driver: { include: { user: true } },
+          bookings: {
+            where: {
+              status: {
+                in: [
+                  IntercityBookingStatus.CONFIRMED,
+                  IntercityBookingStatus.BOARDING,
+                  IntercityBookingStatus.IN_PROGRESS,
+                ],
+              },
+            },
+            include: {
+              passenger: { include: { user: true } },
+            },
+          },
+        },
+      });
+
+      if (!trip) {
+        throw new NotFoundException('Intercity trip not found');
+      }
+
+      const activePassenger = trip.bookings.find((booking) => booking.passenger.userId === userId);
+      const isDriver = trip.driver.userId === userId;
+
+      if (!isDriver && !activePassenger) {
+        throw new ForbiddenException('You do not participate in this intercity chat');
+      }
+
+      return {
+        threadType,
+        threadId,
+        senderType: isDriver ? MessageSender.DRIVER : MessageSender.PASSENGER,
+        senderName: isDriver
+          ? trip.driver.fullName ?? trip.driver.user.phone ?? 'Водитель'
+          : activePassenger?.passenger.fullName ?? activePassenger?.passenger.user.phone ?? 'Пассажир',
+        receiverName: 'Чат рейса',
+        receiverUserIds: [
+          trip.driver.userId,
+          ...trip.bookings.map((booking) => booking.passenger.userId),
+        ].filter((participantId) => participantId !== userId),
+        driverUserId: trip.driver.userId,
+      };
+    }
+
     throw new ForbiddenException('You do not participate in this intercity chat');
   }
 
-  private serializeMessage(
-    message: any,
-    participant: Awaited<ReturnType<IntercityChatService['getParticipant']>>,
-  ) {
+  private buildThreadWhere(threadType: IntercityThreadType, threadId: string) {
+    if (threadType === 'ORDER') {
+      return { intercityOrderId: threadId };
+    }
+    if (threadType === 'BOOKING') {
+      return { intercityBookingId: threadId };
+    }
+    return { intercityTripId: threadId };
+  }
+
+  private serializeMessage(message: any, participant: ParticipantContext) {
     const senderName =
-      message.senderType === participant.senderType
+      participant.threadType === 'TRIP'
+        ? message.senderUser?.phone ?? participant.senderName
+        : message.senderType === participant.senderType
         ? participant.senderName
         : participant.receiverName;
     const receiverName =
-      message.receiverType === participant.senderType
+      participant.threadType === 'TRIP'
+        ? 'Чат рейса'
+        : message.receiverType === participant.senderType
         ? participant.senderName
         : participant.receiverName;
 
     return {
-      id: message.id,
+      id: message.messageGroupId ?? message.id,
       intercityOrderId: message.intercityOrderId,
       intercityBookingId: message.intercityBookingId,
+      intercityTripId: message.intercityTripId,
       content: message.content,
       senderId: message.senderUserId,
       senderType: message.senderType,
@@ -384,4 +544,13 @@ export class IntercityChatService {
       receiverName,
     };
   }
+}
+
+function formatTripSubtitle(date: Date) {
+  return new Date(date).toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }

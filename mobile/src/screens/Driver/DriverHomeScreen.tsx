@@ -39,7 +39,7 @@ import { resetCourierLocationTrackingState, sendCourierLocationUpdate } from '..
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
-import { InlineLabel, PrimaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
+import { PrimaryButton } from '../../components/ServiceScreen';
 import { getGoogleDirections } from '../../utils/googleMaps';
 import { resolveRideRoute } from '../../utils/rideRoute';
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
@@ -125,11 +125,27 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         apiClient.get('/drivers/profile'),
         apiClient.get('/drivers/metrics', { params: { days: 7 } }).catch(() => ({ data: null })),
       ]);
-      setProfile(profileRes.data);
-      setIsOnline(Boolean(profileRes.data?.isOnline));
+      let nextProfile = profileRes.data;
+
+      if (
+        !nextProfile?.isOnline &&
+        nextProfile?.supportsTaxi &&
+        nextProfile?.driverMode !== 'TAXI' &&
+        !force
+      ) {
+        try {
+          const modeResponse = await apiClient.post('/drivers/mode', { driverMode: 'TAXI' });
+          nextProfile = modeResponse.data;
+        } catch {
+          // Keep the current mode if the server rejects automatic fallback.
+        }
+      }
+
+      setProfile(nextProfile);
+      setIsOnline(Boolean(nextProfile?.isOnline));
       setMetrics(metricsRes.data);
 
-      if (profileRes.data?.driverMode === 'TAXI' || profileRes.data?.supportsTaxi) {
+      if (nextProfile?.driverMode === 'TAXI' || nextProfile?.supportsTaxi) {
         const currentRideRes = await apiClient.get('/drivers/current-ride').catch(() => ({ data: null }));
         if (currentRideRes.data?.id) {
           const rideRes = await apiClient.get(`/rides/${currentRideRes.data.id}`).catch(() => ({ data: null }));
@@ -144,7 +160,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         setCurrentRide(null);
       }
 
-      if (profileRes.data?.supportsIntercity) {
+      if (nextProfile?.supportsIntercity) {
         const [currentTripRes, myTripsRes, passengerOrdersRes] = await Promise.all([
           apiClient.get('/intercity-trips/current').catch(() => ({ data: null })),
           apiClient.get('/intercity-trips/my').catch(() => ({ data: [] })),
@@ -159,7 +175,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         setIntercityPassengerOrders([]);
       }
 
-      if (profileRes.data?.supportsCourier) {
+      if (nextProfile?.supportsCourier) {
         const [currentCourierRes, availableCourierRes] = await Promise.all([
           apiClient.get('/couriers/current-order').catch(() => ({ data: null })),
           apiClient.get('/courier-orders/available').catch(() => ({ data: [] })),
@@ -425,6 +441,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       await loadDriverShell(true);
+      navigation.navigate('IntercityRequests');
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось открыть межгород';
       openDriverModal({
@@ -433,7 +450,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         primaryLabel: 'Понятно',
       });
     }
-  }, [currentCourierOrder, currentRideId, loadDriverShell, openDriverModal, profile?.driverMode]);
+  }, [
+    currentCourierOrder,
+    currentRideId,
+    loadDriverShell,
+    navigation,
+    openDriverModal,
+    profile?.driverMode,
+  ]);
 
   const callPhone = useCallback(async (phone?: string | null) => {
     if (!phone) {
@@ -962,81 +986,6 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
-  if (profile?.driverMode === 'INTERCITY' && profile?.supportsIntercity) {
-    return (
-      <ServiceScreen
-        accentColor="#38BDF8"
-        eyebrow=""
-        title="Межгород"
-        backLabel="На главную"
-        onBack={() => switchDriverMode(profile?.supportsTaxi ? 'TAXI' : 'COURIER')}
-      >
-        <View style={styles.intercityHero}>
-          <Text style={styles.intercityHeroTitle}>
-            {currentIntercityTrip
-              ? `${currentIntercityTrip.fromCity} → ${currentIntercityTrip.toCity}`
-              : 'Межгород под контролем'}
-          </Text>
-          <Text style={styles.intercityHeroText}>
-            {currentIntercityTrip
-              ? 'Рейс уже активен. Ниже быстрый доступ к пассажирам и бронированиям.'
-              : 'Публикуй рейсы и смотри заявки пассажиров.'}
-          </Text>
-        </View>
-
-        {currentIntercityTrip ? (
-          <ServiceCard>
-            <Text style={styles.intercityTitle}>Активный рейс</Text>
-            <InlineLabel label="Маршрут" value={`${currentIntercityTrip.fromCity} -> ${currentIntercityTrip.toCity}`} />
-            <InlineLabel label="Выезд" value={new Date(currentIntercityTrip.departureAt).toLocaleString()} />
-            <InlineLabel label="Бронирований" value={String(currentIntercityTrip.bookings?.length || 0)} />
-            <PrimaryButton
-              title="Открыть рейс"
-              onPress={() => navigation.navigate('IntercityTrip', { tripId: currentIntercityTrip.id })}
-              accentColor="#38BDF8"
-            />
-          </ServiceCard>
-        ) : null}
-
-        <ServiceCard>
-          <Text style={styles.intercityTitle}>Заявки пассажиров</Text>
-          <InlineLabel label="Доступно сейчас" value={String(intercityPassengerOrders.length)} accentColor="#38BDF8" />
-          <InlineLabel
-            label="Ближайшая"
-            value={
-              intercityPassengerOrders[0]
-                ? `${intercityPassengerOrders[0].fromCity} -> ${intercityPassengerOrders[0].toCity}`
-                : 'Пока нет свежих заявок'
-            }
-          />
-          <PrimaryButton
-            title="Открыть заявки"
-            onPress={() => navigation.navigate('IntercityRequests')}
-            accentColor="#38BDF8"
-          />
-        </ServiceCard>
-
-        <ServiceCard compact>
-          <Text style={styles.intercityTitle}>Мои рейсы</Text>
-          {intercityTrips.length === 0 ? (
-            <Text style={styles.intercityEmpty}>Пока нет опубликованных рейсов.</Text>
-          ) : (
-            intercityTrips.slice(0, 5).map((trip) => (
-              <TouchableOpacity key={trip.id} style={styles.intercityTripCard} onPress={() => navigation.navigate('IntercityTrip', { tripId: trip.id })}>
-                <Text style={styles.intercityTripRoute}>{`${trip.fromCity} -> ${trip.toCity}`}</Text>
-                <Text style={styles.intercityTripMeta}>
-                  {new Date(trip.departureAt).toLocaleString()} • {Math.round(Number(trip.pricePerSeat || 0))} тг
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </ServiceCard>
-
-        <PrimaryButton title="Создать поездку" onPress={() => navigation.navigate('IntercityTrip', {})} accentColor="#38BDF8" />
-      </ServiceScreen>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -1306,6 +1255,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#27272A',
     zIndex: 10,
+    elevation: 20,
   },
   burgerBadge: {
     position: 'absolute',
@@ -1333,6 +1283,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#27272A',
     zIndex: 10,
+    elevation: 20,
   },
   toggleText: { color: '#F4F4F5', fontSize: 14, fontWeight: '600', marginRight: 10 },
   modalBackdrop: {
@@ -1404,6 +1355,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#27272A',
     zIndex: 10,
+    elevation: 20,
   },
   modeSwitcher: {
     position: 'absolute',
@@ -1424,6 +1376,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     zIndex: 10,
+    elevation: 22,
   },
   intercityHubBtnActive: {
     backgroundColor: '#082F49',

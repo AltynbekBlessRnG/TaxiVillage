@@ -19,6 +19,7 @@ import { apiClient } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { PrimaryButton, ServiceScreen } from '../../components/ServiceScreen';
 import { openWhatsAppOrder } from '../../utils/foodWhatsapp';
+import { resolveApiAssetUrl } from '../../utils/assets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Restaurant'>;
 
@@ -122,6 +123,23 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
     });
   };
 
+  const removeFromCart = (itemId: string) => {
+    setCart((current) => {
+      const existing = current.find((entry) => entry.menuItemId === itemId);
+      if (!existing) {
+        return current;
+      }
+
+      if (existing.qty <= 1) {
+        return current.filter((entry) => entry.menuItemId !== itemId);
+      }
+
+      return current.map((entry) =>
+        entry.menuItemId === itemId ? { ...entry, qty: entry.qty - 1 } : entry,
+      );
+    });
+  };
+
   const getItemQty = (itemId: string) => cart.find((item) => item.menuItemId === itemId)?.qty ?? 0;
 
   const handleCategoryPress = (categoryId: string) => {
@@ -187,7 +205,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
         scrollEventThrottle={16}
       >
         <ImageBackground
-          source={merchant?.coverImageUrl ? { uri: merchant.coverImageUrl } : undefined}
+          source={resolveApiAssetUrl(merchant?.coverImageUrl) ? { uri: resolveApiAssetUrl(merchant?.coverImageUrl) } : undefined}
           style={[styles.hero, { backgroundColor: merchant?.tone || '#7C2D12' }]}
           imageStyle={styles.heroImage}
         >
@@ -323,7 +341,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
               return (
                 <View key={item.id} style={styles.menuRow}>
                   {item.imageUrl ? (
-                    <Image source={{ uri: item.imageUrl }} style={styles.menuImage} resizeMode="cover" />
+                    <Image source={{ uri: resolveApiAssetUrl(item.imageUrl) }} style={styles.menuImage} resizeMode="cover" />
                   ) : (
                     <View style={styles.menuImageFallback}>
                       <Text style={styles.menuImageFallbackText}>
@@ -338,10 +356,20 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                       {item.description || 'Без описания'}
                     </Text>
                     <View style={styles.menuBottomRow}>
-                      <Text style={styles.menuPrice}>{Math.round(Number(item.price))} тг</Text>
-                      <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
-                        <Text style={styles.addButtonText}>{qty > 0 ? `+ ${qty}` : '+'}</Text>
-                      </TouchableOpacity>
+                    <Text style={styles.menuPrice}>{Math.round(Number(item.price))} тг</Text>
+                      <View style={styles.quantityActions}>
+                        {qty > 0 ? (
+                          <TouchableOpacity
+                            style={[styles.quantityButton, styles.quantityButtonGhost]}
+                            onPress={() => removeFromCart(item.id)}
+                          >
+                            <Text style={styles.quantityButtonGhostText}>−</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        <TouchableOpacity style={styles.quantityButton} onPress={() => addToCart(item)}>
+                          <Text style={styles.quantityButtonText}>{qty > 0 ? `+ ${qty}` : '+'}</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -639,6 +667,36 @@ const styles = StyleSheet.create({
     color: '#F4F4F5',
     fontSize: 15,
     fontWeight: '900',
+  },
+  quantityActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  quantityButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#2D160B',
+    borderWidth: 1,
+    borderColor: '#FB923C',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityButtonGhost: {
+    backgroundColor: '#18181B',
+    borderColor: '#3F3F46',
+  },
+  quantityButtonText: {
+    color: '#FED7AA',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  quantityButtonGhostText: {
+    color: '#F4F4F5',
+    fontSize: 18,
+    fontWeight: '900',
+    lineHeight: 20,
   },
   emptyBlock: {
     backgroundColor: '#18181B',

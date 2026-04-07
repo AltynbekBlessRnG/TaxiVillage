@@ -161,6 +161,20 @@ export class RidesService implements OnModuleDestroy {
         : suggestedPrice;
 
     const ride = await this.prisma.$transaction(async (tx) => {
+      const existingActiveRide = await tx.ride.findFirst({
+        where: {
+          passengerId: passengerProfile.id,
+          status: {
+            in: this.activeRideStatuses(),
+          },
+        },
+        select: { id: true },
+      });
+
+      if (existingActiveRide) {
+        throw new ConflictException('У вас уже есть активная поездка');
+      }
+
       const created = await tx.ride.create({
         data: {
           passengerId: passengerProfile.id,
@@ -199,6 +213,8 @@ export class RidesService implements OnModuleDestroy {
       });
 
       return created;
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
 
     const rideWithUsers = await this.loadRideRecord(ride.id);

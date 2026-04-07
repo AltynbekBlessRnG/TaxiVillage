@@ -31,7 +31,7 @@ const statusLabels: Record<string, string> = {
   CANCELED: 'Отменен',
 };
 
-export const MerchantOrdersScreen: React.FC<Props> = ({ navigation }) => {
+export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -124,11 +124,21 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation }) => {
         </ServiceCard>
       ) : null}
 
+      {route.params?.orderId ? (
+        <ServiceCard compact>
+          <Text style={styles.openedFromLinkText}>
+            {orders.some((order) => order.id === route.params?.orderId)
+              ? 'Открыто по ссылке из WhatsApp'
+              : 'Заказ по ссылке еще не появился в списке'}
+          </Text>
+        </ServiceCard>
+      ) : null}
+
       {orders.map((order) => (
         <ServiceCard key={order.id}>
           <View style={styles.statusRow}>
             <Text style={styles.cardTitle}>{statusLabels[order.status] || order.status}</Text>
-            <View style={styles.statusBadge}>
+            <View style={[styles.statusBadge, route.params?.orderId === order.id && styles.statusBadgeActive]}>
               <Text style={styles.statusBadgeText}>{Math.round(Number(order.totalPrice || 0))} тг</Text>
             </View>
           </View>
@@ -194,6 +204,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+  statusBadgeActive: {
+    backgroundColor: '#143124',
+  },
   statusBadgeText: {
     color: '#FED7AA',
     fontSize: 12,
@@ -215,5 +228,10 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     fontSize: 15,
     lineHeight: 22,
+  },
+  openedFromLinkText: {
+    color: '#86EFAC',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

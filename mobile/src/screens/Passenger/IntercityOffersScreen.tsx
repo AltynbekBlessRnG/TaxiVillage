@@ -1,47 +1,44 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
-import { InlineLabel, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
+import { OptionPickerModal } from '../../components/OptionPickerModal';
+import { SecondaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
+import { buildIntercityDateOptions, formatIntercityDateTime } from '../../constants/intercity';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityOffers'>;
 
 export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { fromCity, toCity, date, seats, baggage, minPrice, maxPrice, womenOnly, baggageRequired, noAnimals } = route.params;
+  const dateOptions = useMemo(() => buildIntercityDateOptions(10), []);
   const [loading, setLoading] = useState(true);
   const [offers, setOffers] = useState<any[]>([]);
-  const [maxPriceFilter, setMaxPriceFilter] = useState(maxPrice || '');
-  const [seatsFilter, setSeatsFilter] = useState(seats || '1');
+  const [date, setDate] = useState(route.params.date);
+  const [seats, setSeats] = useState(route.params.seats || '1');
+  const [maxPriceDraft, setMaxPriceDraft] = useState(route.params.maxPrice || '');
+  const [maxPrice, setMaxPrice] = useState(route.params.maxPrice || '');
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
 
-  const filterSummary = useMemo(
-    () => [
-      womenOnly ? 'Только женский салон' : 'Любой салон',
-      baggageRequired ? 'Есть место для багажа' : 'Багаж не важен',
-      noAnimals ? 'Без животных' : 'Животные допустимы',
-    ],
-    [baggageRequired, noAnimals, womenOnly],
-  );
-
-  useEffect(() => {
+  const loadOffers = useCallback(() => {
     setLoading(true);
-    apiClient
+    return apiClient
       .get('/intercity-trips/public', {
         params: {
-          fromCity,
-          toCity,
-          minPrice: minPrice || undefined,
-          maxPrice: maxPriceFilter || undefined,
-          seatsRequired: seatsFilter || undefined,
-          baggageRequired: baggageRequired || undefined,
-          womenOnly: womenOnly || undefined,
-          noAnimals: noAnimals || undefined,
+          fromCity: route.params.fromCity,
+          toCity: route.params.toCity,
+          dateFrom: date,
+          seatsRequired: Math.max(Number(seats || 1), 1),
+          maxPrice: maxPrice ? Math.max(Number(maxPrice || 0), 0) : undefined,
         },
       })
-      .then((response) => setOffers(response.data))
+      .then((response) => setOffers(Array.isArray(response.data) ? response.data : []))
       .catch(() => setOffers([]))
       .finally(() => setLoading(false));
-  }, [baggageRequired, fromCity, maxPriceFilter, minPrice, noAnimals, seatsFilter, toCity, womenOnly]);
+  }, [date, maxPrice, route.params.fromCity, route.params.toCity, seats]);
+
+  useEffect(() => {
+    loadOffers().catch(() => null);
+  }, [loadOffers]);
 
   if (loading) {
     return (
@@ -54,55 +51,48 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
   return (
     <ServiceScreen
       accentColor="#38BDF8"
-      eyebrow="Предложения"
-      title={`Поездки в ${toCity}`}
-      subtitle="Показываем все ближайшие поездки по этому направлению начиная с текущего времени."
-      backLabel="К поиску"
+      title={`${route.params.fromCity} → ${route.params.toCity}`}
+      subtitle=""
+      backLabel="Назад"
       onBack={() => navigation.goBack()}
     >
-      <View style={styles.heroBlock}>
-        <Text style={styles.heroRoute}>{fromCity} → {toCity}</Text>
-        <Text style={styles.heroText}>
-          Смотри ближайшие выезды, сравни условия и выбирай водителя под свой сценарий поездки.
-        </Text>
-      </View>
-
       <ServiceCard compact>
-        <InlineLabel label="Дата" value={date} />
-        <InlineLabel label="Места" value={seats} />
-        <InlineLabel label="Багаж" value={baggage} />
-      </ServiceCard>
-
-      <ServiceCard compact>
-        <Text style={styles.filterTitle}>Фильтры</Text>
-        <TextInput
-          style={styles.input}
-          value={seatsFilter}
-          onChangeText={setSeatsFilter}
-          keyboardType="number-pad"
-          placeholder="Сколько мест нужно"
-          placeholderTextColor="#71717A"
-        />
-        <TextInput
-          style={styles.input}
-          value={maxPriceFilter}
-          onChangeText={setMaxPriceFilter}
-          keyboardType="number-pad"
-          placeholder="Максимальная цена за место"
-          placeholderTextColor="#71717A"
-        />
-        <View style={styles.filterChips}>
-          {filterSummary.map((item) => (
-            <View key={item} style={styles.filterChip}>
-              <Text style={styles.filterChipText}>{item}</Text>
-            </View>
-          ))}
+        <View style={styles.filterRow}>
+          <TouchableOpacity style={[styles.filterField, styles.flexTwo]} activeOpacity={0.9} onPress={() => setDatePickerVisible(true)}>
+            <Text style={styles.filterLabel}>Дата</Text>
+            <Text style={styles.filterValue}>
+              {dateOptions.find((option) => option.value === date)?.label || date}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.filterField}>
+            <Text style={styles.filterLabel}>Места</Text>
+            <TextInput
+              style={styles.filterInput}
+              value={seats}
+              onChangeText={setSeats}
+              keyboardType="number-pad"
+              placeholderTextColor="#71717A"
+            />
+          </View>
+          <View style={styles.filterField}>
+            <Text style={styles.filterLabel}>До</Text>
+            <TextInput
+              style={styles.filterInput}
+              value={maxPriceDraft}
+              onChangeText={setMaxPriceDraft}
+              keyboardType="number-pad"
+              placeholder="тг"
+              placeholderTextColor="#71717A"
+            />
+          </View>
         </View>
+        <SecondaryButton title="Применить" onPress={() => setMaxPrice(maxPriceDraft)} />
       </ServiceCard>
 
       {offers.length === 0 ? (
         <ServiceCard compact>
-          <Text style={styles.emptyText}>Пока нет подходящих рейсов по этому маршруту. Попробуй изменить дату или направление.</Text>
+          <Text style={styles.emptyTitle}>Рейсов пока нет</Text>
+          <Text style={styles.emptyText}>Измени дату или оставь заявку.</Text>
         </ServiceCard>
       ) : null}
 
@@ -110,11 +100,12 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
         <TouchableOpacity
           key={offer.id}
           style={styles.offerCard}
+          activeOpacity={0.92}
           onPress={() =>
             navigation.navigate('IntercityBooking', {
               tripId: offer.id,
-              fromCity,
-              toCity,
+              fromCity: offer.fromCity,
+              toCity: offer.toCity,
               departureAt: offer.departureAt,
               driverName: offer.driver?.fullName || offer.driver?.user?.phone || 'Водитель',
               car:
@@ -133,55 +124,37 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
             })
           }
         >
-          <View style={styles.offerTop}>
-            <View style={styles.offerTopLeft}>
-              <Text style={styles.offerDriver}>{offer.driver?.fullName || offer.driver?.user?.phone || 'Водитель'}</Text>
-              <Text style={styles.offerDeparture}>
-                {new Date(offer.departureAt).toLocaleString('ru-RU', {
-                  day: '2-digit',
-                  month: 'long',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+          <View style={styles.topRow}>
+            <View style={styles.topMeta}>
+              <Text style={styles.routeText}>{offer.fromCity} → {offer.toCity}</Text>
+              <Text style={styles.departureText}>{formatIntercityDateTime(offer.departureAt)}</Text>
+            </View>
+            <Text style={styles.priceText}>{Math.round(Number(offer.pricePerSeat || 0))} тг</Text>
+          </View>
+
+          <View style={styles.bottomRow}>
+            <View style={styles.bottomMeta}>
+              <Text style={styles.driverText}>{offer.driver?.fullName || offer.driver?.user?.phone || 'Водитель'}</Text>
+              <Text style={styles.carText}>
+                {[offer.carMake, offer.carModel, offer.carColor].filter(Boolean).join(' • ') || 'Авто не указано'}
               </Text>
             </View>
-            <Text style={styles.offerPrice}>{Math.round(Number(offer.pricePerSeat || 0))} тг</Text>
-          </View>
-          <View style={styles.routeLine}>
-            <View style={styles.routePointRow}>
-              <View style={[styles.routeDot, styles.routeDotFrom]} />
-              <Text style={styles.routeText}>{fromCity}</Text>
-            </View>
-            <View style={styles.routeStem} />
-            <View style={styles.routePointRow}>
-              <View style={[styles.routeDot, styles.routeDotTo]} />
-              <Text style={styles.routeText}>{toCity}</Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaPill}>{Number(offer.seatsRemaining ?? offer.seatCapacity ?? 0)} мест</Text>
+              <Text style={styles.metaPill}>{offer.womenOnly ? 'Женский' : 'Любой'}</Text>
             </View>
           </View>
-          <Text style={styles.offerCar}>
-            {[offer.carMake, offer.carModel, offer.carColor].filter(Boolean).join(' • ') || 'Авто не заполнено'}
-          </Text>
-          <View style={styles.metaWrap}>
-            <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>
-                {Number(offer.seatsRemaining ?? offer.seatCapacity ?? 0)} из {offer.seatCapacity} мест
-              </Text>
-            </View>
-            <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{offer.womenOnly ? 'Женский салон' : 'Любой салон'}</Text>
-            </View>
-            <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{offer.baggageSpace ? 'Есть багаж' : 'Без багажа'}</Text>
-            </View>
-            <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{offer.allowAnimals ? 'Животные допустимы' : 'Без животных'}</Text>
-            </View>
-          </View>
-          {Array.isArray(offer.stops) && offer.stops.length ? (
-            <Text style={styles.offerMeta}>Остановки: {offer.stops.join(' • ')}</Text>
-          ) : null}
         </TouchableOpacity>
       ))}
+
+      <OptionPickerModal
+        visible={datePickerVisible}
+        title="Дата рейса"
+        options={dateOptions}
+        selectedValue={date}
+        onSelect={setDate}
+        onClose={() => setDatePickerVisible(false)}
+      />
     </ServiceScreen>
   );
 };
@@ -193,21 +166,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#09090B',
   },
-  heroBlock: {
+  filterRow: {
+    flexDirection: 'row',
+    gap: 10,
     marginBottom: 12,
-    paddingHorizontal: 4,
   },
-  heroRoute: {
+  filterField: {
+    flex: 1,
+    backgroundColor: '#0B0B0E',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  flexTwo: {
+    flex: 2,
+  },
+  filterLabel: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  filterValue: {
     color: '#F4F4F5',
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  filterInput: {
+    color: '#F4F4F5',
+    fontSize: 14,
+    fontWeight: '700',
+    padding: 0,
+  },
+  emptyTitle: {
+    color: '#F4F4F5',
+    fontSize: 17,
     fontWeight: '900',
     marginBottom: 8,
   },
-  heroText: {
-    color: '#94A3B8',
-    fontSize: 15,
-    lineHeight: 22,
+  emptyText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    lineHeight: 18,
   },
   offerCard: {
     backgroundColor: '#18181B',
@@ -217,129 +220,65 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  offerTop: {
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    alignItems: 'flex-start',
     gap: 12,
+    marginBottom: 10,
   },
-  offerTopLeft: {
+  topMeta: {
     flex: 1,
   },
-  offerDriver: {
+  routeText: {
     color: '#F4F4F5',
     fontSize: 18,
     fontWeight: '900',
+    marginBottom: 4,
   },
-  offerDeparture: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  offerPrice: {
-    color: '#38BDF8',
-    fontWeight: '900',
-    fontSize: 18,
-  },
-  routeLine: {
-    marginBottom: 12,
-  },
-  routePointRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  routeStem: {
-    width: 1,
-    height: 16,
-    backgroundColor: '#334155',
-    marginLeft: 6,
-    marginVertical: 4,
-  },
-  routeDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
-  },
-  routeDotFrom: {
-    backgroundColor: '#38BDF8',
-  },
-  routeDotTo: {
-    backgroundColor: '#F97316',
-  },
-  routeText: {
-    color: '#E2E8F0',
-    fontSize: 15,
+  departureText: {
+    color: '#A1A1AA',
+    fontSize: 13,
     fontWeight: '700',
   },
-  offerCar: {
-    color: '#D4D4D8',
-    marginBottom: 10,
+  priceText: {
+    color: '#38BDF8',
+    fontSize: 18,
+    fontWeight: '900',
   },
-  offerMeta: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    marginTop: 10,
-    lineHeight: 18,
-  },
-  emptyText: {
-    color: '#A1A1AA',
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 14,
-  },
-  filterTitle: {
+  driverText: {
     color: '#F4F4F5',
     fontSize: 15,
     fontWeight: '800',
-    marginBottom: 10,
   },
-  input: {
-    backgroundColor: '#09090B',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#27272A',
-    color: '#F4F4F5',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    marginBottom: 10,
+  carText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    marginTop: 4,
   },
-  filterChips: {
+  bottomRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'flex-end',
+  },
+  bottomMeta: {
+    flex: 1,
+  },
+  metaRow: {
+    flexDirection: 'column',
     gap: 8,
-  },
-  filterChip: {
-    backgroundColor: '#082F49',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#0EA5E9',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  filterChipText: {
-    color: '#7DD3FC',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  metaWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'flex-end',
   },
   metaPill: {
-    backgroundColor: '#0F172A',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  metaPillText: {
     color: '#CBE7FF',
     fontSize: 12,
     fontWeight: '700',
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
 });

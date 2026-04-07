@@ -26,6 +26,8 @@ import { MerchantOrdersScreen } from '../screens/Merchant/MerchantOrdersScreen';
 import { MenuEditorScreen } from '../screens/Merchant/MenuEditorScreen';
 import { IntercityTripScreen } from '../screens/IntercityDriver/IntercityTripScreen';
 import { IntercityRequestsScreen } from '../screens/IntercityDriver/IntercityRequestsScreen';
+import { IntercityMyTripsScreen } from '../screens/IntercityDriver/IntercityMyTripsScreen';
+import { IntercityDriverOrderScreen } from '../screens/IntercityDriver/IntercityDriverOrderScreen';
 import { RideHistoryScreen } from '../screens/RideHistoryScreen';
 import { ChatScreen } from '../screens/Passenger/ChatScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
@@ -60,13 +62,11 @@ export type RootStackParamList = {
     fromCity: string;
     toCity: string;
     date: string;
+    time: string;
     seats: string;
     baggage: string;
-    minPrice: string;
     maxPrice: string;
-    womenOnly: boolean;
-    baggageRequired: boolean;
-    noAnimals: boolean;
+    comment?: string;
   };
   IntercityBooking: {
     tripId: string;
@@ -85,7 +85,7 @@ export type RootStackParamList = {
   };
   IntercityTripStatus: { bookingId: string };
   IntercityOrderStatus: { orderId: string };
-  IntercityChat: { threadType: 'ORDER' | 'BOOKING'; threadId: string; title?: string };
+  IntercityChat: { threadType: 'ORDER' | 'BOOKING' | 'TRIP'; threadId: string; title?: string };
   FavoriteAddresses: undefined;
   RideDetails: { rideId: string };
   ChatScreen: { rideId: string };
@@ -93,10 +93,12 @@ export type RootStackParamList = {
   DriverProfile: undefined;
   DriverDocuments: undefined;
   MerchantDashboard: undefined;
-  MerchantOrders: undefined;
+  MerchantOrders: { orderId?: string } | undefined;
   MenuEditor: undefined;
   IntercityTrip: { tripId?: string } | undefined;
   IntercityRequests: undefined;
+  IntercityMyTrips: undefined;
+  IntercityDriverOrder: { orderId: string };
   RideHistory: undefined;
   Notifications: undefined;
   Messages: undefined;
@@ -188,6 +190,8 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="MenuEditor" component={MenuEditorScreen} />
       <Stack.Screen name="IntercityTrip" component={IntercityTripScreen} />
       <Stack.Screen name="IntercityRequests" component={IntercityRequestsScreen} />
+      <Stack.Screen name="IntercityMyTrips" component={IntercityMyTripsScreen} />
+      <Stack.Screen name="IntercityDriverOrder" component={IntercityDriverOrderScreen} />
       <Stack.Screen
         name="RideHistory"
         component={RideHistoryScreen}

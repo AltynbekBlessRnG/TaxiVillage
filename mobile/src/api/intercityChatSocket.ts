@@ -5,6 +5,7 @@ import { createAppSocket } from './appSocket';
 export interface IntercityMessage {
   id: string;
   content: string;
+  intercityTripId?: string | null;
   senderId: string;
   senderType: 'PASSENGER' | 'DRIVER';
   receiverId: string;
@@ -20,7 +21,7 @@ export class IntercityChatSocket {
   private messageCallback?: (message: IntercityMessage) => void;
   private errorCallback?: (error: any) => void;
 
-  async connect(threadType: 'ORDER' | 'BOOKING', threadId: string): Promise<void> {
+  async connect(threadType: 'ORDER' | 'BOOKING' | 'TRIP', threadId: string): Promise<void> {
     const auth = await loadAuth();
     if (!auth?.accessToken) {
       throw new Error('No auth token found');

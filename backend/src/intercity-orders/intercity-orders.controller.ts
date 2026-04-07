@@ -69,8 +69,7 @@ export class IntercityOrdersController {
   constructor(private readonly intercityOrdersService: IntercityOrdersService) {}
 
   @Get('my')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.PASSENGER)
+  @UseGuards(AuthGuard('jwt'))
   getMyOrders(@Req() req: any) {
     return this.intercityOrdersService.getOrdersForPassenger(req.user.userId);
   }
@@ -93,8 +92,7 @@ export class IntercityOrdersController {
   }
 
   @Post()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.PASSENGER)
+  @UseGuards(AuthGuard('jwt'))
   create(@Body() dto: CreateIntercityOrderDto, @Req() req: any) {
     return this.intercityOrdersService.createOrderForPassenger(req.user.userId, {
       ...dto,
@@ -110,8 +108,7 @@ export class IntercityOrdersController {
   }
 
   @Get(':id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.PASSENGER)
+  @UseGuards(AuthGuard('jwt'))
   getById(@Param('id') id: string, @Req() req: any) {
     return this.intercityOrdersService.getOrderByIdForPassenger(req.user.userId, id);
   }
@@ -131,8 +128,7 @@ export class IntercityOrdersController {
   }
 
   @Post(':id/cancel')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.PASSENGER)
+  @UseGuards(AuthGuard('jwt'))
   cancelByPassenger(@Param('id') id: string, @Req() req: any) {
     return this.intercityOrdersService.cancelOrderByPassenger(req.user.userId, id);
   }

@@ -11,12 +11,14 @@ import {
   IntercityOrderStatus,
   IntercityBookingStatus,
   IntercityBookingType,
+  IntercityTripInviteStatus,
   IntercityTripStatus,
   Prisma,
 } from '@prisma/client/index';
 import { PrismaService } from '../prisma/prisma.service';
 import { IntercityGateway } from './intercity.gateway';
 import { RedisService } from '../redis/redis.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class IntercityTripsService {
@@ -24,9 +26,11 @@ export class IntercityTripsService {
     private readonly prisma: PrismaService,
     private readonly intercityGateway: IntercityGateway,
     private readonly redisService: RedisService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async listPublicTrips(filters: {
+    dateFrom?: string;
     fromCity?: string;
     toCity?: string;
     minPrice?: number;
@@ -36,12 +40,23 @@ export class IntercityTripsService {
     womenOnly?: boolean;
     noAnimals?: boolean;
   }) {
+    const departureFrom = (() => {
+      if (!filters.dateFrom) {
+        return undefined;
+      }
+
+      const normalized =
+        filters.dateFrom.length <= 10 ? `${filters.dateFrom}T00:00:00` : filters.dateFrom;
+      const parsed = new Date(normalized);
+      return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+    })();
+
     const trips = await this.prisma.intercityTrip.findMany({
       where: {
         status: IntercityTripStatus.PLANNED,
         fromCity: filters.fromCity ? { contains: filters.fromCity, mode: 'insensitive' } : undefined,
         toCity: filters.toCity ? { contains: filters.toCity, mode: 'insensitive' } : undefined,
-        departureAt: { gte: new Date() },
+        departureAt: departureFrom ? { gte: departureFrom } : undefined,
         womenOnly: filters.womenOnly ? true : undefined,
         baggageSpace: filters.baggageRequired ? true : undefined,
         allowAnimals: filters.noAnimals ? false : undefined,
@@ -340,6 +355,274 @@ export class IntercityTripsService {
     return booking;
   }
 
+  async inviteOrderToTrip(
+    userId: string,
+    tripId: string,
+    orderId: string,
+    message?: string,
+  ) {
+    const driver = await this.requireDriver(userId, true);
+    const trip = await this.prisma.intercityTrip.findUnique({
+      where: { id: tripId },
+      include: {
+        driver: { include: { user: true } },
+        bookings: {
+          where: {
+            status: {
+              in: [
+                IntercityBookingStatus.CONFIRMED,
+                IntercityBookingStatus.BOARDING,
+                IntercityBookingStatus.IN_PROGRESS,
+              ],
+            },
+          },
+        },
+      },
+    });
+
+    if (!trip || trip.driverId !== driver.id) {
+      throw new NotFoundException('Рейс не найден');
+    }
+    if (trip.status !== IntercityTripStatus.PLANNED) {
+      throw new BadRequestException('Приглашать пассажиров можно только в запланированный рейс');
+    }
+
+    const order = await this.prisma.intercityOrder.findUnique({
+      where: { id: orderId },
+      include: {
+        passenger: { include: { user: true } },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Заявка не найдена');
+    }
+    if (order.driverId) {
+      throw new BadRequestException('У заявки уже есть водитель');
+    }
+    if (order.status !== IntercityOrderStatus.SEARCHING_DRIVER) {
+      throw new BadRequestException('Пригласить можно только активную заявку без водителя');
+    }
+    if (trip.fromCity.trim().toLowerCase() !== order.fromCity.trim().toLowerCase() || trip.toCity.trim().toLowerCase() !== order.toCity.trim().toLowerCase()) {
+      throw new BadRequestException('Маршрут заявки не совпадает с маршрутом рейса');
+    }
+
+    const usedSeats = trip.bookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
+    const remainingSeats = Math.max(trip.seatCapacity - usedSeats, 0);
+    if (remainingSeats < order.seats) {
+      throw new BadRequestException('В рейсе недостаточно мест для этой заявки');
+    }
+
+    const existingPendingInvite = await this.prisma.intercityTripInvite.findFirst({
+      where: {
+        tripId,
+        orderId,
+        status: IntercityTripInviteStatus.PENDING,
+      },
+    });
+    if (existingPendingInvite) {
+      throw new BadRequestException('Приглашение в этот рейс уже отправлено');
+    }
+
+    const createdInvite = await this.prisma.$transaction(async (tx) => {
+      await tx.intercityTripInvite.updateMany({
+        where: {
+          orderId,
+          status: IntercityTripInviteStatus.PENDING,
+        },
+        data: {
+          status: IntercityTripInviteStatus.CANCELED,
+          respondedAt: new Date(),
+        },
+      });
+
+      return tx.intercityTripInvite.create({
+        data: {
+          tripId,
+          orderId,
+          seatsOffered: order.seats,
+          priceOffered: new Prisma.Decimal(Number(trip.pricePerSeat) * order.seats),
+          message: message?.trim() || null,
+        },
+        include: this.tripInviteInclude(),
+      });
+    });
+
+    const refreshedOrder = await this.prisma.intercityOrder.findUnique({
+      where: { id: orderId },
+      include: this.getOrderWithInvitesInclude(),
+    });
+    if (refreshedOrder) {
+      this.intercityGateway.emitOrderUpdated(refreshedOrder);
+    }
+
+    await this.notificationsService.sendPush(order.passenger?.user?.pushToken, {
+      title: 'Новое приглашение в рейс',
+      body: `${trip.driver.fullName || trip.driver.user.phone || 'Водитель'} приглашает вас в рейс ${trip.fromCity} → ${trip.toCity}`,
+      data: {
+        type: 'INTERCITY_TRIP_INVITE',
+        orderId,
+        inviteId: createdInvite.id,
+      },
+    });
+
+    return createdInvite;
+  }
+
+  async acceptInvite(userId: string, inviteId: string) {
+    const passenger = await this.requirePassenger(userId);
+    const invite = await this.prisma.intercityTripInvite.findUnique({
+      where: { id: inviteId },
+      include: this.tripInviteInclude(),
+    });
+
+    if (!invite || invite.order.passengerId !== passenger.id) {
+      throw new NotFoundException('Приглашение не найдено');
+    }
+    if (invite.status !== IntercityTripInviteStatus.PENDING) {
+      throw new BadRequestException('Приглашение уже неактуально');
+    }
+    if (invite.trip.status !== IntercityTripStatus.PLANNED) {
+      throw new BadRequestException('Рейс уже недоступен');
+    }
+
+    const activeBooking = await this.prisma.intercityBooking.findFirst({
+      where: {
+        passengerId: passenger.id,
+        status: {
+          in: [
+            IntercityBookingStatus.CONFIRMED,
+            IntercityBookingStatus.BOARDING,
+            IntercityBookingStatus.IN_PROGRESS,
+          ],
+        },
+      },
+    });
+    if (activeBooking) {
+      throw new BadRequestException('У вас уже есть активная бронь на межгород');
+    }
+
+    const activeBookings = await this.prisma.intercityBooking.findMany({
+      where: {
+        tripId: invite.tripId,
+        status: {
+          in: [
+            IntercityBookingStatus.CONFIRMED,
+            IntercityBookingStatus.BOARDING,
+            IntercityBookingStatus.IN_PROGRESS,
+          ],
+        },
+      },
+    });
+    const usedSeats = activeBookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
+    const remainingSeats = Math.max(invite.trip.seatCapacity - usedSeats, 0);
+    if (remainingSeats < invite.seatsOffered) {
+      throw new BadRequestException('В рейсе уже не осталось нужного количества мест');
+    }
+
+    const booking = await this.prisma.$transaction(async (tx) => {
+      const createdBooking = await tx.intercityBooking.create({
+        data: {
+          tripId: invite.tripId,
+          passengerId: passenger.id,
+          bookingType:
+            invite.seatsOffered >= invite.trip.seatCapacity
+              ? IntercityBookingType.FULL_CABIN
+              : IntercityBookingType.SEAT,
+          seatsBooked: invite.seatsOffered,
+          totalPrice: invite.priceOffered,
+          comment: invite.order.comment || invite.message || null,
+          status: IntercityBookingStatus.CONFIRMED,
+        },
+        include: this.passengerBookingInclude(),
+      });
+
+      await tx.intercityTripInvite.update({
+        where: { id: inviteId },
+        data: {
+          status: IntercityTripInviteStatus.ACCEPTED,
+          respondedAt: new Date(),
+        },
+      });
+
+      await tx.intercityTripInvite.updateMany({
+        where: {
+          orderId: invite.orderId,
+          status: IntercityTripInviteStatus.PENDING,
+          NOT: { id: inviteId },
+        },
+        data: {
+          status: IntercityTripInviteStatus.CANCELED,
+          respondedAt: new Date(),
+        },
+      });
+
+      await tx.intercityOrder.update({
+        where: { id: invite.orderId },
+        data: {
+          driverId: invite.trip.driverId,
+          status: IntercityOrderStatus.COMPLETED,
+        },
+      });
+
+      await tx.intercityOrderStatusHistory.create({
+        data: {
+          intercityOrderId: invite.orderId,
+          status: IntercityOrderStatus.COMPLETED,
+        },
+      });
+
+      return createdBooking;
+    });
+
+    const updatedOrder = await this.prisma.intercityOrder.findUnique({
+      where: { id: invite.orderId },
+      include: this.getOrderWithInvitesInclude(),
+    });
+    if (updatedOrder) {
+      this.intercityGateway.emitOrderUpdated(updatedOrder);
+    }
+    const updatedTrip = await this.getTripForDriver(invite.trip.driver.userId, invite.tripId);
+    this.intercityGateway.emitTripUpdated(updatedTrip);
+    this.intercityGateway.emitBookingUpdated(booking);
+
+    return booking;
+  }
+
+  async declineInvite(userId: string, inviteId: string) {
+    const passenger = await this.requirePassenger(userId);
+    const invite = await this.prisma.intercityTripInvite.findUnique({
+      where: { id: inviteId },
+      include: this.tripInviteInclude(),
+    });
+
+    if (!invite || invite.order.passengerId !== passenger.id) {
+      throw new NotFoundException('Приглашение не найдено');
+    }
+    if (invite.status !== IntercityTripInviteStatus.PENDING) {
+      throw new BadRequestException('Приглашение уже неактуально');
+    }
+
+    const updatedInvite = await this.prisma.intercityTripInvite.update({
+      where: { id: inviteId },
+      data: {
+        status: IntercityTripInviteStatus.DECLINED,
+        respondedAt: new Date(),
+      },
+      include: this.tripInviteInclude(),
+    });
+
+    const updatedOrder = await this.prisma.intercityOrder.findUnique({
+      where: { id: invite.orderId },
+      include: this.getOrderWithInvitesInclude(),
+    });
+    if (updatedOrder) {
+      this.intercityGateway.emitOrderUpdated(updatedOrder);
+    }
+
+    return updatedInvite;
+  }
+
   async updateTripStatus(userId: string, tripId: string, status: IntercityTripStatus) {
     const driver = await this.requireDriver(userId);
     const trip = await this.prisma.intercityTrip.findUnique({
@@ -432,11 +715,23 @@ export class IntercityTripsService {
   }
 
   private async requirePassenger(userId: string) {
-    const passenger = await this.prisma.passengerProfile.findUnique({
+    let passenger = await this.prisma.passengerProfile.findUnique({
       where: { userId },
     });
     if (!passenger) {
-      throw new NotFoundException('Passenger profile not found');
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { phone: true },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      passenger = await this.prisma.passengerProfile.create({
+        data: {
+          userId,
+          fullName: user.phone,
+        },
+      });
     }
     return passenger;
   }
@@ -514,6 +809,64 @@ export class IntercityTripsService {
         },
       },
     } satisfies Prisma.IntercityTripInclude;
+  }
+
+  private tripInviteInclude() {
+    return {
+      trip: {
+        include: {
+          driver: {
+            include: {
+              user: true,
+              car: true,
+            },
+          },
+        },
+      },
+      order: {
+        include: {
+          passenger: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      },
+    } satisfies Prisma.IntercityTripInviteInclude;
+  }
+
+  private getOrderWithInvitesInclude() {
+    return {
+      passenger: {
+        include: {
+          user: true,
+        },
+      },
+      driver: {
+        include: {
+          user: true,
+          car: true,
+        },
+      },
+      statusHistory: {
+        orderBy: { createdAt: 'asc' as const },
+      },
+      invites: {
+        include: {
+          trip: {
+            include: {
+              driver: {
+                include: {
+                  user: true,
+                  car: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' as const },
+      },
+    } satisfies Prisma.IntercityOrderInclude;
   }
 
   private driverTripInclude() {

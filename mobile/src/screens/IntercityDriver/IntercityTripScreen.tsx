@@ -1,21 +1,30 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { Socket } from 'socket.io-client';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { createIntercitySocket } from '../../api/intercitySocket';
-import { loadAuth } from '../../storage/authStorage';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { OptionPickerModal } from '../../components/OptionPickerModal';
 import { InlineLabel, PrimaryButton, SecondaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
+import {
+  buildIntercityDateOptions,
+  composeIntercityDepartureAt,
+  formatIntercityDateTime,
+  INTERCITY_CITIES,
+  INTERCITY_TIME_OPTIONS,
+} from '../../constants/intercity';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
+import { loadAuth } from '../../storage/authStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityTrip'>;
 
-const nextStatusMap: Record<string, string | null> = {
-  PLANNED: 'BOARDING',
-  BOARDING: 'IN_PROGRESS',
-  IN_PROGRESS: 'COMPLETED',
+const nextStatusMap: Record<string, { status: string; label: string } | null> = {
+  PLANNED: { status: 'BOARDING', label: 'Начать посадку' },
+  BOARDING: { status: 'IN_PROGRESS', label: 'Выехать' },
+  IN_PROGRESS: { status: 'COMPLETED', label: 'Завершить рейс' },
   COMPLETED: null,
   CANCELED: null,
 };
@@ -29,20 +38,27 @@ const statusLabels: Record<string, string> = {
 };
 
 export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
-  const defaultDepartureAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  const dateOptions = useMemo(() => buildIntercityDateOptions(10), []);
+  const defaultDate = dateOptions[1]?.value || dateOptions[0]?.value;
   const [trip, setTrip] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fromCity, setFromCity] = useState('Алматы');
-  const [toCity, setToCity] = useState('Алаколь');
-  const [departureAt, setDepartureAt] = useState(defaultDepartureAt);
+  const [toCity, setToCity] = useState('Астана');
+  const [date, setDate] = useState(defaultDate);
+  const [time, setTime] = useState('09:00');
   const [pricePerSeat, setPricePerSeat] = useState('18000');
   const [seatCapacity, setSeatCapacity] = useState('4');
   const [comment, setComment] = useState('');
-  const [stops, setStops] = useState('');
   const [womenOnly, setWomenOnly] = useState(false);
   const [baggageSpace, setBaggageSpace] = useState(true);
   const [allowAnimals, setAllowAnimals] = useState(true);
+  const [picker, setPicker] = useState<'from' | 'to' | 'date' | 'time' | null>(null);
+  const [modal, setModal] = useState<{ visible: boolean; title: string; message: string; primaryMode?: 'cancel-trip' }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
   const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const isCreateMode = !route.params?.tripId;
@@ -53,7 +69,6 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
       setLoading(false);
       return;
     }
-
     setLoading(true);
     try {
       const response = await apiClient.get(`/intercity-trips/${route.params.tripId}`);
@@ -83,28 +98,27 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
       return undefined;
     }
 
-    let isMounted = true;
+    let mounted = true;
     let socket: Socket | null = null;
 
     const setupSocket = async () => {
       const auth = await loadAuth();
-      if (!auth?.accessToken || !isMounted) {
+      if (!auth?.accessToken || !mounted) {
         return;
       }
-
       socket = createIntercitySocket(auth.accessToken);
       socket.on('connect', () => {
         socket?.emit('join:intercity-trip', { tripId: route.params?.tripId });
       });
       socket.on('intercity-trip:updated', (nextTrip: any) => {
-        if (!isMounted || nextTrip?.id !== route.params?.tripId) {
+        if (!mounted || nextTrip?.id !== route.params?.tripId) {
           return;
         }
         setTrip(nextTrip);
         setLoading(false);
       });
       socket.on('intercity-booking:updated', () => {
-        if (!isMounted) {
+        if (!mounted) {
           return;
         }
         loadTrip().catch(() => null);
@@ -112,80 +126,81 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     setupSocket().catch(() => null);
-
     return () => {
-      isMounted = false;
+      mounted = false;
       socket?.disconnect();
     };
   }, [loadTrip, route.params?.tripId]);
 
+  const showError = (error: any, fallback: string) => {
+    const message = error?.response?.data?.message || fallback;
+    setModal({
+      visible: true,
+      title: 'Межгород',
+      message: Array.isArray(message) ? message.join(', ') : message,
+    });
+  };
+
   const createTrip = async () => {
     setSaving(true);
     try {
-      const isoDate = departureAt.includes('T') ? `${departureAt}:00.000Z` : new Date(departureAt).toISOString();
+      const departureAt = composeIntercityDepartureAt(date, time);
       const response = await apiClient.post('/intercity-trips', {
         fromCity,
         toCity,
-        departureAt: isoDate,
+        departureAt,
         pricePerSeat: Number(pricePerSeat),
         seatCapacity: Number(seatCapacity),
         comment: comment.trim() || undefined,
-        stops: stops
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean),
         womenOnly,
         baggageSpace,
         allowAnimals,
       });
       navigation.navigate('IntercityTrip', { tripId: response.data.id });
     } catch (error: any) {
-      const message = error?.response?.data?.message || 'Не удалось создать рейс';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      showError(error, 'Не удалось создать рейс');
     } finally {
       setSaving(false);
     }
   };
 
   const advanceStatus = async () => {
-    const nextStatus = nextStatusMap[trip?.status];
-    if (!nextStatus) {
+    const next = nextStatusMap[trip?.status];
+    if (!next) {
       return;
     }
     try {
-      await apiClient.patch(`/intercity-trips/${trip.id}/status`, { status: nextStatus });
+      await apiClient.patch(`/intercity-trips/${trip.id}/status`, { status: next.status });
       await loadTrip();
     } catch (error: any) {
-      const message = error?.response?.data?.message || 'Не удалось обновить статус рейса';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      showError(error, 'Не удалось обновить статус рейса');
     }
+  };
+
+  const confirmCancel = () => {
+    setModal({
+      visible: true,
+      title: 'Отменить рейс?',
+      message: 'Рейс будет снят, а пассажиры увидят отмену.',
+      primaryMode: 'cancel-trip',
+    });
   };
 
   const cancelTrip = async () => {
-    if (!trip?.id) {
-      return;
+    try {
+      await apiClient.patch(`/intercity-trips/${trip.id}/status`, { status: 'CANCELED' });
+      setModal({ visible: false, title: '', message: '' });
+      navigation.goBack();
+    } catch (error: any) {
+      showError(error, 'Не удалось отменить рейс');
     }
-
-    Alert.alert('Отменить рейс?', 'Рейс будет снят, а активные бронирования получат статус отмены.', [
-      { text: 'Нет', style: 'cancel' },
-      {
-        text: 'Отменить рейс',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await apiClient.patch(`/intercity-trips/${trip.id}/status`, { status: 'CANCELED' });
-            navigation.goBack();
-          } catch (error: any) {
-            const message = error?.response?.data?.message || 'Не удалось отменить рейс';
-            Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
-          }
-        },
-      },
-    ]);
   };
 
   const bookedSeats = useMemo(
-    () => (Array.isArray(trip?.bookings) ? trip.bookings.reduce((sum: number, booking: any) => sum + Number(booking.seatsBooked || 0), 0) : 0),
+    () =>
+      Array.isArray(trip?.bookings)
+        ? trip.bookings.reduce((sum: number, booking: any) => sum + Number(booking.seatsBooked || 0), 0)
+        : 0,
     [trip?.bookings],
   );
 
@@ -199,42 +214,98 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (isCreateMode) {
     return (
-      <ServiceScreen
-        accentColor="#38BDF8"
-        eyebrow="Создать рейс"
-        title="Новый межгород"
-        subtitle="Водитель публикует поездку, а пассажиры бронируют места."
-        backLabel="К водителю"
-        onBack={() => navigation.goBack()}
-      >
+      <ServiceScreen accentColor="#38BDF8" title="Создать свой рейс" subtitle="" backLabel="Назад" onBack={() => navigation.goBack()}>
         <ServiceCard>
-          <TextInput style={styles.input} value={fromCity} onChangeText={setFromCity} placeholder="Откуда" placeholderTextColor="#71717A" />
-          <TextInput style={styles.input} value={toCity} onChangeText={setToCity} placeholder="Куда" placeholderTextColor="#71717A" />
-          <TextInput style={styles.input} value={departureAt} onChangeText={setDepartureAt} placeholder="2026-03-23T09:00" placeholderTextColor="#71717A" />
-          <TextInput style={styles.input} value={pricePerSeat} onChangeText={setPricePerSeat} keyboardType="number-pad" placeholder="Цена за место" placeholderTextColor="#71717A" />
-          <TextInput style={styles.input} value={seatCapacity} onChangeText={setSeatCapacity} keyboardType="number-pad" placeholder="Сколько мест" placeholderTextColor="#71717A" />
+          <TouchableOpacity style={styles.selectField} activeOpacity={0.9} onPress={() => setPicker('from')}>
+            <Text style={styles.fieldLabel}>Откуда</Text>
+            <Text style={styles.fieldValue}>{fromCity}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.selectField} activeOpacity={0.9} onPress={() => setPicker('to')}>
+            <Text style={styles.fieldLabel}>Куда</Text>
+            <Text style={styles.fieldValue}>{toCity}</Text>
+          </TouchableOpacity>
+          <View style={styles.row}>
+            <TouchableOpacity style={[styles.selectField, styles.half]} activeOpacity={0.9} onPress={() => setPicker('date')}>
+              <Text style={styles.fieldLabel}>Дата</Text>
+              <Text style={styles.fieldValueSmall}>
+                {dateOptions.find((option) => option.value === date)?.label || date}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.selectField, styles.half]} activeOpacity={0.9} onPress={() => setPicker('time')}>
+              <Text style={styles.fieldLabel}>Время</Text>
+              <Text style={styles.fieldValue}>{time}</Text>
+            </TouchableOpacity>
+          </View>
+          <TextInput
+            style={styles.input}
+            value={pricePerSeat}
+            onChangeText={setPricePerSeat}
+            keyboardType="number-pad"
+            placeholder="Цена за место"
+            placeholderTextColor="#71717A"
+          />
+          <TextInput
+            style={styles.input}
+            value={seatCapacity}
+            onChangeText={setSeatCapacity}
+            keyboardType="number-pad"
+            placeholder="Сколько мест"
+            placeholderTextColor="#71717A"
+          />
           <TextInput style={[styles.input, styles.commentInput]} value={comment} onChangeText={setComment} placeholder="Комментарий" placeholderTextColor="#71717A" multiline />
-          <TextInput style={styles.input} value={stops} onChangeText={setStops} placeholder="Остановки по пути через запятую" placeholderTextColor="#71717A" />
           <View style={styles.preferenceRow}>
             <SecondaryButton title={womenOnly ? 'Женский салон: Да' : 'Женский салон: Нет'} onPress={() => setWomenOnly((value) => !value)} />
             <SecondaryButton title={baggageSpace ? 'Есть багаж' : 'Без багажа'} onPress={() => setBaggageSpace((value) => !value)} />
             <SecondaryButton title={allowAnimals ? 'Животные можно' : 'Без животных'} onPress={() => setAllowAnimals((value) => !value)} />
           </View>
         </ServiceCard>
-        <PrimaryButton title={saving ? 'Создаем...' : 'Создать поездку'} onPress={createTrip} accentColor="#38BDF8" />
+        <PrimaryButton title={saving ? 'Создаем...' : 'Создать рейс'} onPress={createTrip} accentColor="#38BDF8" />
+
+        <OptionPickerModal
+          visible={picker === 'from'}
+          title="Город отправления"
+          options={INTERCITY_CITIES.map((city) => ({ value: city, label: city }))}
+          selectedValue={fromCity}
+          onSelect={setFromCity}
+          onClose={() => setPicker(null)}
+        />
+        <OptionPickerModal
+          visible={picker === 'to'}
+          title="Город прибытия"
+          options={INTERCITY_CITIES.map((city) => ({ value: city, label: city }))}
+          selectedValue={toCity}
+          onSelect={setToCity}
+          onClose={() => setPicker(null)}
+        />
+        <OptionPickerModal
+          visible={picker === 'date'}
+          title="Дата рейса"
+          options={dateOptions}
+          selectedValue={date}
+          onSelect={setDate}
+          onClose={() => setPicker(null)}
+        />
+        <OptionPickerModal
+          visible={picker === 'time'}
+          title="Время рейса"
+          options={INTERCITY_TIME_OPTIONS.map((option) => ({ value: option, label: option }))}
+          selectedValue={time}
+          onSelect={setTime}
+          onClose={() => setPicker(null)}
+        />
+        <DarkAlertModal
+          visible={modal.visible}
+          title={modal.title}
+          message={modal.message}
+          primaryLabel="Понятно"
+          onPrimary={() => setModal({ visible: false, title: '', message: '' })}
+        />
       </ServiceScreen>
     );
   }
 
   return (
-    <ServiceScreen
-      accentColor="#38BDF8"
-      eyebrow="Активный рейс"
-      title="Межгородний рейс"
-      subtitle="Следи за заполнением мест, пассажирами и статусом поездки в одном рабочем экране."
-      backLabel="К водителю"
-      onBack={() => navigation.goBack()}
-    >
+    <ServiceScreen accentColor="#38BDF8" title="Мой рейс" subtitle="" backLabel="Назад" onBack={() => navigation.goBack()}>
       <View style={styles.heroBlock}>
         <Text style={styles.heroRoute}>{`${trip?.fromCity || '-'} → ${trip?.toCity || '-'}`}</Text>
         <Text style={styles.heroText}>{statusLabels[trip?.status] || 'Рейс обновляется'}</Text>
@@ -242,19 +313,36 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <ServiceCard>
         <InlineLabel label="Статус" value={statusLabels[trip?.status] || 'Рейс'} accentColor="#38BDF8" />
-        <InlineLabel label="Маршрут" value={`${trip?.fromCity || '-'} -> ${trip?.toCity || '-'}`} />
-        <InlineLabel label="Выезд" value={trip?.departureAt ? new Date(trip.departureAt).toLocaleString() : '-'} />
+        <InlineLabel label="Выезд" value={formatIntercityDateTime(trip?.departureAt)} />
+        <InlineLabel label="Цена за место" value={`${Math.round(Number(trip?.pricePerSeat || 0))} тг`} />
         <InlineLabel label="Занято мест" value={`${bookedSeats} из ${trip?.seatCapacity || 0}`} />
-        {Array.isArray(trip?.stops) && trip.stops.length ? (
-          <InlineLabel label="Остановки" value={trip.stops.join(' • ')} />
-        ) : null}
-        <InlineLabel label="Салон" value={trip?.womenOnly ? 'Только женщины' : 'Любой'} />
-        <InlineLabel label="Багаж" value={trip?.baggageSpace ? 'Есть место для багажа' : 'Без багажа'} />
-        <InlineLabel label="Животные" value={trip?.allowAnimals ? 'Разрешены' : 'Без животных'} />
+        <InlineLabel label="Салон" value={trip?.womenOnly ? 'Женский' : 'Любой'} />
+        <InlineLabel label="Багаж" value={trip?.baggageSpace ? 'Есть место' : 'Без багажа'} />
+        <InlineLabel label="Животные" value={trip?.allowAnimals ? 'Можно' : 'Нельзя'} />
+        {trip?.comment ? <InlineLabel label="Комментарий" value={trip.comment} /> : null}
       </ServiceCard>
 
       <ServiceCard compact>
-        <Text style={styles.sectionTitle}>Пассажиры</Text>
+        <View style={styles.passengersHeader}>
+          <Text style={styles.sectionTitle}>Пассажиры</Text>
+          <TouchableOpacity
+            style={styles.tripChatButton}
+            activeOpacity={0.88}
+            onPress={() =>
+              navigation.navigate('IntercityChat', {
+                threadType: 'TRIP',
+                threadId: trip.id,
+                title: `Рейс ${trip.fromCity} → ${trip.toCity}`,
+              })
+            }
+          >
+            <Text style={styles.tripChatButtonText}>
+              {(intercityUnreadByThread[`TRIP:${trip?.id}`] ?? 0) > 0
+                ? `Чат рейса (${Math.min(intercityUnreadByThread[`TRIP:${trip?.id}`], 99)})`
+                : 'Чат рейса'}
+            </Text>
+          </TouchableOpacity>
+        </View>
         {trip?.bookings?.length ? (
           trip.bookings.map((booking: any) => (
             <View key={booking.id} style={styles.bookingCard}>
@@ -263,20 +351,6 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
                 {booking.seatsBooked} мест • {Math.round(Number(booking.totalPrice || 0))} тг
               </Text>
               <Text style={styles.bookingMeta}>Телефон: {booking.passenger?.user?.phone || '-'}</Text>
-              <SecondaryButton
-                title={
-                  (intercityUnreadByThread[`BOOKING:${booking.id}`] ?? 0) > 0
-                    ? `Чат с пассажиром (${Math.min(intercityUnreadByThread[`BOOKING:${booking.id}`], 99)})`
-                    : 'Чат с пассажиром'
-                }
-                onPress={() =>
-                  navigation.navigate('IntercityChat', {
-                    threadType: 'BOOKING',
-                    threadId: booking.id,
-                    title: booking.passenger?.fullName || booking.passenger?.user?.phone || 'Чат с пассажиром',
-                  })
-                }
-              />
             </View>
           ))
         ) : (
@@ -285,11 +359,31 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
       </ServiceCard>
 
       {nextStatusMap[trip?.status] ? (
-        <PrimaryButton title="Следующий этап" onPress={advanceStatus} accentColor="#38BDF8" />
+        <PrimaryButton title={nextStatusMap[trip?.status]?.label || 'Следующий этап'} onPress={advanceStatus} accentColor="#38BDF8" />
       ) : null}
       {trip?.status && trip.status !== 'COMPLETED' && trip.status !== 'CANCELED' ? (
-        <SecondaryButton title="Отменить рейс" onPress={cancelTrip} />
+        <SecondaryButton title="Отменить рейс" onPress={confirmCancel} />
       ) : null}
+
+      <DarkAlertModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        primaryLabel={modal.primaryMode === 'cancel-trip' ? 'Отменить рейс' : 'Понятно'}
+        secondaryLabel={modal.primaryMode === 'cancel-trip' ? 'Не сейчас' : undefined}
+        onPrimary={() => {
+          if (modal.primaryMode === 'cancel-trip') {
+            cancelTrip().catch(() => null);
+            return;
+          }
+          setModal({ visible: false, title: '', message: '' });
+        }}
+        onSecondary={
+          modal.primaryMode === 'cancel-trip'
+            ? () => setModal({ visible: false, title: '', message: '' })
+            : undefined
+        }
+      />
     </ServiceScreen>
   );
 };
@@ -318,6 +412,39 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '700',
   },
+  selectField: {
+    backgroundColor: '#09090B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  fieldLabel: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  fieldValue: {
+    color: '#F4F4F5',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  fieldValueSmall: {
+    color: '#F4F4F5',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  half: {
+    flex: 1,
+  },
   input: {
     backgroundColor: '#09090B',
     borderRadius: 16,
@@ -332,6 +459,26 @@ const styles = StyleSheet.create({
   commentInput: {
     minHeight: 90,
     textAlignVertical: 'top',
+  },
+  passengersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 14,
+  },
+  tripChatButton: {
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#1D4ED8',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  tripChatButtonText: {
+    color: '#DBEAFE',
+    fontSize: 13,
+    fontWeight: '800',
   },
   preferenceRow: {
     gap: 10,

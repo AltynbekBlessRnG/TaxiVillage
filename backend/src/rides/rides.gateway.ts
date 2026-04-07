@@ -58,6 +58,7 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await client.join(room);
       (client as any).userId = userId;
       await this.redisService.setUserPresence(userId, 'app', client.id);
+      this.redisService.attachPresenceHeartbeat(client, userId, 'app');
       this.logger.log(`Client ${client.id} joined room ${room}`);
     } catch {
       this.logger.warn('Socket connection rejected: invalid token');
@@ -66,6 +67,7 @@ export class RidesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: import('socket.io').Socket) {
+    this.redisService.clearPresenceHeartbeat(client);
     void this.redisService.removeSocketPresence(client.id).catch(() => null);
     this.logger.log(`Client ${client.id} disconnected`);
   }

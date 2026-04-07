@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { IsArray, IsEnum, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AuthGuard } from '@nestjs/passport';
-import { FoodOrderStatus, UserRole } from '@prisma/client';
+import { FoodOrderStatus, PaymentMethod, UserRole } from '@prisma/client';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { FoodOrdersService } from './food-orders.service';
@@ -12,6 +12,8 @@ class FoodOrderItemDto {
   menuItemId!: string;
 
   @Type(() => Number)
+  @IsInt()
+  @Min(1)
   qty!: number;
 }
 
@@ -30,6 +32,10 @@ class CreateFoodOrderDto {
   @ValidateNested({ each: true })
   @Type(() => FoodOrderItemDto)
   items!: FoodOrderItemDto[];
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsString()
@@ -72,8 +78,7 @@ export class FoodOrdersController {
   }
 
   @Post()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.PASSENGER)
+  @UseGuards(AuthGuard('jwt'))
   create(@Body() dto: CreateFoodOrderDto, @Req() req: any) {
     return this.foodOrdersService.createOrderForPassenger(req.user.userId, dto);
   }

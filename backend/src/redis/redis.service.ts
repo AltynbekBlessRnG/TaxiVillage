@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import type { Socket } from 'socket.io';
 import { SocketIoRedisAdapter } from './socket-io-redis.adapter';
 
 type PresencePayload = {
@@ -32,6 +33,7 @@ export class RedisService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
   private readonly redisUrl?: string;
   private readonly defaultTtlSeconds = 120;
+  private readonly presenceHeartbeatMs = 45_000;
 
   private client: Redis | null = null;
   private pubClient: Redis | null = null;
@@ -280,6 +282,24 @@ export class RedisService implements OnModuleDestroy {
     return () => {
       this.offlineListeners.delete(listener);
     };
+  }
+
+  attachPresenceHeartbeat(client: Socket, userId: string, namespace: string) {
+    this.clearPresenceHeartbeat(client);
+
+    const timer = setInterval(() => {
+      void this.setUserPresence(userId, namespace, client.id).catch(() => null);
+    }, this.presenceHeartbeatMs);
+
+    client.data.presenceHeartbeat = timer;
+  }
+
+  clearPresenceHeartbeat(client: Socket) {
+    const timer = client.data.presenceHeartbeat as NodeJS.Timeout | undefined;
+    if (timer) {
+      clearInterval(timer);
+      delete client.data.presenceHeartbeat;
+    }
   }
 
   private async getClient() {

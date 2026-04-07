@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -12,8 +14,12 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient } from '../../api/client';
+import { apiClient, logout } from '../../api/client';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { resolveApiAssetUrl } from '../../utils/assets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverProfile'>;
 
@@ -43,7 +49,7 @@ interface DriverProfileData {
   courierTransportType?: 'CAR' | 'BIKE' | 'FOOT' | null;
   car?: Car;
   documents?: Document[];
-  user?: { phone?: string };
+  user?: { phone?: string; avatarUrl?: string | null };
 }
 
 const TRANSPORT_LABELS = {
@@ -128,8 +134,24 @@ const PillButton: React.FC<{
 export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<DriverProfileData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [updatingIntercity, setUpdatingIntercity] = useState(false);
   const [updatingCourier, setUpdatingCourier] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [modal, setModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    primaryLabel?: string;
+    secondaryLabel?: string;
+    primaryVariant?: 'default' | 'danger';
+    onPrimary?: (() => void | Promise<void>) | null;
+    onSecondary?: (() => void | Promise<void>) | null;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
   const [courierTransportType, setCourierTransportType] = useState<'CAR' | 'BIKE' | 'FOOT'>('FOOT');
 
   const approvedDocuments = profile?.documents?.filter((doc) => doc.approved) ?? [];
@@ -239,6 +261,21 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     profile?.supportsCourier,
     profile?.supportsIntercity,
   ]);
+  const avatarUri = useMemo(
+    () => resolveApiAssetUrl(profile?.user?.avatarUrl),
+    [profile?.user?.avatarUrl],
+  );
+  const initials = useMemo(
+    () =>
+      (profile?.fullName || profile?.user?.phone || 'В')
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase() || 'В',
+    [profile?.fullName, profile?.user?.phone],
+  );
 
   useEffect(() => {
     loadProfile();
@@ -256,6 +293,98 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const pickAndUploadAvatar = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        setModal({
+          visible: true,
+          title: 'Нужен доступ',
+          message: permission.canAskAgain
+            ? 'Разреши доступ к галерее, чтобы поставить аватарку.'
+            : 'Доступ к галерее отключен. Открой настройки приложения и включи фото и видео.',
+        });
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      setUploadingAvatar(true);
+      const formData = new FormData();
+      formData.append('file', {
+        uri: result.assets[0].uri,
+        type: 'image/jpeg',
+        name: `avatar_${Date.now()}.jpg`,
+      } as any);
+
+      const response = await apiClient.post('/users/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setProfile((current) =>
+        current
+          ? {
+              ...current,
+              user: {
+                ...(current.user || {}),
+                avatarUrl: response.data?.url || null,
+              },
+            }
+          : current,
+      );
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось загрузить аватарку';
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const confirmDeleteAccount = () => {
+    setModal({
+      visible: true,
+      title: 'Удалить аккаунт?',
+      message: 'Аккаунт будет отключен, а личные данные очищены. Войти обратно с этим профилем уже не получится.',
+      primaryLabel: deletingAccount ? 'Удаляем...' : 'Удалить',
+      secondaryLabel: 'Отмена',
+      primaryVariant: 'danger',
+      onPrimary: async () => {
+        try {
+          setDeletingAccount(true);
+          await apiClient.delete('/users/me');
+          await logout();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        } catch (error: any) {
+          const message = error?.response?.data?.message || 'Не удалось удалить аккаунт';
+          setModal({
+            visible: true,
+            title: 'Ошибка',
+            message: Array.isArray(message) ? message.join(', ') : message,
+          });
+        } finally {
+          setDeletingAccount(false);
+        }
+      },
+      onSecondary: () => setModal({ visible: false, title: '', message: '' }),
+    });
   };
 
   const toggleIntercity = async () => {
@@ -342,14 +471,26 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 
           <View style={styles.heroCard}>
             <View style={styles.heroTop}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>
-                  {(profile?.fullName || profile?.user?.phone || 'В')
-                    .trim()
-                    .slice(0, 1)
-                    .toUpperCase()}
-                </Text>
-              </View>
+              <TouchableOpacity
+                style={styles.avatarWrap}
+                onPress={() => pickAndUploadAvatar().catch(() => null)}
+                activeOpacity={0.88}
+              >
+                <View style={styles.avatarCircle}>
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                  ) : (
+                    <Text style={styles.avatarText}>{initials}</Text>
+                  )}
+                </View>
+                <View style={styles.avatarEditBadge}>
+                  {uploadingAvatar ? (
+                    <ActivityIndicator size="small" color="#09090B" />
+                  ) : (
+                    <Ionicons name="camera-outline" size={16} color="#09090B" />
+                  )}
+                </View>
+              </TouchableOpacity>
               <View style={styles.heroMain}>
                 <Text style={styles.heroTitle}>
                   {profile?.fullName || 'Водитель/курьер'}
@@ -369,6 +510,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
               </View>
             </View>
+            <Text style={styles.avatarHint}>Нажми на аватарку, чтобы изменить фото</Text>
 
             <View style={styles.heroDivider} />
             <View style={styles.statRow}>
@@ -537,7 +679,49 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={confirmDeleteAccount}
+            disabled={deletingAccount}
+          >
+            <Text style={styles.deleteAccountButtonText}>
+              {deletingAccount ? 'Удаляем аккаунт...' : 'Удалить аккаунт'}
+            </Text>
+          </TouchableOpacity>
+
         </ScrollView>
+
+        <DarkAlertModal
+          visible={modal.visible}
+          title={modal.title}
+          message={modal.message}
+          primaryLabel={
+            modal.primaryLabel || (modal.message.includes('настройки приложения') ? 'Открыть настройки' : undefined)
+          }
+          secondaryLabel={
+            modal.secondaryLabel || (modal.message.includes('настройки приложения') ? 'Позже' : undefined)
+          }
+          primaryVariant={modal.primaryVariant}
+          onPrimary={() => {
+            const action = modal.onPrimary;
+            const shouldOpenSettings = !action && modal.message.includes('настройки приложения');
+            setModal({ visible: false, title: '', message: '' });
+            if (action) {
+              void action();
+              return;
+            }
+            if (shouldOpenSettings) {
+              void Linking.openSettings();
+            }
+          }}
+          onSecondary={() => {
+            const action = modal.onSecondary;
+            setModal({ visible: false, title: '', message: '' });
+            if (action) {
+              void action();
+            }
+          }}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -593,6 +777,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 18,
   },
+  avatarWrap: {
+    alignSelf: 'flex-start',
+    marginRight: 14,
+  },
   avatarCircle: {
     width: 64,
     height: 64,
@@ -602,12 +790,29 @@ const styles = StyleSheet.create({
     borderColor: '#27272A',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     color: '#F4F4F5',
     fontSize: 24,
     fontWeight: '900',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F4F4F5',
+    borderWidth: 2,
+    borderColor: '#111113',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heroMain: {
     flex: 1,
@@ -638,6 +843,12 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#202024',
     marginBottom: 16,
+  },
+  avatarHint: {
+    color: '#71717A',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 14,
   },
   statRow: {
     flexDirection: 'row',
@@ -904,5 +1115,19 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  deleteAccountButton: {
+    backgroundColor: '#2B1114',
+    borderWidth: 1,
+    borderColor: '#7F1D1D',
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  deleteAccountButtonText: {
+    color: '#FCA5A5',
+    fontSize: 15,
+    fontWeight: '900',
   },
 });

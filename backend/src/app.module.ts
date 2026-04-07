@@ -16,6 +16,7 @@ import { CouriersModule } from './couriers/couriers.module';
 import { MerchantsModule } from './merchants/merchants.module';
 import { FoodOrdersModule } from './food-orders/food-orders.module';
 import { IntercityTripsModule } from './intercity-trips/intercity-trips.module';
+import { IntercityOrdersModule } from './intercity-orders/intercity-orders.module';
 import { IntercityChatModule } from './intercity-chat/intercity-chat.module';
 import { RedisModule } from './redis/redis.module';
 
@@ -42,6 +43,7 @@ import { RedisModule } from './redis/redis.module';
     MerchantsModule,
     FoodOrdersModule,
     IntercityTripsModule,
+    IntercityOrdersModule,
     IntercityChatModule,
   ],
 })

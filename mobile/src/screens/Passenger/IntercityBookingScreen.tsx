@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
 import {
   ChipRow,
   InlineLabel,
@@ -10,6 +11,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { formatIntercityDateTime } from '../../constants/intercity';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityBooking'>;
 
@@ -33,6 +35,11 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
   const [bookingType, setBookingType] = useState<'SEAT' | 'FULL_CABIN'>('SEAT');
   const [seatsBooked, setSeatsBooked] = useState('1');
   const [comment, setComment] = useState('');
+  const [modal, setModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const total = useMemo(() => {
     const parsedSeats = bookingType === 'FULL_CABIN' ? seatsRemaining : Math.max(Number(seatsBooked || 1), 1);
@@ -51,7 +58,11 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
       navigation.navigate('IntercityTripStatus', { bookingId: response.data.id });
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось забронировать поездку';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+      });
     } finally {
       setLoading(false);
     }
@@ -60,29 +71,21 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
   return (
     <ServiceScreen
       accentColor="#38BDF8"
-      eyebrow="Бронь"
       title="Подтверждение поездки"
-      subtitle="Подтверди формат поездки, количество мест и отправь водителю аккуратную бронь."
+      subtitle=""
       backLabel="К предложениям"
       onBack={() => navigation.goBack()}
     >
       <View style={styles.heroBlock}>
         <Text style={styles.heroRoute}>{fromCity} → {toCity}</Text>
-        <Text style={styles.heroText}>
-          {driverName} • {new Date(departureAt).toLocaleString('ru-RU', {
-            day: '2-digit',
-            month: 'long',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </Text>
+        <Text style={styles.heroText}>{driverName} • {formatIntercityDateTime(departureAt)}</Text>
       </View>
 
       <ServiceCard>
-        <InlineLabel label="Маршрут" value={`${fromCity} -> ${toCity}`} />
+        <InlineLabel label="Маршрут" value={`${fromCity} → ${toCity}`} />
         <InlineLabel label="Водитель" value={driverName} />
         <InlineLabel label="Авто" value={car} />
-        <InlineLabel label="Выезд" value={new Date(departureAt).toLocaleString()} />
+        <InlineLabel label="Выезд" value={formatIntercityDateTime(departureAt)} />
         <InlineLabel label="Цена за место" value={`${pricePerSeat} тг`} accentColor="#38BDF8" />
         <InlineLabel label="Свободно мест" value={`${seatsRemaining} из ${seatCapacity}`} />
         <InlineLabel label="Салон" value={womenOnly ? 'Только женщины' : 'Любой'} />
@@ -140,6 +143,13 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
       <PrimaryButton
         title={loading ? 'Бронируем...' : 'Забронировать место'}
         onPress={createOrder}
+      />
+      <DarkAlertModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        primaryLabel="Понятно"
+        onPrimary={() => setModal({ visible: false, title: '', message: '' })}
       />
     </ServiceScreen>
   );

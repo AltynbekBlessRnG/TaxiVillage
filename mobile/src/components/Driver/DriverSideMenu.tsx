@@ -1,12 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable, Image } from 'react-native';
+import { resolveApiAssetUrl } from '../../utils/assets';
 
 const { width } = Dimensions.get('window');
 
 interface DriverSideMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  profile: { fullName?: string; phone?: string; balance?: number; rating?: number } | null;
+  profile: { fullName?: string; phone?: string; balance?: number; rating?: number; user?: { avatarUrl?: string | null } } | null;
   unreadNotificationsCount?: number;
   unreadMessagesCount?: number;
   onNavigate: (screen: string) => void;
@@ -24,6 +25,17 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
 }) => {
   const slideAnim = useRef(new Animated.Value(-width)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const avatarUri = useMemo(() => resolveApiAssetUrl(profile?.user?.avatarUrl), [profile?.user?.avatarUrl]);
+  const initials = useMemo(
+    () =>
+      ((profile?.fullName || profile?.phone || 'В')
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('') || 'В').toUpperCase(),
+    [profile?.fullName, profile?.phone],
+  );
 
   useEffect(() => {
     Animated.parallel([
@@ -56,15 +68,11 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
         <View style={styles.header}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>
-                {((profile?.fullName || profile?.phone || 'В')
-                  .trim()
-                  .split(/\s+/)
-                  .slice(0, 2)
-                  .map((part) => part[0])
-                  .join('') || 'В')
-                  .toUpperCase()}
-              </Text>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{initials}</Text>
+              )}
             </View>
             <View style={styles.headerTextWrap}>
               <Text style={styles.name}>{profile?.fullName || profile?.phone || 'Водитель'}</Text>
@@ -142,6 +150,11 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: { color: '#E2E8F0', fontSize: 20, fontWeight: '900' },
   headerTextWrap: { flex: 1 },

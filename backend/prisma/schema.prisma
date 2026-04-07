@@ -18,6 +18,9 @@ model User {
   password  String
   refreshTokenHash String?
   pushToken String?
+  avatarUrl String?
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
 
   /// passenger | driver | admin
   role      UserRole
@@ -290,6 +293,13 @@ enum IntercityBookingStatus {
   CANCELED
 }
 
+enum IntercityTripInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
+}
+
 enum IntercityBookingType {
   SEAT
   FULL_CABIN
@@ -339,6 +349,7 @@ model ChatMessage {
   id                 String            @id @default(cuid())
   createdAt          DateTime          @default(now())
   readAt             DateTime?
+  messageGroupId     String?
 
   rideId             String?
   ride               Ride?             @relation(fields: [rideId], references: [id])
@@ -348,6 +359,9 @@ model ChatMessage {
 
   intercityBookingId String?
   intercityBooking   IntercityBooking? @relation("IntercityBookingMessages", fields: [intercityBookingId], references: [id])
+
+  intercityTripId    String?
+  intercityTrip      IntercityTrip?    @relation("IntercityTripMessages", fields: [intercityTripId], references: [id])
 
   senderUserId       String
   senderUser         User              @relation("SentChatMessages", fields: [senderUserId], references: [id])
@@ -361,6 +375,7 @@ model ChatMessage {
   @@index([rideId, createdAt])
   @@index([intercityOrderId, createdAt])
   @@index([intercityBookingId, createdAt])
+  @@index([intercityTripId, createdAt])
 }
 
 /// Курьерский заказ
@@ -508,6 +523,7 @@ model IntercityOrder {
 
   statusHistory     IntercityOrderStatusHistory[]
   messages          ChatMessage[]        @relation("IntercityOrderMessages")
+  invites           IntercityTripInvite[]
 }
 
 model IntercityOrderStatusHistory {
@@ -547,6 +563,8 @@ model IntercityTrip {
 
   bookings          IntercityBooking[]
   statusHistory     IntercityTripStatusHistory[]
+  messages          ChatMessage[]         @relation("IntercityTripMessages")
+  invites           IntercityTripInvite[]
 }
 
 model IntercityBooking {
@@ -566,6 +584,27 @@ model IntercityBooking {
   comment           String?
   status            IntercityBookingStatus @default(CONFIRMED)
   messages          ChatMessage[]         @relation("IntercityBookingMessages")
+}
+
+model IntercityTripInvite {
+  id           String                   @id @default(cuid())
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  respondedAt  DateTime?
+
+  tripId       String
+  trip         IntercityTrip            @relation(fields: [tripId], references: [id])
+
+  orderId      String
+  order        IntercityOrder           @relation(fields: [orderId], references: [id])
+
+  status       IntercityTripInviteStatus @default(PENDING)
+  seatsOffered Int                      @default(1)
+  priceOffered Decimal                  @db.Decimal(10, 2)
+  message      String?
+
+  @@index([tripId, status])
+  @@index([orderId, status])
 }
 
 model IntercityTripStatusHistory {

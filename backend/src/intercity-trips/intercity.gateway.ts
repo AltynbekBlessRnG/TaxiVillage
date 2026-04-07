@@ -44,6 +44,7 @@ export class IntercityGateway implements OnGatewayConnection, OnGatewayDisconnec
       (client as any).userId = payload.sub;
       await client.join(`user:${payload.sub}`);
       await this.redisService.setUserPresence(payload.sub, 'app', client.id);
+      this.redisService.attachPresenceHeartbeat(client, payload.sub, 'app');
     } catch {
       this.logger.warn('Intercity socket rejected: invalid token');
       this.rejectUnauthorized(client);
@@ -51,6 +52,7 @@ export class IntercityGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   handleDisconnect(client: Socket) {
+    this.redisService.clearPresenceHeartbeat(client);
     void this.redisService.removeSocketPresence(client.id).catch(() => null);
     this.logger.log(`Intercity client disconnected: ${client.id}`);
   }

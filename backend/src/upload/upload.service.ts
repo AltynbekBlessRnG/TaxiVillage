@@ -13,11 +13,11 @@ export class UploadService {
     }
   }
 
-  saveFile(file: Express.Multer.File, prefix: string): string {
+  async saveFile(file: Express.Multer.File, prefix: string): Promise<string> {
     const ext = path.extname(file.originalname) || '.bin';
     const filename = `${prefix}-${randomUUID()}${ext}`;
     const filepath = path.join(UPLOAD_DIR, filename);
-    fs.writeFileSync(filepath, file.buffer);
+    await fs.promises.writeFile(filepath, file.buffer);
     return `/uploads/${filename}`;
   }
 

@@ -124,6 +124,22 @@ class UpdateMenuItemDto {
 
 const uploadOpts = {
   storage: memoryStorage(),
+  limits: {
+    fileSize: 8 * 1024 * 1024,
+    files: 1,
+  },
+  fileFilter: (
+    _req: unknown,
+    file: Express.Multer.File,
+    callback: (error: Error | null, acceptFile: boolean) => void,
+  ) => {
+    if (!file.mimetype.startsWith('image/')) {
+      callback(new BadRequestException('Only image uploads are allowed') as unknown as Error, false);
+      return;
+    }
+
+    callback(null, true);
+  },
 };
 
 @Controller('merchants')
@@ -161,12 +177,12 @@ export class MerchantsController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.MERCHANT)
   @UseInterceptors(FileInterceptor('file', uploadOpts))
-  uploadCoverImage(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
+  async uploadCoverImage(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
-    const url = this.uploadService.saveFile(file, `merchant-cover-${req.user.userId}`);
+    const url = await this.uploadService.saveFile(file, `merchant-cover-${req.user.userId}`);
     return { url };
   }
 
@@ -230,12 +246,12 @@ export class MerchantsController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.MERCHANT)
   @UseInterceptors(FileInterceptor('file', uploadOpts))
-  uploadMenuItemImage(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
+  async uploadMenuItemImage(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
-    const url = this.uploadService.saveFile(file, `merchant-item-${req.user.userId}`);
+    const url = await this.uploadService.saveFile(file, `merchant-item-${req.user.userId}`);
     return { url };
   }
 

@@ -13,6 +13,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { formatIntercityDateTime } from '../../constants/intercity';
 import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
 
@@ -99,9 +100,8 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
   return (
     <ServiceScreen
       accentColor="#38BDF8"
-      eyebrow="Межгород"
       title="Статус бронирования"
-      subtitle="Следи за своей бронью, выездом и связью с водителем в одном месте."
+      subtitle=""
       backLabel="На главную"
       onBack={() => navigation.navigate('PassengerHome', {})}
     >
@@ -114,9 +114,10 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
         <View style={styles.pill}>
           <Text style={styles.pillText}>{statusLabels[order?.status] || 'Межгород'}</Text>
         </View>
-        <InlineLabel label="Маршрут" value={`${order?.trip?.fromCity || '-'} -> ${order?.trip?.toCity || '-'}`} />
+        <InlineLabel label="Маршрут" value={`${order?.trip?.fromCity || '-'} → ${order?.trip?.toCity || '-'}`} />
         <InlineLabel label="Водитель" value={order?.trip?.driver?.fullName || order?.trip?.driver?.user?.phone || 'Водитель'} />
-        <InlineLabel label="Выезд" value={new Date(order?.trip?.departureAt || Date.now()).toLocaleString()} accentColor="#38BDF8" />
+        <InlineLabel label="Телефон" value={order?.trip?.driver?.user?.phone || '-'} />
+        <InlineLabel label="Выезд" value={formatIntercityDateTime(order?.trip?.departureAt)} accentColor="#38BDF8" />
         <InlineLabel label="Мест" value={String(order?.seatsBooked || 1)} />
         <InlineLabel label="Сумма" value={`${Math.round(Number(order?.totalPrice || 0))} тг`} />
       </ServiceCard>
@@ -140,21 +141,21 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
       {order?.trip?.driver ? (
         <PrimaryButton
           title={
-            (intercityUnreadByThread[`BOOKING:${route.params.bookingId}`] ?? 0) > 0
-              ? `Чат с водителем (${Math.min(intercityUnreadByThread[`BOOKING:${route.params.bookingId}`], 99)})`
-              : 'Чат с водителем'
+            (intercityUnreadByThread[`TRIP:${order?.trip?.id}`] ?? 0) > 0
+              ? `Чат рейса (${Math.min(intercityUnreadByThread[`TRIP:${order?.trip?.id}`], 99)})`
+              : 'Чат рейса'
           }
           onPress={() =>
             navigation.navigate('IntercityChat', {
-              threadType: 'BOOKING',
-              threadId: route.params.bookingId,
-              title: 'Чат по бронированию',
+              threadType: 'TRIP',
+              threadId: order.trip.id,
+              title: `Рейс ${order.trip.fromCity} → ${order.trip.toCity}`,
             })
           }
         />
       ) : null}
 
-      <PrimaryButton title="Вернуться в такси" onPress={() => navigation.navigate('PassengerHome', {})} />
+      <PrimaryButton title="К такси" onPress={() => navigation.navigate('PassengerHome', {})} />
     </ServiceScreen>
   );
 };

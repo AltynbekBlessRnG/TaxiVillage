@@ -91,7 +91,7 @@ export class AuthService {
       }
 
       const user = await this.usersService.findAuthUserById(payload.sub);
-      if (!user?.refreshTokenHash) {
+      if (!user?.refreshTokenHash || user.isDeleted) {
         throw new UnauthorizedException('Refresh token revoked');
       }
 

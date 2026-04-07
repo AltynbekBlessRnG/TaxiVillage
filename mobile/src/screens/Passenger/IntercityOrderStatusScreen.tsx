@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { Socket } from 'socket.io-client';
@@ -7,6 +7,8 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { createIntercitySocket } from '../../api/intercitySocket';
 import { InlineLabel, PrimaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { formatIntercityDateTime } from '../../constants/intercity';
 import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
 
@@ -26,6 +28,11 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [modal, setModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
   const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const loadOrder = useCallback(() => {
@@ -84,6 +91,9 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
   }
 
   const canCancel = ['SEARCHING_DRIVER', 'CONFIRMED', 'DRIVER_EN_ROUTE'].includes(order?.status);
+  const pendingInvite = Array.isArray(order?.invites)
+    ? order.invites.find((invite: any) => invite.status === 'PENDING')
+    : null;
 
   const cancelOrder = async () => {
     try {
@@ -93,18 +103,49 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
       navigation.navigate('PassengerHome', {});
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось отменить заявку';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+      });
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const acceptInvite = async (inviteId: string) => {
+    try {
+      const response = await apiClient.post(`/intercity-trips/invites/${inviteId}/accept`);
+      navigation.replace('IntercityTripStatus', { bookingId: response.data.id });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось принять приглашение';
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+      });
+    }
+  };
+
+  const declineInvite = async (inviteId: string) => {
+    try {
+      await apiClient.post(`/intercity-trips/invites/${inviteId}/decline`);
+      await loadOrder();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось отклонить приглашение';
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+      });
     }
   };
 
   return (
     <ServiceScreen
       accentColor="#38BDF8"
-      eyebrow="Предложение"
       title="Моя заявка"
-      subtitle="Пассажир публикует запрос, а водители видят его и могут взять поездку."
+      subtitle=""
       backLabel="На главную"
       onBack={() => navigation.navigate('PassengerHome', {})}
     >
@@ -112,18 +153,12 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
         <View style={styles.pill}>
           <Text style={styles.pillText}>{statusLabels[order?.status] || 'Межгород'}</Text>
         </View>
-        <InlineLabel label="Маршрут" value={`${order?.fromCity || '-'} -> ${order?.toCity || '-'}`} />
-        <InlineLabel label="Выезд" value={order?.departureAt ? new Date(order.departureAt).toLocaleString() : '-'} />
+        <InlineLabel label="Маршрут" value={`${order?.fromCity || '-'} → ${order?.toCity || '-'}`} />
+        <InlineLabel label="Выезд" value={formatIntercityDateTime(order?.departureAt)} />
         <InlineLabel label="Мест" value={String(order?.seats || 1)} />
-        <InlineLabel label="Багаж" value={order?.baggage || 'Не указан'} />
         <InlineLabel label="Цена" value={`${Math.round(Number(order?.price || 0))} тг`} accentColor="#38BDF8" />
-        <InlineLabel label="Комментарий" value={order?.comment || 'Без комментария'} />
-        {Array.isArray(order?.stops) && order.stops.length ? (
-          <InlineLabel label="Остановки" value={order.stops.join(' • ')} />
-        ) : null}
-        <InlineLabel label="Салон" value={order?.womenOnly ? 'Только женщины' : 'Любой'} />
-        <InlineLabel label="Багаж нужен" value={order?.baggageRequired ? 'Да' : 'Не важно'} />
-        <InlineLabel label="Животные" value={order?.noAnimals ? 'Без животных' : 'Можно'} />
+        {order?.baggage ? <InlineLabel label="Багаж" value={order.baggage} /> : null}
+        {order?.comment ? <InlineLabel label="Комментарий" value={order.comment} /> : null}
       </ServiceCard>
 
       {order?.driver ? (
@@ -137,6 +172,34 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
             }
           />
           <InlineLabel label="Номер" value={order.driver.car?.plateNumber || '-'} />
+        </ServiceCard>
+      ) : null}
+
+      {pendingInvite ? (
+        <ServiceCard compact>
+          <View style={styles.pill}>
+            <Text style={styles.pillText}>Приглашение в рейс</Text>
+          </View>
+          <InlineLabel
+            label="Рейс"
+            value={`${pendingInvite.trip?.fromCity || '-'} → ${pendingInvite.trip?.toCity || '-'}`}
+          />
+          <InlineLabel label="Выезд" value={formatIntercityDateTime(pendingInvite.trip?.departureAt)} />
+          <InlineLabel
+            label="Водитель"
+            value={pendingInvite.trip?.driver?.fullName || pendingInvite.trip?.driver?.user?.phone || 'Водитель'}
+          />
+          <InlineLabel
+            label="Авто"
+            value={
+              [pendingInvite.trip?.driver?.car?.make, pendingInvite.trip?.driver?.car?.model, pendingInvite.trip?.driver?.car?.color]
+                .filter(Boolean)
+                .join(' • ') || 'Авто не указано'
+            }
+          />
+          <InlineLabel label="Цена" value={`${Math.round(Number(pendingInvite.priceOffered || 0))} тг`} accentColor="#38BDF8" />
+          <PrimaryButton title="Принять место в рейсе" onPress={() => acceptInvite(pendingInvite.id).catch(() => null)} />
+          <PrimaryButton title="Не подходит" onPress={() => declineInvite(pendingInvite.id).catch(() => null)} />
         </ServiceCard>
       ) : null}
 
@@ -162,7 +225,14 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
           onPress={() => cancelOrder().catch(() => null)}
         />
       ) : null}
-      <PrimaryButton title="Вернуться в такси" onPress={() => navigation.navigate('PassengerHome', {})} />
+      <PrimaryButton title="К такси" onPress={() => navigation.navigate('PassengerHome', {})} />
+      <DarkAlertModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        primaryLabel="Понятно"
+        onPrimary={() => setModal({ visible: false, title: '', message: '' })}
+      />
     </ServiceScreen>
   );
 };

@@ -89,9 +89,27 @@ class UpdateDriverProfileDto {
   fullName!: string;
 }
 
-// ИЗМЕНЕНО: Простая настройка для хранения файла в буфере
 const uploadOpts = {
   storage: memoryStorage(),
+  limits: {
+    fileSize: 8 * 1024 * 1024,
+    files: 1,
+  },
+  fileFilter: (
+    _req: unknown,
+    file: Express.Multer.File,
+    callback: (error: Error | null, acceptFile: boolean) => void,
+  ) => {
+    const isImage = file.mimetype.startsWith('image/');
+    const isPdf = file.mimetype === 'application/pdf';
+
+    if (!isImage && !isPdf) {
+      callback(new BadRequestException('Only image or PDF uploads are allowed') as unknown as Error, false);
+      return;
+    }
+
+    callback(null, true);
+  },
 };
 
 @Controller('drivers')
@@ -206,8 +224,7 @@ export class DriversController {
     if (!file) {
       throw new BadRequestException('File is required');
     }
-    // Теперь file.buffer существует, и UploadService сможет его сохранить
-    const url = this.uploadService.saveFile(file, `doc-${userId}`);
+    const url = await this.uploadService.saveFile(file, `doc-${userId}`);
     return this.driversService.addDocument(userId, dto.type, url);
   }
 }

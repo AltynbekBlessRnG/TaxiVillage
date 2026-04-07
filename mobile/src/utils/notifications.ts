@@ -55,7 +55,10 @@ function openNotificationTarget(data: Record<string, unknown>) {
   const rideId = typeof data.rideId === 'string' ? data.rideId : null;
   const courierOrderId = typeof data.courierOrderId === 'string' ? data.courierOrderId : null;
   const orderId = typeof data.orderId === 'string' ? data.orderId : null;
-  const threadType = data.threadType === 'ORDER' || data.threadType === 'BOOKING' ? data.threadType : null;
+  const threadType =
+    data.threadType === 'ORDER' || data.threadType === 'BOOKING' || data.threadType === 'TRIP'
+      ? data.threadType
+      : null;
   const threadId = typeof data.threadId === 'string' ? data.threadId : null;
 
   if (type === 'CHAT_MESSAGE' && rideId) {
@@ -64,6 +67,10 @@ function openNotificationTarget(data: Record<string, unknown>) {
 
   if (type === 'INTERCITY_CHAT_MESSAGE' && threadType && threadId) {
     return navigateRoot('IntercityChat', { threadType, threadId });
+  }
+
+  if (type === 'INTERCITY_TRIP_INVITE' && orderId) {
+    return navigateRoot('IntercityOrderStatus', { orderId });
   }
 
   if (type === 'FOOD_ORDER_STATUS' && orderId) {

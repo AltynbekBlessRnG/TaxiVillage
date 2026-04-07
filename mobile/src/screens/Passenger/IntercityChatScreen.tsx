@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +17,7 @@ import {
 } from '../../api/intercityChatSocket';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { loadAuth } from '../../storage/authStorage';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityChat'>;
 
@@ -43,6 +43,11 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [modal, setModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
   const flatListRef = useRef<FlatList>(null);
   const socketRef = useRef<any>(null);
   const currentUserId = useRef<string>('');
@@ -105,14 +110,22 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
         });
 
         socket.onError((error: any) => {
-          Alert.alert('Ошибка', error.message || 'Произошла ошибка');
+          setModal({
+            visible: true,
+            title: 'Ошибка',
+            message: error.message || 'Произошла ошибка',
+          });
         });
 
         await loadMessages();
         scrollToBottom(false);
         await markRead();
       } catch {
-        Alert.alert('Ошибка', 'Не удалось загрузить чат межгорода');
+        setModal({
+          visible: true,
+          title: 'Ошибка',
+          message: 'Не удалось загрузить чат межгорода',
+        });
       }
     };
 
@@ -132,7 +145,11 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       await loadMessages(nextCursor);
     } catch {
-      Alert.alert('Ошибка', 'Не удалось загрузить предыдущие сообщения');
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: 'Не удалось загрузить предыдущие сообщения',
+      });
     } finally {
       setLoadingMore(false);
     }
@@ -157,7 +174,11 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
       scrollToBottom();
       await markRead();
     } catch {
-      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: 'Не удалось отправить сообщение',
+      });
     } finally {
       setLoading(false);
     }
@@ -165,14 +186,15 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const renderMessage = ({ item }: { item: IntercityMessage }) => {
     const isOwnMessage = item.senderId === currentUserId.current;
-    const senderName = item.senderName || 'Водитель';
-    const receiverName = item.receiverName || 'Пассажир';
+    const senderName = item.senderName || 'Участник';
+    const receiverName = item.receiverName || 'Чат рейса';
+    const isTripThread = threadType === 'TRIP';
 
     return (
       <View style={[styles.messageContainer, isOwnMessage && styles.ownMessage]}>
         <View style={styles.messageHeader}>
           <Text style={styles.senderName}>
-            {isOwnMessage ? `Вы → ${receiverName}` : `${senderName} → Вам`}
+            {isTripThread ? (isOwnMessage ? 'Вы' : senderName) : isOwnMessage ? `Вы → ${receiverName}` : `${senderName} → Вам`}
           </Text>
           <Text style={styles.timestamp}>
             {new Date(item.createdAt).toLocaleTimeString('ru-RU', {
@@ -243,6 +265,14 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.sendButtonText}>{loading ? '...' : 'Отправить'}</Text>
         </TouchableOpacity>
       </View>
+
+      <DarkAlertModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        primaryLabel="Понятно"
+        onPrimary={() => setModal({ visible: false, title: '', message: '' })}
+      />
     </KeyboardAvoidingView>
   );
 };

@@ -11,7 +11,7 @@ export interface RideChatThread {
 }
 
 export interface IntercityChatThread {
-  threadType: 'ORDER' | 'BOOKING';
+  threadType: 'ORDER' | 'BOOKING' | 'TRIP';
   threadId: string;
   title: string;
   subtitle: string;

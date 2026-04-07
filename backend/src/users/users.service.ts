@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client/index';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class UsersService {
@@ -124,6 +125,9 @@ export class UsersService {
         id: true,
         phone: true,
         email: true,
+        avatarUrl: true,
+        isDeleted: true,
+        deletedAt: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -140,8 +144,8 @@ export class UsersService {
   }
 
   findByPhone(phone: string) {
-    return this.prisma.user.findUnique({
-      where: { phone },
+    return this.prisma.user.findFirst({
+      where: { phone, isDeleted: false },
       include: {
         passenger: true,
         driver: true,
@@ -157,12 +161,14 @@ export class UsersService {
         id: true,
         role: true,
         refreshTokenHash: true,
+        isDeleted: true,
       },
     }) as Promise<
       | {
           id: string;
           role: UserRole;
           refreshTokenHash: string | null;
+          isDeleted: boolean;
         }
       | null
     >;
@@ -179,6 +185,87 @@ export class UsersService {
     return (this.prisma.user as any).update({
       where: { id: userId },
       data: { pushToken },
+    });
+  }
+
+  updateAvatar(userId: string, avatarUrl: string | null) {
+    return (this.prisma.user as any).update({
+      where: { id: userId },
+      data: { avatarUrl },
+    });
+  }
+
+  async deleteCurrentUser(userId: string) {
+    const tombstone = `deleted_${Date.now()}_${randomUUID().slice(0, 8)}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        include: {
+          passenger: true,
+          driver: true,
+          merchant: true,
+        },
+      });
+
+      if (!user) {
+        return { success: true };
+      }
+
+      if (user.passenger) {
+        await tx.favoriteAddress.deleteMany({
+          where: { passengerId: user.passenger.id },
+        });
+
+        await tx.passengerProfile.update({
+          where: { id: user.passenger.id },
+          data: { fullName: 'Удаленный аккаунт' },
+        });
+      }
+
+      if (user.driver) {
+        await tx.driverProfile.update({
+          where: { id: user.driver.id },
+          data: {
+            fullName: 'Удаленный аккаунт',
+            isOnline: false,
+            lat: null,
+            lng: null,
+            supportsTaxi: false,
+            supportsCourier: false,
+            supportsIntercity: false,
+          },
+        });
+      }
+
+      if (user.merchant) {
+        await tx.merchant.update({
+          where: { id: user.merchant.id },
+          data: {
+            name: 'Удаленное заведение',
+            whatsAppPhone: null,
+            description: null,
+            coverImageUrl: null,
+            isOpen: false,
+          },
+        });
+      }
+
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          phone: tombstone,
+          email: tombstone,
+          password: tombstone,
+          refreshTokenHash: null,
+          pushToken: null,
+          avatarUrl: null,
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+      });
+
+      return { success: true };
     });
   }
 

@@ -36,11 +36,26 @@ export class IntercityOrdersService {
       noAnimals?: boolean;
     },
   ) {
-    const passenger = await this.prisma.passengerProfile.findUnique({
+    let passenger = await this.prisma.passengerProfile.findUnique({
       where: { userId },
     });
     if (!passenger) {
-      throw new NotFoundException('Passenger profile not found');
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          phone: true,
+        },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      passenger = await this.prisma.passengerProfile.create({
+        data: {
+          userId,
+          fullName: user.phone,
+        },
+      });
     }
 
     const activeOrder = await this.prisma.intercityOrder.findFirst({
@@ -372,6 +387,21 @@ export class IntercityOrdersService {
       },
       statusHistory: {
         orderBy: { createdAt: 'asc' as const },
+      },
+      invites: {
+        include: {
+          trip: {
+            include: {
+              driver: {
+                include: {
+                  user: true,
+                  car: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' as const },
       },
     } satisfies Prisma.IntercityOrderInclude;
   }

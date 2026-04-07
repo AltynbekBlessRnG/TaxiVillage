@@ -196,14 +196,27 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       if (driver.driverMode === DriverMode.COURIER) {
         const approvedDocuments = driver.documents.filter((doc) => doc.approved);
         const hasCourierId = approvedDocuments.some((doc) => doc.type === DocumentType.COURIER_ID);
+        const requiresVehicleDocs =
+          driver.courierTransportType === CourierTransportType.CAR ||
+          driver.courierTransportType === CourierTransportType.BIKE;
 
         if (!hasCourierId) {
           throw new BadRequestException('Необходимо загрузить и получить одобрение удостоверения курьера');
         }
 
-        if (driver.courierTransportType === CourierTransportType.CAR) {
+        if (requiresVehicleDocs) {
           if (!driver.car || !driver.car.make || !driver.car.model || !driver.car.color || !driver.car.plateNumber) {
-            throw new BadRequestException('Для автокурьера нужно заполнить информацию об автомобиле');
+            throw new BadRequestException('Для выбранного курьерского транспорта нужно заполнить информацию об автомобиле');
+          }
+
+          const hasDriverLicense = approvedDocuments.some((doc) => doc.type === DocumentType.DRIVER_LICENSE);
+          const hasCarRegistration = approvedDocuments.some((doc) => doc.type === DocumentType.CAR_REGISTRATION);
+
+          if (!hasDriverLicense) {
+            throw new BadRequestException('Для выбранного курьерского транспорта нужно загрузить и получить одобрение водительского удостоверения');
+          }
+          if (!hasCarRegistration) {
+            throw new BadRequestException('Для выбранного курьерского транспорта нужно загрузить и получить одобрение СТС');
           }
         }
 

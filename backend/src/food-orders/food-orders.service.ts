@@ -33,11 +33,26 @@ export class FoodOrdersService {
       promoCode?: string;
     },
   ) {
-    const passenger = await this.prisma.passengerProfile.findUnique({
+    let passenger = await this.prisma.passengerProfile.findUnique({
       where: { userId },
     });
     if (!passenger) {
-      throw new NotFoundException('Passenger profile not found');
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          phone: true,
+        },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      passenger = await this.prisma.passengerProfile.create({
+        data: {
+          userId,
+          fullName: user.phone,
+        },
+      });
     }
     if (!data.items.length) {
       throw new BadRequestException('Корзина пуста');

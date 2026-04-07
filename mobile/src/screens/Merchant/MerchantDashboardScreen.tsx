@@ -21,6 +21,7 @@ import { apiClient, logout } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { PrimaryButton, SecondaryButton } from '../../components/ServiceScreen';
 import { MerchantSideDrawer } from './MerchantSideDrawer';
+import { resolveApiAssetUrl } from '../../utils/assets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MerchantDashboard'>;
 
@@ -39,6 +40,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [name, setName] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [description, setDescription] = useState('');
@@ -68,6 +70,8 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
       visible: true,
       ...next,
     });
+
+  const coverUri = resolveApiAssetUrl(coverImageUrl);
 
   const loadProfile = useCallback(() => {
     setLoading(true);
@@ -214,6 +218,36 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
     navigation.replace('Login');
   };
 
+  const handleDeleteAccount = () => {
+    openModal({
+      title: 'Удалить аккаунт?',
+      message: 'Аккаунт заведения будет отключен, витрина закроется, а вход станет недоступен.',
+      primaryLabel: deletingAccount ? 'Удаляем...' : 'Удалить',
+      secondaryLabel: 'Отмена',
+      onPrimary: async () => {
+        try {
+          setDeletingAccount(true);
+          await apiClient.delete('/users/me');
+          await logout();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        } catch (error: any) {
+          const message = error?.response?.data?.message || 'Не удалось удалить аккаунт';
+          openModal({
+            title: 'Ошибка',
+            message: Array.isArray(message) ? message.join(', ') : message,
+            primaryLabel: 'Понятно',
+          });
+        } finally {
+          setDeletingAccount(false);
+        }
+      },
+      onSecondary: closeModal,
+    });
+  };
+
   const handleOpenPreview = () => {
     if (!profile?.id) {
       openModal({
@@ -265,7 +299,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ImageBackground
-          source={coverImageUrl ? { uri: coverImageUrl } : undefined}
+          source={coverUri ? { uri: coverUri } : undefined}
           style={[styles.coverPreview, { backgroundColor: profile?.tone || '#7C2D12' }]}
           imageStyle={styles.coverPreviewImage}
         >
@@ -401,6 +435,15 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => saveProfile().catch(() => null)}
             accentColor="#FB923C"
           />
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+            disabled={deletingAccount}
+          >
+            <Text style={styles.deleteAccountButtonText}>
+              {deletingAccount ? 'Удаляем аккаунт...' : 'Удалить аккаунт'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -710,5 +753,19 @@ const styles = StyleSheet.create({
   },
   bottomActions: {
     paddingBottom: 18,
+  },
+  deleteAccountButton: {
+    marginTop: 12,
+    backgroundColor: '#2B1114',
+    borderWidth: 1,
+    borderColor: '#7F1D1D',
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  deleteAccountButtonText: {
+    color: '#FCA5A5',
+    fontSize: 15,
+    fontWeight: '900',
   },
 });

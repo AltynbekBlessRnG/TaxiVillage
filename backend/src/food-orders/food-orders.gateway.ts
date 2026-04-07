@@ -52,6 +52,7 @@ export class FoodOrdersGateway implements OnGatewayConnection, OnGatewayDisconne
       await client.join(`user:${userId}`);
       (client as any).userId = userId;
       await this.redisService.setUserPresence(userId, 'app', client.id);
+      this.redisService.attachPresenceHeartbeat(client, userId, 'app');
     } catch {
       this.logger.warn('Food socket connection rejected: invalid token');
       this.rejectUnauthorized(client);
@@ -59,6 +60,7 @@ export class FoodOrdersGateway implements OnGatewayConnection, OnGatewayDisconne
   }
 
   handleDisconnect(client: import('socket.io').Socket) {
+    this.redisService.clearPresenceHeartbeat(client);
     void this.redisService.removeSocketPresence(client.id).catch(() => null);
     this.logger.log(`Food socket client ${client.id} disconnected`);
   }

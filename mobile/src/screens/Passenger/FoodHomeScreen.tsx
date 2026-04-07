@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { ServiceScreen } from '../../components/ServiceScreen';
+import { resolveApiAssetUrl } from '../../utils/assets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodHome'>;
 
@@ -186,7 +187,7 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
           }
         >
           <ImageBackground
-            source={featuredRestaurant.coverImageUrl ? { uri: featuredRestaurant.coverImageUrl } : undefined}
+            source={resolveApiAssetUrl(featuredRestaurant.coverImageUrl) ? { uri: resolveApiAssetUrl(featuredRestaurant.coverImageUrl) } : undefined}
             style={[styles.featuredImage, { backgroundColor: featuredRestaurant.tone || '#7C2D12' }]}
             imageStyle={styles.featuredImageInner}
           >
@@ -275,7 +276,7 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
           }
         >
           <ImageBackground
-            source={restaurant.coverImageUrl ? { uri: restaurant.coverImageUrl } : undefined}
+            source={resolveApiAssetUrl(restaurant.coverImageUrl) ? { uri: resolveApiAssetUrl(restaurant.coverImageUrl) } : undefined}
             style={[styles.restaurantImage, { backgroundColor: restaurant.tone || '#18181B' }]}
             imageStyle={styles.restaurantImageInner}
           >

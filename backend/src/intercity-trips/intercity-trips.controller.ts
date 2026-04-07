@@ -84,7 +84,20 @@ class UpdateIntercityTripStatusDto {
   status!: IntercityTripStatus;
 }
 
+class InviteOrderToTripDto {
+  @IsString()
+  orderId!: string;
+
+  @IsOptional()
+  @IsString()
+  message?: string;
+}
+
 class PublicTripsFilterDto {
+  @IsOptional()
+  @IsString()
+  dateFrom?: string;
+
   @IsOptional()
   @IsString()
   fromCity?: string;
@@ -171,10 +184,28 @@ export class IntercityTripsController {
   }
 
   @Post(':id/book')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.PASSENGER)
+  @UseGuards(AuthGuard('jwt'))
   book(@Param('id') id: string, @Body() dto: BookIntercityTripDto, @Req() req: any) {
     return this.intercityTripsService.bookTrip(req.user.userId, id, dto);
+  }
+
+  @Post(':id/invite-order')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  inviteOrder(@Param('id') id: string, @Body() dto: InviteOrderToTripDto, @Req() req: any) {
+    return this.intercityTripsService.inviteOrderToTrip(req.user.userId, id, dto.orderId, dto.message);
+  }
+
+  @Post('invites/:id/accept')
+  @UseGuards(AuthGuard('jwt'))
+  acceptInvite(@Param('id') id: string, @Req() req: any) {
+    return this.intercityTripsService.acceptInvite(req.user.userId, id);
+  }
+
+  @Post('invites/:id/decline')
+  @UseGuards(AuthGuard('jwt'))
+  declineInvite(@Param('id') id: string, @Req() req: any) {
+    return this.intercityTripsService.declineInvite(req.user.userId, id);
   }
 
   @Patch(':id/status')

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { apiClient } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import {
   PrimaryButton,
@@ -71,6 +72,27 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
 
     setLoading(true);
     try {
+      const previewOrder = await apiClient.post('/food-orders', {
+        merchantId: route.params.restaurantId,
+        deliveryAddress: address.trim(),
+        comment: comment.trim() || undefined,
+        paymentMethod: 'CASH',
+        items: items.map((item) => ({
+          menuItemId: item.menuItemId,
+          qty: item.qty,
+        })),
+      });
+      const previewOrderId = previewOrder?.data?.id;
+
+      if (!previewOrderId) {
+        openModal({
+          title: 'Заказ не создан',
+          message: 'Backend не вернул id заказа. WhatsApp не открыт, чтобы не терять заказ.',
+          primaryLabel: 'Понятно',
+        });
+        return;
+      }
+
       const opened = await openWhatsAppOrder({
         restaurantName,
         phone: merchantWhatsAppPhone,
@@ -78,6 +100,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
         address: address.trim(),
         comment: comment || undefined,
         total: finalTotal,
+        orderId: previewOrderId,
       });
 
       if (!opened) {
@@ -94,10 +117,15 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
         });
         return;
       }
-    } catch {
+
+      navigation.replace('FoodOrderStatus', { orderId: previewOrderId });
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
       openModal({
-        title: 'Ошибка',
-        message: 'Не удалось открыть WhatsApp для заказа.',
+        title: 'Не удалось создать заказ',
+        message: Array.isArray(message)
+          ? message.join(', ')
+          : message || 'Backend отклонил создание food-order.',
         primaryLabel: 'Понятно',
       });
     } finally {

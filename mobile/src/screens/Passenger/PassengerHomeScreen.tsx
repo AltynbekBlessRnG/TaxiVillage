@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
+  BackHandler,
   Dimensions,
   Keyboard,
   LayoutAnimation,
@@ -291,6 +292,28 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     refreshThreadUnread,
     screenState,
   ]);
+
+  useEffect(() => {
+    if (!isFocused) {
+      return undefined;
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isMenuOpen) {
+        setIsMenuOpen(false);
+        return true;
+      }
+
+      if (screenState !== 'IDLE') {
+        changeState('IDLE');
+        return true;
+      }
+
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [changeState, isFocused, isMenuOpen, screenState]);
 
   useEffect(() => {
     if (screenState === 'IDLE' && userLocation) {

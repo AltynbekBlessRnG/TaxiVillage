@@ -5,7 +5,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { IntercityChatService, IntercityThreadType } from './intercity-chat.service';
 
 class SendIntercityMessageDto {
-  @IsIn(['ORDER', 'BOOKING'])
+  @IsIn(['ORDER', 'BOOKING', 'TRIP'])
   threadType!: IntercityThreadType;
 
   @IsString()
@@ -17,7 +17,7 @@ class SendIntercityMessageDto {
 }
 
 class MarkIntercityMessagesReadDto {
-  @IsIn(['ORDER', 'BOOKING'])
+  @IsIn(['ORDER', 'BOOKING', 'TRIP'])
   threadType!: IntercityThreadType;
 
   @IsString()

@@ -1,103 +1,131 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { OptionPickerModal } from '../../components/OptionPickerModal';
+import { ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
 import {
-  ChipRow,
-  PrimaryButton,
-  SecondaryButton,
-  SectionTitle,
-  ServiceCard,
-  ServiceScreen,
-} from '../../components/ServiceScreen';
+  buildIntercityDateOptions,
+  composeIntercityDepartureAt,
+  INTERCITY_CITIES,
+  INTERCITY_TIME_OPTIONS,
+} from '../../constants/intercity';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityHome'>;
 
+const seatOptions = ['1', '2', '3', '4'];
+const baggageOptions = ['Без багажа', 'Ручная кладь', '1 чемодан', '2 чемодана'];
+
 export const IntercityHomeScreen: React.FC<Props> = ({ navigation }) => {
-  const defaultDepartureAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  const dateOptions = useMemo(() => buildIntercityDateOptions(10), []);
+  const defaultDate = dateOptions[1]?.value || dateOptions[0]?.value;
+  const defaultTime = '09:00';
   const [fromCity, setFromCity] = useState('Алматы');
-  const [toCity, setToCity] = useState('Алаколь');
-  const [date, setDate] = useState(defaultDepartureAt);
+  const [toCity, setToCity] = useState('Астана');
+  const [date, setDate] = useState(defaultDate);
+  const [time, setTime] = useState(defaultTime);
   const [seats, setSeats] = useState('2');
-  const [baggage, setBaggage] = useState('2 чемодана');
+  const [baggage, setBaggage] = useState('1 чемодан');
   const [price, setPrice] = useState('18000');
   const [comment, setComment] = useState('');
-  const [stops, setStops] = useState('');
-  const [womenOnly, setWomenOnly] = useState(false);
-  const [baggageRequired, setBaggageRequired] = useState(true);
-  const [noAnimals, setNoAnimals] = useState(false);
-  const [popularRoutes, setPopularRoutes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const [activeOrder, setActiveOrder] = useState<any>(null);
   const [activeBooking, setActiveBooking] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [picker, setPicker] = useState<'from' | 'to' | 'date' | 'time' | null>(null);
+  const [modal, setModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
-  const loadHome = useCallback(() => {
-    return Promise.all([
-      apiClient
-        .get('/intercity-trips/popular-routes')
-        .then((response) => setPopularRoutes(Array.isArray(response.data) ? response.data : []))
-        .catch(() => setPopularRoutes([])),
-      apiClient
-        .get('/intercity-orders/my')
-        .then((response) =>
-          setActiveOrder(
-            (Array.isArray(response.data) ? response.data : []).find((item: any) =>
-              ['SEARCHING_DRIVER', 'CONFIRMED', 'DRIVER_EN_ROUTE', 'BOARDING', 'IN_PROGRESS'].includes(item.status),
-            ) ?? null,
-          ),
-        )
-        .catch(() => setActiveOrder(null)),
-      apiClient
-        .get('/intercity-bookings/my')
-        .then((response) =>
-          setActiveBooking(
-            (Array.isArray(response.data) ? response.data : []).find((item: any) =>
-              ['CONFIRMED', 'BOARDING', 'IN_PROGRESS'].includes(item.status),
-            ) ?? null,
-          ),
-        )
-        .catch(() => setActiveBooking(null)),
-    ]).catch(() => null);
+  const selectedDateLabel =
+    dateOptions.find((option) => option.value === date)?.label || 'Выберите дату';
+
+  const loadCurrentIntercity = useCallback(async () => {
+    try {
+      const [ordersRes, bookingsRes] = await Promise.all([
+        apiClient.get('/intercity-orders/my').catch(() => ({ data: [] })),
+        apiClient.get('/intercity-bookings/my').catch(() => ({ data: [] })),
+      ]);
+      const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
+      const bookings = Array.isArray(bookingsRes.data) ? bookingsRes.data : [];
+      setActiveOrder(
+        orders.find((item: any) =>
+          ['SEARCHING_DRIVER', 'CONFIRMED', 'DRIVER_EN_ROUTE', 'BOARDING', 'IN_PROGRESS'].includes(item.status),
+        ) ?? null,
+      );
+      setActiveBooking(
+        bookings.find((item: any) => ['CONFIRMED', 'BOARDING', 'IN_PROGRESS'].includes(item.status)) ?? null,
+      );
+    } catch {
+      setActiveOrder(null);
+      setActiveBooking(null);
+    }
   }, []);
-
-  useEffect(() => {
-    loadHome().catch(() => null);
-  }, [loadHome]);
 
   useFocusEffect(
     useCallback(() => {
-      loadHome().catch(() => null);
+      loadCurrentIntercity().catch(() => null);
       return undefined;
-    }, [loadHome]),
+    }, [loadCurrentIntercity]),
   );
+
+  const validateRoute = () => {
+    if (!fromCity || !toCity) {
+      throw new Error('Выберите маршрут');
+    }
+    if (fromCity === toCity) {
+      throw new Error('Города отправления и прибытия должны отличаться');
+    }
+  };
+
+  const openOffers = () => {
+    try {
+      validateRoute();
+      navigation.navigate('IntercityOffers', {
+        fromCity,
+        toCity,
+        date,
+        time,
+        seats,
+        baggage,
+        maxPrice: price,
+        comment,
+      });
+    } catch (error: any) {
+      setModal({
+        visible: true,
+        title: 'Межгород',
+        message: error?.message || 'Проверьте форму',
+      });
+    }
+  };
 
   const createProposal = async () => {
     setLoading(true);
     try {
-      const departureAt = date.includes('T') ? `${date}:00.000Z` : new Date(date).toISOString();
+      validateRoute();
+      const departureAt = composeIntercityDepartureAt(date, time);
       const response = await apiClient.post('/intercity-orders', {
         fromCity,
         toCity,
         departureAt,
         seats: Math.max(Number(seats || 1), 1),
-        baggage: baggage.trim() || undefined,
+        baggage: baggage === 'Без багажа' ? undefined : baggage,
         comment: comment.trim() || undefined,
         price: Math.max(Number(price || 0), 0),
-        stops: stops
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean),
-        womenOnly,
-        baggageRequired,
-        noAnimals,
       });
-
       navigation.navigate('IntercityOrderStatus', { orderId: response.data.id });
     } catch (error: any) {
-      const message = error?.response?.data?.message || 'Не удалось создать предложение';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      const message = error?.response?.data?.message || error?.message || 'Не удалось создать заявку';
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+      });
     } finally {
       setLoading(false);
     }
@@ -106,302 +134,361 @@ export const IntercityHomeScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <ServiceScreen
       accentColor="#38BDF8"
-      eyebrow="Межгород"
-      title="Поездки между городами"
-      subtitle="Смотри рейсы, публикуй свою заявку и собирай поездку под себя без лишней суеты."
+      title="Межгород"
+      subtitle=""
       backLabel="К такси"
       onBack={() => navigation.goBack()}
     >
-      <View style={styles.heroBlock}>
-        <Text style={styles.heroRoute}>{fromCity} → {toCity}</Text>
-        <Text style={styles.heroText}>
-          На завтра, на выходные или заранее. Межгород теперь работает как отдельный живой рынок предложений.
-        </Text>
-      </View>
-
       {activeOrder ? (
         <ServiceCard compact>
-          <SectionTitle>Активная заявка</SectionTitle>
-          <Text style={styles.activeText}>{`${activeOrder.fromCity} -> ${activeOrder.toCity}`}</Text>
-          <PrimaryButton
-            title="Открыть заявку"
+          <Text style={styles.activeEyebrow}>Активная заявка</Text>
+          <Text style={styles.activeRoute}>{`${activeOrder.fromCity} → ${activeOrder.toCity}`}</Text>
+          <Text style={styles.activeMeta}>Открой заявку, чтобы посмотреть статус или отменить ее.</Text>
+          <TouchableOpacity
+            style={styles.openActiveButton}
+            activeOpacity={0.9}
             onPress={() => navigation.navigate('IntercityOrderStatus', { orderId: activeOrder.id })}
-          />
+          >
+            <Text style={styles.openActiveButtonText}>Открыть заявку</Text>
+          </TouchableOpacity>
         </ServiceCard>
       ) : null}
 
       {activeBooking ? (
         <ServiceCard compact>
-          <SectionTitle>Активная бронь</SectionTitle>
-          <Text style={styles.activeText}>{`${activeBooking.trip?.fromCity || '-'} -> ${activeBooking.trip?.toCity || '-'}`}</Text>
-          <PrimaryButton
-            title="Открыть бронь"
+          <Text style={styles.activeEyebrow}>Активная бронь</Text>
+          <Text style={styles.activeRoute}>{`${activeBooking.trip?.fromCity || '-'} → ${activeBooking.trip?.toCity || '-'}`}</Text>
+          <Text style={styles.activeMeta}>Бронь уже создана. Открой, чтобы посмотреть поездку.</Text>
+          <TouchableOpacity
+            style={styles.openActiveButton}
+            activeOpacity={0.9}
             onPress={() => navigation.navigate('IntercityTripStatus', { bookingId: activeBooking.id })}
-          />
+          >
+            <Text style={styles.openActiveButtonText}>Открыть бронь</Text>
+          </TouchableOpacity>
         </ServiceCard>
       ) : null}
 
-      <ServiceCard>
-        <SectionTitle>Маршрут</SectionTitle>
-        <View style={styles.routePreview}>
-          <View style={styles.routePointRow}>
-            <View style={[styles.routeDot, styles.routeDotFrom]} />
-            <Text style={styles.routePointText}>{fromCity}</Text>
-          </View>
-          <View style={styles.routeStem} />
-          <View style={styles.routePointRow}>
-            <View style={[styles.routeDot, styles.routeDotTo]} />
-            <Text style={styles.routePointText}>{toCity}</Text>
-          </View>
+      <ServiceCard compact>
+        <View style={styles.routeColumn}>
+          <TouchableOpacity style={styles.selectField} activeOpacity={0.9} onPress={() => setPicker('from')}>
+            <Text style={styles.fieldLabel}>Откуда</Text>
+            <Text style={styles.fieldValue}>{fromCity}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.swapButton} activeOpacity={0.9} onPress={() => {
+            const nextFrom = toCity;
+            const nextTo = fromCity;
+            setFromCity(nextFrom);
+            setToCity(nextTo);
+          }}>
+            <Text style={styles.swapButtonText}>⇅</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.selectField} activeOpacity={0.9} onPress={() => setPicker('to')}>
+            <Text style={styles.fieldLabel}>Куда</Text>
+            <Text style={styles.fieldValue}>{toCity}</Text>
+          </TouchableOpacity>
         </View>
-        <TextInput style={styles.input} value={fromCity} onChangeText={setFromCity} placeholderTextColor="#71717A" />
-        <TextInput style={styles.input} value={toCity} onChangeText={setToCity} placeholderTextColor="#71717A" />
-        <TextInput style={styles.input} value={date} onChangeText={setDate} placeholderTextColor="#71717A" />
+
         <View style={styles.row}>
-          <TextInput style={[styles.input, styles.half]} value={seats} onChangeText={setSeats} placeholderTextColor="#71717A" />
-          <TextInput style={[styles.input, styles.half]} value={baggage} onChangeText={setBaggage} placeholderTextColor="#71717A" />
+          <TouchableOpacity style={[styles.selectField, styles.halfField]} activeOpacity={0.9} onPress={() => setPicker('date')}>
+            <Text style={styles.fieldLabel}>Дата</Text>
+            <Text style={styles.fieldValueSmall}>{selectedDateLabel}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.selectField, styles.halfField]} activeOpacity={0.9} onPress={() => setPicker('time')}>
+            <Text style={styles.fieldLabel}>Время</Text>
+            <Text style={styles.fieldValue}>{time}</Text>
+          </TouchableOpacity>
         </View>
+
+        <Text style={styles.sectionLabel}>Места</Text>
+        <View style={styles.choiceRow}>
+          {seatOptions.map((option) => {
+            const active = seats === option;
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[styles.choiceChip, active && styles.choiceChipActive]}
+                activeOpacity={0.9}
+                onPress={() => setSeats(option)}
+              >
+                <Text style={[styles.choiceText, active && styles.choiceTextActive]}>{option}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={styles.sectionLabel}>Багаж</Text>
+        <View style={styles.choiceRow}>
+          {baggageOptions.map((option) => {
+            const active = baggage === option;
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[styles.choiceWideChip, active && styles.choiceChipActive]}
+                activeOpacity={0.9}
+                onPress={() => setBaggage(option)}
+              >
+                <Text style={[styles.choiceText, active && styles.choiceTextActive]}>{option}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <TextInput
           style={styles.input}
           value={price}
           onChangeText={setPrice}
           keyboardType="number-pad"
-          placeholder="Ваша цена"
+          placeholder="Цена"
           placeholderTextColor="#71717A"
         />
         <TextInput
           style={[styles.input, styles.commentInput]}
           value={comment}
           onChangeText={setComment}
-          placeholder="Комментарий для водителей"
+          placeholder="Комментарий"
           placeholderTextColor="#71717A"
           multiline
         />
-        <TextInput
-          style={styles.input}
-          value={stops}
-          onChangeText={setStops}
-          placeholder="Остановки по пути через запятую"
-          placeholderTextColor="#71717A"
-        />
       </ServiceCard>
 
-      <ServiceCard compact>
-        <SectionTitle>Предпочтения</SectionTitle>
-        <View style={styles.preferenceRow}>
-          <TouchableOpacity
-            style={[styles.preferenceChip, womenOnly && styles.preferenceChipActive]}
-            onPress={() => setWomenOnly((value) => !value)}
-          >
-            <Text style={[styles.preferenceChipText, womenOnly && styles.preferenceChipTextActive]}>
-              Только женский салон
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.preferenceChip, baggageRequired && styles.preferenceChipActive]}
-            onPress={() => setBaggageRequired((value) => !value)}
-          >
-            <Text style={[styles.preferenceChipText, baggageRequired && styles.preferenceChipTextActive]}>
-              Нужен багаж
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.preferenceChip, noAnimals && styles.preferenceChipActive]}
-            onPress={() => setNoAnimals((value) => !value)}
-          >
-            <Text style={[styles.preferenceChipText, noAnimals && styles.preferenceChipTextActive]}>
-              Без животных
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <ChipRow items={['Комфорт', 'Семейный багаж', 'Ночной выезд', 'Предзаказ']} />
-      </ServiceCard>
+      <View style={styles.actionsRow}>
+        <TouchableOpacity style={[styles.ctaButton, styles.ctaGhost]} activeOpacity={0.9} onPress={openOffers}>
+          <Text style={styles.ctaGhostText}>Показать рейсы</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.ctaButton, styles.ctaPrimary, loading && styles.ctaPrimaryDisabled]}
+          activeOpacity={0.9}
+          onPress={() => {
+            if (!loading) {
+              createProposal().catch?.(() => null);
+            }
+          }}
+        >
+          <Text style={styles.ctaPrimaryText}>{loading ? 'Создаем...' : 'Оставить заявку'}</Text>
+        </TouchableOpacity>
+      </View>
 
-      {popularRoutes.length ? (
-        <ServiceCard compact>
-          <SectionTitle>Популярные направления</SectionTitle>
-          <View style={styles.popularList}>
-            {popularRoutes.map((route) => (
-          <TouchableOpacity
-                key={`${route.fromCity}-${route.toCity}`}
-                style={styles.popularRoute}
-                onPress={() => {
-                  setFromCity(route.fromCity);
-                  setToCity(route.toCity);
-                }}
-              >
-                <Text style={styles.popularRouteEyebrow}>Популярное направление</Text>
-                <Text style={styles.popularRouteTitle}>{`${route.fromCity} -> ${route.toCity}`}</Text>
-                <Text style={styles.popularRouteMeta}>{`Спрос ${route.demand} • Начиная с ближайших дат`}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ServiceCard>
-      ) : null}
-
-      <ServiceCard compact>
-        <SectionTitle>Что показать в предложениях</SectionTitle>
-        <ChipRow items={[
-          womenOnly ? 'Ищу женский салон' : 'Любой салон',
-          baggageRequired ? 'Нужен багаж' : 'Без багажа',
-          noAnimals ? 'Без животных' : 'Животные ок',
-        ]} />
-      </ServiceCard>
-
-      <PrimaryButton
-        title="Показать предложения водителей"
-        onPress={() =>
-          navigation.navigate('IntercityOffers', {
-            fromCity,
-            toCity,
-            date,
-            seats,
-            baggage,
-            minPrice: '',
-            maxPrice: price,
-            womenOnly,
-            baggageRequired,
-            noAnimals,
-          })
-        }
+      <OptionPickerModal
+        visible={picker === 'from'}
+        title="Выберите город отправления"
+        options={INTERCITY_CITIES.map((city) => ({ value: city, label: city }))}
+        selectedValue={fromCity}
+        onSelect={setFromCity}
+        onClose={() => setPicker(null)}
       />
-      <SecondaryButton title={loading ? 'Публикуем...' : 'Создать предложение'} onPress={createProposal} />
+      <OptionPickerModal
+        visible={picker === 'to'}
+        title="Выберите город прибытия"
+        options={INTERCITY_CITIES.map((city) => ({ value: city, label: city }))}
+        selectedValue={toCity}
+        onSelect={setToCity}
+        onClose={() => setPicker(null)}
+      />
+      <OptionPickerModal
+        visible={picker === 'date'}
+        title="Выберите дату"
+        options={dateOptions}
+        selectedValue={date}
+        onSelect={setDate}
+        onClose={() => setPicker(null)}
+      />
+      <OptionPickerModal
+        visible={picker === 'time'}
+        title="Выберите время"
+        options={INTERCITY_TIME_OPTIONS.map((option) => ({ value: option, label: option }))}
+        selectedValue={time}
+        onSelect={setTime}
+        onClose={() => setPicker(null)}
+      />
+      <DarkAlertModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        primaryLabel="Понятно"
+        onPrimary={() => setModal({ visible: false, title: '', message: '' })}
+      />
     </ServiceScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  heroBlock: {
-    marginBottom: 12,
-    paddingHorizontal: 4,
+  routeColumn: {
+    gap: 12,
+    marginBottom: 14,
   },
-  heroRoute: {
-    color: '#F4F4F5',
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '900',
-    marginBottom: 8,
-  },
-  heroText: {
-    color: '#94A3B8',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  input: {
-    backgroundColor: '#09090B',
-    borderRadius: 16,
+  selectField: {
+    backgroundColor: '#0B0B0E',
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#27272A',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+  },
+  halfField: {
+    flex: 1,
+  },
+  fieldLabel: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  fieldValue: {
     color: '#F4F4F5',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  fieldValueSmall: {
+    color: '#F4F4F5',
     fontSize: 15,
-    marginBottom: 10,
+    fontWeight: '700',
   },
   row: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    marginBottom: 14,
   },
-  routePreview: {
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
+  swapButton: {
+    alignSelf: 'flex-end',
+    width: 42,
+    height: 42,
+    marginTop: -2,
+    marginBottom: -6,
+    borderRadius: 21,
     borderWidth: 1,
     borderColor: '#1E293B',
-    padding: 16,
-    marginBottom: 12,
-  },
-  routePointRow: {
-    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  routeStem: {
-    width: 1,
-    height: 18,
-    backgroundColor: '#334155',
-    marginLeft: 6,
-    marginVertical: 5,
+  swapButtonText: {
+    color: '#CBE7FF',
+    fontSize: 18,
+    fontWeight: '900',
   },
-  routeDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
+  sectionLabel: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 10,
   },
-  routeDotFrom: {
-    backgroundColor: '#38BDF8',
-  },
-  routeDotTo: {
-    backgroundColor: '#F97316',
-  },
-  routePointText: {
-    color: '#E2E8F0',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  half: {
-    flex: 1,
-  },
-  commentInput: {
-    minHeight: 90,
-    textAlignVertical: 'top',
-  },
-  preferenceRow: {
+  choiceRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 14,
   },
-  preferenceChip: {
-    borderRadius: 999,
+  choiceChip: {
+    minWidth: 52,
+    backgroundColor: '#0B0B0E',
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#27272A',
-    backgroundColor: '#111827',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  preferenceChipActive: {
+  choiceWideChip: {
+    backgroundColor: '#0B0B0E',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  choiceChipActive: {
     borderColor: '#38BDF8',
-    backgroundColor: '#082F49',
+    backgroundColor: '#0F172A',
   },
-  preferenceChipText: {
-    color: '#CBD5E1',
-    fontSize: 12,
+  choiceText: {
+    color: '#D4D4D8',
+    fontSize: 14,
     fontWeight: '700',
   },
-  preferenceChipTextActive: {
-    color: '#7DD3FC',
+  choiceTextActive: {
+    color: '#DBF0FF',
   },
-  popularList: {
+  input: {
+    backgroundColor: '#0B0B0E',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    color: '#F4F4F5',
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  commentInput: {
+    minHeight: 96,
+    textAlignVertical: 'top',
+    marginBottom: 0,
+  },
+  actionsRow: {
+    flexDirection: 'row',
     gap: 10,
   },
-  popularRoute: {
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: '#1E3A5F',
-    borderRadius: 22,
-    padding: 16,
+  ctaButton: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  popularRouteEyebrow: {
-    color: '#7DD3FC',
-    fontSize: 11,
+  ctaGhost: {
+    borderWidth: 1,
+    borderColor: '#27272A',
+    backgroundColor: '#121216',
+  },
+  ctaGhostText: {
+    color: '#F4F4F5',
+    fontSize: 15,
     fontWeight: '800',
+  },
+  ctaPrimary: {
+    backgroundColor: '#38BDF8',
+  },
+  ctaPrimaryDisabled: {
+    opacity: 0.72,
+  },
+  ctaPrimaryText: {
+    color: '#04131A',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  activeEyebrow: {
+    color: '#7DD3FC',
+    fontSize: 12,
+    fontWeight: '900',
     textTransform: 'uppercase',
     marginBottom: 8,
   },
-  popularRouteTitle: {
+  activeRoute: {
     color: '#F4F4F5',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
     marginBottom: 6,
   },
-  popularRouteMeta: {
-    color: '#BFDBFE',
+  activeMeta: {
+    color: '#A1A1AA',
     fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
   },
-  activeText: {
-    color: '#F4F4F5',
-    fontSize: 15,
+  openActiveButton: {
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  openActiveButtonText: {
+    color: '#DBF0FF',
+    fontSize: 14,
     fontWeight: '800',
-    marginBottom: 10,
   },
 });
