@@ -7,6 +7,7 @@ import { apiClient } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { OptionPickerModal } from '../../components/OptionPickerModal';
 import { ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
+import { saveNotificationToInbox } from '../../storage/notificationsInbox';
 import {
   buildIntercityDateOptions,
   composeIntercityDepartureAt,
@@ -52,14 +53,29 @@ export const IntercityHomeScreen: React.FC<Props> = ({ navigation }) => {
       ]);
       const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
       const bookings = Array.isArray(bookingsRes.data) ? bookingsRes.data : [];
-      setActiveOrder(
+      const currentOrder =
         orders.find((item: any) =>
           ['SEARCHING_DRIVER', 'CONFIRMED', 'DRIVER_EN_ROUTE', 'BOARDING', 'IN_PROGRESS'].includes(item.status),
-        ) ?? null,
-      );
+        ) ?? null;
+      setActiveOrder(currentOrder);
       setActiveBooking(
         bookings.find((item: any) => ['CONFIRMED', 'BOARDING', 'IN_PROGRESS'].includes(item.status)) ?? null,
       );
+
+      const invites = Array.isArray(currentOrder?.invites) ? currentOrder.invites : [];
+      for (const invite of invites) {
+        if (invite?.status !== 'PENDING' || typeof invite?.id !== 'string') {
+          continue;
+        }
+        const routeText = `${invite?.trip?.fromCity || '-'} -> ${invite?.trip?.toCity || '-'}`;
+        void saveNotificationToInbox({
+          id: `intercity-trip-invite:${invite.id}`,
+          title: 'Приглашение в рейс',
+          body: `${invite?.trip?.driver?.fullName || 'Водитель'} приглашает: ${routeText}`,
+          data: { type: 'INTERCITY_TRIP_INVITE', orderId: currentOrder.id, inviteId: invite.id },
+          source: 'local',
+        });
+      }
     } catch {
       setActiveOrder(null);
       setActiveBooking(null);

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { resolveApiAssetUrl } from '../../../utils/assets';
 
 const { width } = Dimensions.get('window');
 
@@ -9,6 +10,7 @@ interface Props {
   menuBackdropOpacity: Animated.Value;
   fullName?: string | null;
   phone?: string | null;
+  avatarUrl?: string | null;
   unreadNotificationsCount: number;
   unreadMessagesCount: number;
   onClose: () => void;
@@ -26,6 +28,7 @@ export const PassengerSideDrawer: React.FC<Props> = ({
   menuBackdropOpacity,
   fullName,
   phone,
+  avatarUrl,
   unreadNotificationsCount,
   unreadMessagesCount,
   onClose,
@@ -35,8 +38,11 @@ export const PassengerSideDrawer: React.FC<Props> = ({
   onOpenRideHistory,
   onOpenFavoriteAddresses,
   onLogout,
-}) => (
-  <>
+}) => {
+  const avatarUri = resolveApiAssetUrl(avatarUrl);
+
+  return (
+    <>
     {visible ? (
       <Animated.View style={[styles.menuBackdrop, { opacity: menuBackdropOpacity }]}>
         <Pressable style={styles.flexFill} onPress={onClose} />
@@ -47,15 +53,19 @@ export const PassengerSideDrawer: React.FC<Props> = ({
       <View style={styles.drawerHeader}>
         <View style={styles.avatarRow}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>
-              {((fullName || phone || 'П')
-                .trim()
-                .split(/\s+/)
-                .slice(0, 2)
-                .map((part) => part[0])
-                .join('') || 'П')
-                .toUpperCase()}
-            </Text>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>
+                {((fullName || phone || 'П')
+                  .trim()
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((part) => part[0])
+                  .join('') || 'П')
+                  .toUpperCase()}
+              </Text>
+            )}
           </View>
           <View style={styles.headerTextWrap}>
             <Text style={styles.drName}>{fullName || phone || 'Профиль'}</Text>
@@ -109,7 +119,8 @@ export const PassengerSideDrawer: React.FC<Props> = ({
       </ScrollView>
     </Animated.View>
   </>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   flexFill: { flex: 1 },
@@ -145,6 +156,11 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     fontSize: 20,
     fontWeight: '900',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
   },
   headerTextWrap: {
     flex: 1,

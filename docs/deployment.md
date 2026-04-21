@@ -2,7 +2,7 @@
 
 ## Cheapest stack for now
 - `Backend`: Render Web Service
-- `Database`: Supabase Postgres
+- `Database`: Postgres
 - `Redis`: Upstash Redis
 - `Static pages`: Render Static Site or Netlify/Vercel
 - `Admin`: Render Static Site
@@ -23,7 +23,7 @@
 - `Backend API`
 - `Admin panel`
 
-## Minimum backend env
+ Minimum backend env
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `PORT`

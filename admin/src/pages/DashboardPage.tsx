@@ -189,6 +189,32 @@ export const DashboardPage: React.FC<Props> = ({
     }
   };
 
+  const handleTopUpBalance = async (driver: Driver) => {
+    const rawAmount = window.prompt(
+      `Пополнить баланс водителя ${driver.fullName || driver.user.phone}\nТекущий баланс: ${Number(driver.balance || 0).toFixed(0)} ₸\n\nВведите сумму пополнения в тенге:`,
+      '1000',
+    );
+
+    if (!rawAmount) {
+      return;
+    }
+
+    const amount = Number(rawAmount.replace(',', '.').trim());
+    if (!Number.isFinite(amount) || amount <= 0) {
+      window.alert('Введите корректную сумму больше 0.');
+      return;
+    }
+
+    try {
+      await client.patch(`/admin/drivers/${driver.id}/top-up`, { amount });
+      await loadDrivers();
+      window.alert(`Баланс пополнен на ${amount.toFixed(0)} ₸`);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось пополнить баланс';
+      window.alert(Array.isArray(message) ? message.join(', ') : String(message));
+    }
+  };
+
   return (
     <div className="app-root">
       <aside className="sidebar">
@@ -238,8 +264,9 @@ export const DashboardPage: React.FC<Props> = ({
                     </td>
                     <td>{Number(d.balance || 0).toFixed(0)} ₸</td>
                     <td>
-                      <div style={{ display: 'flex', gap: '5px' }}>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                         <button className="button button-success" onClick={() => client.patch(`/admin/drivers/${d.id}/status`, { status: 'APPROVED' }).then(loadDrivers)}>Одобрить</button>
+                        <button className="button button-accent" onClick={() => handleTopUpBalance(d)}>Пополнить</button>
                         <button className="button button-danger" onClick={() => client.patch(`/admin/drivers/${d.id}/status`, { status: 'REJECTED' }).then(loadDrivers)}>Блок</button>
                       </div>
                     </td>

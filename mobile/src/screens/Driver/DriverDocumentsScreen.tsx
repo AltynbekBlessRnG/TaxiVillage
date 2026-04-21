@@ -217,7 +217,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.heroCard}>
             <Text style={styles.heroTitle}>Данные и документы</Text>
             <Text style={styles.heroSubtitle}>
-              Здесь удобно редактировать имя, смотреть телефон, обновлять автомобиль и загружать документы без длинной прокрутки основного профиля.
+              Редактируйте профиль и загружайте документы
             </Text>
             <View style={styles.heroStats}>
               <View style={styles.heroStat}>

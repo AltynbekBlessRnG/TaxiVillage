@@ -154,6 +154,17 @@ body {
   border-color: #059669;
 }
 
+.button-accent {
+  background-color: #3B82F6;
+  border-color: #3B82F6;
+  color: white;
+}
+
+.button-accent:hover {
+  background-color: #2563EB;
+  border-color: #2563EB;
+}
+
 .button-danger {
   background-color: #EF4444;
   border-color: #EF4444;

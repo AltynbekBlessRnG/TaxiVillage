@@ -527,7 +527,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       recipient: this.configService.get<string>('DRIVER_TOPUP_RECIPIENT') || 'TaxiVillage',
       requisites:
         this.configService.get<string>('DRIVER_TOPUP_REQUISITES') ||
-        'Kaspi: +7 700 000 00 00',
+        'Kaspi: +7 776 741 5410 Темірхан А.',
       note:
         this.configService.get<string>('DRIVER_TOPUP_NOTE') ||
         'После перевода администратор пополнит баланс вручную.',

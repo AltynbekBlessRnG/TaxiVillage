@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { formatIntercityDateTime } from '../../constants/intercity';
 import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
+import { saveNotificationToInbox } from '../../storage/notificationsInbox';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityOrderStatus'>;
 
@@ -34,6 +35,8 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
     message: '',
   });
   const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
+  const knownInviteIdsRef = useRef<Set<string>>(new Set());
+  const lastStatusRef = useRef<string | null>(null);
 
   const loadOrder = useCallback(() => {
     return apiClient
@@ -81,6 +84,45 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
       socket?.disconnect();
     };
   }, [route.params.orderId]);
+
+  useEffect(() => {
+    if (!order?.id) {
+      return;
+    }
+
+    const currentStatus = typeof order.status === 'string' ? order.status : null;
+    if (currentStatus && lastStatusRef.current && lastStatusRef.current !== currentStatus) {
+      void saveNotificationToInbox({
+        id: `intercity-order-status:${order.id}:${currentStatus}`,
+        title: 'Статус межгорода',
+        body: `Заявка: ${statusLabels[currentStatus] || currentStatus}`,
+        data: { type: 'INTERCITY_ORDER_STATUS', orderId: order.id },
+        source: 'local',
+      });
+    }
+    if (currentStatus) {
+      lastStatusRef.current = currentStatus;
+    }
+
+    const invites = Array.isArray(order.invites) ? order.invites : [];
+    for (const invite of invites) {
+      const inviteId = typeof invite?.id === 'string' ? invite.id : null;
+      if (!inviteId || knownInviteIdsRef.current.has(inviteId)) {
+        continue;
+      }
+      knownInviteIdsRef.current.add(inviteId);
+      if (invite.status === 'PENDING') {
+        const routeText = `${invite?.trip?.fromCity || '-'} -> ${invite?.trip?.toCity || '-'}`;
+        void saveNotificationToInbox({
+          id: `intercity-trip-invite:${inviteId}`,
+          title: 'Приглашение в рейс',
+          body: `${invite?.trip?.driver?.fullName || 'Водитель'} приглашает: ${routeText}`,
+          data: { type: 'INTERCITY_TRIP_INVITE', orderId: order.id, inviteId },
+          source: 'local',
+        });
+      }
+    }
+  }, [order]);
 
   if (loading) {
     return (

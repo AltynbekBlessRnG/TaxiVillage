@@ -22,6 +22,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { resolveApiAssetUrl } from '../../utils/assets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MenuEditor'>;
 
@@ -419,7 +420,11 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
         />
 
         {itemImageUrl ? (
-          <Image source={{ uri: itemImageUrl }} style={styles.itemPreviewImage} resizeMode="cover" />
+          <Image
+            source={{ uri: resolveApiAssetUrl(itemImageUrl) }}
+            style={styles.itemPreviewImage}
+            resizeMode="cover"
+          />
         ) : null}
 
         <SecondaryButton
@@ -459,11 +464,26 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
             />
             {category.items?.map((item: any) => (
               <View key={item.id} style={styles.itemSummaryCard}>
-                <View style={styles.itemSummaryMain}>
+                <View style={styles.itemSummaryRow}>
+                  {item.imageUrl ? (
+                    <Image
+                      source={{ uri: resolveApiAssetUrl(item.imageUrl) }}
+                      style={styles.itemSummaryImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.itemSummaryImageFallback}>
+                      <Text style={styles.itemSummaryImageFallbackText}>
+                        {item.name?.slice(0, 1)?.toUpperCase() || '•'}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.itemSummaryMain}>
                   <Text style={styles.itemSummaryName}>{item.name}</Text>
                   <Text style={styles.itemSummaryMeta} numberOfLines={1}>
                     {item.description || 'Без описания'}
                   </Text>
+                  </View>
                 </View>
                 <Text style={styles.itemSummaryPrice}>{Math.round(Number(item.price))} тг</Text>
                 <View style={styles.itemActionsRow}>
@@ -621,8 +641,32 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
-  itemSummaryMain: {
+  itemSummaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  itemSummaryImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+  },
+  itemSummaryImageFallback: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2D160B',
+  },
+  itemSummaryImageFallbackText: {
+    color: '#FED7AA',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  itemSummaryMain: {
+    flex: 1,
   },
   itemSummaryName: {
     color: '#F4F4F5',

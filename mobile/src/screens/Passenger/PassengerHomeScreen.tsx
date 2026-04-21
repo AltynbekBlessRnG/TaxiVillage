@@ -132,6 +132,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const {
     userProfile,
+    refreshProfile,
     profileReady,
     userLocation,
     mapCenter,
@@ -275,6 +276,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         })
         .catch(() => {});
       Promise.allSettled([
+        refreshProfile(),
         refreshMessagesSummary(),
         refreshThreadUnread(),
       ]);
@@ -288,6 +290,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     navigation,
     refreshActiveCourierOrder,
     refreshActiveRide,
+    refreshProfile,
     refreshMessagesSummary,
     refreshThreadUnread,
     screenState,
@@ -709,6 +712,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         menuBackdropOpacity={menuBackdropOpacity}
         fullName={userProfile?.fullName}
         phone={userProfile?.phone}
+        avatarUrl={userProfile?.avatarUrl}
         unreadNotificationsCount={unreadNotificationsCount}
         unreadMessagesCount={unreadMessagesCount}
         onClose={() => toggleMenu(false)}

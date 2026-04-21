@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, Dimensions, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -30,57 +30,74 @@ export const MerchantSideDrawer: React.FC<Props> = ({
   onOpenPreview,
   onLogout,
 }) => (
-  <>
-    {visible ? (
-      <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose}>
+  <Modal
+    visible={visible}
+    transparent
+    animationType="none"
+    onRequestClose={onClose}
+  >
+    <View style={styles.modalRoot}>
+      <View style={styles.overlayRoot} pointerEvents="box-none">
         <Animated.View style={[styles.menuBackdrop, { opacity: menuBackdropOpacity }]} />
-      </Pressable>
-    ) : null}
-
-    <Animated.View style={[styles.sideDrawer, { transform: [{ translateX: sideMenuAnim }] }]}>
-      <View style={styles.drawerHeader}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>
-            {((name || phone || 'R')
-              .trim()
-              .split(/\s+/)
-              .slice(0, 2)
-              .map((part) => part[0])
-              .join('') || 'R')
-              .toUpperCase()}
-          </Text>
-        </View>
-        <Text style={styles.drName}>{name || 'Ресторан'}</Text>
-        {phone ? <Text style={styles.drPhone}>{phone}</Text> : null}
-        <View style={[styles.statusPill, isOpen ? styles.statusPillOpen : styles.statusPillClosed]}>
-          <Text style={[styles.statusPillText, isOpen ? styles.statusPillTextOpen : styles.statusPillTextClosed]}>
-            {isOpen ? 'Открыто' : 'Закрыто'}
-          </Text>
-        </View>
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
       </View>
 
-      <View style={styles.drawerBody}>
-        <TouchableOpacity style={styles.drawerItem} onPress={onClose}>
-          <Text style={styles.drawerText}>Главная</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.drawerItem} onPress={onOpenMenuEditor}>
-          <Text style={styles.drawerText}>Меню</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.drawerItem} onPress={onOpenOrders}>
-          <Text style={styles.drawerText}>Заказы</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.drawerItem} onPress={onOpenPreview}>
-          <Text style={styles.drawerText}>Как видит клиент</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.drawerItem, styles.logoutItem]} onPress={onLogout}>
-          <Text style={[styles.drawerText, styles.logoutText]}>Выйти</Text>
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
-  </>
+      <Animated.View style={[styles.sideDrawer, { transform: [{ translateX: sideMenuAnim }] }]}>
+        <View style={styles.drawerHeader}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>
+              {((name || phone || 'R')
+                .trim()
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((part) => part[0])
+                .join('') || 'R')
+                .toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.drName}>{name || 'Ресторан'}</Text>
+          {phone ? <Text style={styles.drPhone}>{phone}</Text> : null}
+          <View style={[styles.statusPill, isOpen ? styles.statusPillOpen : styles.statusPillClosed]}>
+            <Text style={[styles.statusPillText, isOpen ? styles.statusPillTextOpen : styles.statusPillTextClosed]}>
+              {isOpen ? 'Открыто' : 'Закрыто'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.drawerBody}>
+          <TouchableOpacity style={styles.drawerItem} onPress={onClose}>
+            <Text style={styles.drawerText}>Главная</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.drawerItem} onPress={onOpenMenuEditor}>
+            <Text style={styles.drawerText}>Меню</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.drawerItem} onPress={onOpenOrders}>
+            <Text style={styles.drawerText}>Заказы</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.drawerItem} onPress={onOpenPreview}>
+            <Text style={styles.drawerText}>Как видит клиент</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.drawerItem, styles.logoutItem]} onPress={onLogout}>
+            <Text style={[styles.drawerText, styles.logoutText]}>Выйти</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </View>
+  </Modal>
 );
 
 const styles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+  },
+  overlayRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+    elevation: 999,
+  },
   menuBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.62)', zIndex: 900 },
   sideDrawer: {
     position: 'absolute',
@@ -90,6 +107,7 @@ const styles = StyleSheet.create({
     width: width * 0.8,
     backgroundColor: '#09090B',
     zIndex: 1000,
+    elevation: 1000,
     borderRightWidth: 1,
     borderColor: '#1F1F24',
   },
@@ -99,6 +117,25 @@ const styles = StyleSheet.create({
     paddingTop: 68,
     borderBottomWidth: 1,
     borderBottomColor: '#27272A',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 22,
+    right: 22,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1F1F24',
+    borderWidth: 1,
+    borderColor: '#2F2F35',
+    zIndex: 2,
+  },
+  closeButtonText: {
+    color: '#E4E4E7',
+    fontSize: 15,
+    fontWeight: '900',
   },
   avatarCircle: {
     width: 58,
