@@ -85,10 +85,6 @@ function cleanAddressPart(value?: string) {
     .replace(/,$/, '');
 }
 
-function isAlmatyText(value?: string) {
-  return /алмат|almaty/i.test(value ?? '');
-}
-
 function shortenAddress(value?: string) {
   const cleaned = cleanAddressPart(value);
   if (!cleaned) {

@@ -7,10 +7,8 @@ import {
   Body,
   Req,
   UseGuards,
-  NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
-import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FavoriteAddressesService } from './favorite-addresses.service';
 import { AuthGuard } from '@nestjs/passport';

@@ -5,13 +5,14 @@ import { FoodOrdersController } from './food-orders.controller';
 import { FoodOrdersService } from './food-orders.service';
 import { FoodOrdersGateway } from './food-orders.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { getRequiredEnv } from '../common/required-env';
 
 @Module({
   imports: [
     PrismaModule,
     NotificationsModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'dev-secret',
+      secret: getRequiredEnv('JWT_SECRET'),
       signOptions: { expiresIn: '15m' },
     }),
   ],

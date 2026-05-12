@@ -64,10 +64,6 @@ const QUICK_FILTERS: Array<{ id: QuickFilterId; label: string }> = [
   { id: 'budget', label: 'от 1500 тг' },
 ];
 
-function normalize(value: string | null | undefined) {
-  return (value ?? '').trim().toLowerCase();
-}
-
 function getCategoryMatches(restaurant: RestaurantSummary) {
   const haystack = [restaurant.name, restaurant.cuisine, restaurant.description]
     .filter(Boolean)

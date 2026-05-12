@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SearchSheet } from '../../../components/Passenger/SearchSheet';
 import { ConfirmationSheet } from '../../../components/Passenger/ConfirmationSheet';
 import { SearchingSheet } from '../../../components/Passenger/SearchingSheet';
@@ -66,7 +66,7 @@ export const PassengerSheetHost: React.FC<Props> = ({
   loading,
   fromAddress,
   toAddress,
-  fromCoord,
+  fromCoord: _fromCoord,
   toCoord,
   fromLocationPrecision,
   toLocationPrecision,
@@ -75,7 +75,7 @@ export const PassengerSheetHost: React.FC<Props> = ({
   stops,
   isStopSelectionMode,
   showSearchingDetails,
-  mapPickTarget,
+  mapPickTarget: _mapPickTarget,
   searchMode,
   searchInitialField,
   courierItemDescription,

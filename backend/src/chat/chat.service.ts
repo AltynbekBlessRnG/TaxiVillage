@@ -108,7 +108,7 @@ export class ChatService {
   }
 
   async markMessagesAsRead(userId: string, rideId: string) {
-    const participant = await this.getRideParticipant(userId, rideId);
+    await this.getRideParticipant(userId, rideId);
 
     const result = await this.prisma.chatMessage.updateMany({
       where: {

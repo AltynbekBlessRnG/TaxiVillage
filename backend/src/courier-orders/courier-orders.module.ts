@@ -5,13 +5,14 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { CourierOrdersController } from './courier-orders.controller';
 import { CourierOrdersService } from './courier-orders.service';
 import { CourierOrdersGateway } from './courier-orders.gateway';
+import { getRequiredEnv } from '../common/required-env';
 
 @Module({
   imports: [
     PrismaModule,
     NotificationsModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'dev-secret',
+      secret: getRequiredEnv('JWT_SECRET'),
       signOptions: { expiresIn: '15m' },
     }),
   ],

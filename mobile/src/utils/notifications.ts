@@ -9,8 +9,6 @@ import { navigateRoot } from '../navigation/rootNavigation';
 const DEFAULT_CHANNEL_ID = 'taxivillage-default';
 
 let initialized = false;
-let responseSubscription: Notifications.EventSubscription | null = null;
-let receivedSubscription: Notifications.EventSubscription | null = null;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -163,11 +161,11 @@ export async function initializeNotifications(): Promise<void> {
 
   await ensureAndroidChannel();
 
-  receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+  Notifications.addNotificationReceivedListener((notification) => {
     void persistNotificationEvent(notification, 'push');
   });
 
-  responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+  Notifications.addNotificationResponseReceivedListener((response) => {
     void persistNotificationEvent(response.notification, 'push');
     const data = (response.notification.request.content.data || {}) as Record<string, unknown>;
     openNotificationTarget(data);

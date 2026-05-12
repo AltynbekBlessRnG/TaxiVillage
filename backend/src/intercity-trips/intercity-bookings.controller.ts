@@ -1,8 +1,5 @@
 import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
-import { UserRole } from '@prisma/client/index';
 import { IntercityTripsService } from './intercity-trips.service';
 
 @Controller('intercity-bookings')

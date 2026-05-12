@@ -5,6 +5,11 @@ import { randomUUID } from 'crypto';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 
+/**
+ * Persists uploads on local disk under `./uploads` and serves them via `/uploads/*`.
+ * On ephemeral hosts (e.g. some PaaS) files are lost on restart — plan migration to S3-compatible storage
+ * (presigned URLs + `UPLOAD_STORAGE` switch) when you need durable assets.
+ */
 @Injectable()
 export class UploadService {
   constructor() {

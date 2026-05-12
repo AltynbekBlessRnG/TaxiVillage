@@ -39,7 +39,6 @@ import { resetCourierLocationTrackingState, sendCourierLocationUpdate } from '..
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
-import { PrimaryButton } from '../../components/ServiceScreen';
 import { getGoogleDirections } from '../../utils/googleMaps';
 import { resolveRideRoute } from '../../utils/rideRoute';
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
@@ -87,9 +86,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [incomingOffer, setIncomingOffer] = useState<RideOffer | null>(null);
   const [socketState, setSocketState] = useState<SocketState>('disconnected');
-  const [intercityTrips, setIntercityTrips] = useState<any[]>([]);
   const [currentIntercityTrip, setCurrentIntercityTrip] = useState<any>(null);
-  const [intercityPassengerOrders, setIntercityPassengerOrders] = useState<any[]>([]);
   const [currentCourierOrder, setCurrentCourierOrder] = useState<any>(null);
   const [availableCourierOrders, setAvailableCourierOrders] = useState<any[]>([]);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -161,18 +158,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       if (nextProfile?.supportsIntercity) {
-        const [currentTripRes, myTripsRes, passengerOrdersRes] = await Promise.all([
-          apiClient.get('/intercity-trips/current').catch(() => ({ data: null })),
-          apiClient.get('/intercity-trips/my').catch(() => ({ data: [] })),
-          apiClient.get('/intercity-orders/available').catch(() => ({ data: [] })),
-        ]);
+        const currentTripRes = await apiClient.get('/intercity-trips/current').catch(() => ({ data: null }));
         setCurrentIntercityTrip(currentTripRes.data);
-        setIntercityTrips(Array.isArray(myTripsRes.data) ? myTripsRes.data : []);
-        setIntercityPassengerOrders(Array.isArray(passengerOrdersRes.data) ? passengerOrdersRes.data : []);
       } else {
         setCurrentIntercityTrip(null);
-        setIntercityTrips([]);
-        setIntercityPassengerOrders([]);
       }
 
       if (nextProfile?.supportsCourier) {

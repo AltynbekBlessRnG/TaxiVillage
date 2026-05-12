@@ -51,7 +51,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.redisService.setUserPresence(userId, 'app', client.id);
       this.redisService.attachPresenceHeartbeat(client, userId, 'app');
       this.logger.log(`Chat client connected: ${client.id} (user: ${userId})`);
-    } catch (error) {
+    } catch {
       this.logger.warn('Chat socket connection rejected: invalid token');
       this.rejectUnauthorized(client);
     }

@@ -43,12 +43,14 @@ services:
       redis:
         condition: service_healthy
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgresql://user:password@postgres:5432/taxivillage?schema=public
-      JWT_SECRET: change_me
+      JWT_SECRET: change_me_local_only_not_for_production
       PORT: 3000
       REDIS_URL: redis://redis:6379
     ports:
-      - "3000:3000"
+      # Host 3001 → avoid conflict when something else already uses Windows port 3000
+      - "3001:3000"
     volumes:
       - ./backend/uploads:/app/uploads
 

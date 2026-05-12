@@ -87,7 +87,7 @@ export const SearchingSheet: React.FC<Props> = ({
               <View style={styles.circleBtn}>
                 <Text style={styles.btnIcon}>✕</Text>
               </View>
-              <Text style={styles.btnLabel}>Отменить заказ</Text>
+              <Text style={styles.btnLabel}>{cancelLabel}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.circleBtnContainer} onPress={onShowDetails}>

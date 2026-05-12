@@ -19,6 +19,7 @@ import { IntercityTripsModule } from './intercity-trips/intercity-trips.module';
 import { IntercityOrdersModule } from './intercity-orders/intercity-orders.module';
 import { IntercityChatModule } from './intercity-chat/intercity-chat.module';
 import { RedisModule } from './redis/redis.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { RedisModule } from './redis/redis.module';
       envFilePath: process.env.ENV_FILE || '.env',
     }),
     RedisModule,
+    HealthModule,
     PrismaModule,
     AuthModule,
     UsersModule,

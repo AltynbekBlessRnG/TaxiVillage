@@ -441,7 +441,7 @@ export class UsersService {
           },
         }));
 
-      const updatedDriver = await tx.driverProfile.update({
+      await tx.driverProfile.update({
         where: { id: baseDriver.id },
         data: {
           supportsTaxi: baseDriver.supportsTaxi ?? true,

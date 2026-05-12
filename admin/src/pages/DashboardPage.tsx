@@ -86,16 +86,6 @@ export const DashboardPage: React.FC<Props> = ({
   // Состояние для модалки документов
   const [selectedDriverDocs, setSelectedDriverDocs] = useState<Driver | null>(null);
 
-  const [tariffForm, setTariffForm] = useState<{
-    name: string;
-    baseFare: string;
-    pricePerKm: string;
-    pricePerMinute: string;
-    isActive: boolean;
-  } | null>(null);
-  const [editingTariffId, setEditingTariffId] = useState<string | null>(null);
-  const [tariffError, setTariffError] = useState<string | null>(null);
-
   const client = React.useMemo(
     () =>
       createAdminClient(
@@ -158,7 +148,7 @@ export const DashboardPage: React.FC<Props> = ({
       if (tab === 'overview') await loadStats();
     };
     load().catch(() => {});
-  }, [tab, loadDrivers, loadTariffs, loadStats]); // Убрали client отсюда
+  }, [tab, client, loadDrivers, loadTariffs, loadStats]);
 
   // Функция одобрения/отклонения документа
   const handleDocAction = async (docId: string, approved: boolean) => {
@@ -174,7 +164,7 @@ export const DashboardPage: React.FC<Props> = ({
         );
         setSelectedDriverDocs({ ...selectedDriverDocs, documents: updatedDocs });
       }
-    } catch (e) {
+    } catch {
       alert('Ошибка при обновлении статуса документа');
     }
   };

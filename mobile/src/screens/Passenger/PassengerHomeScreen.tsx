@@ -170,7 +170,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     activeRideId,
     setActiveRideId,
     activeRide,
-    setActiveRide,
     driverLocation,
     activeRideRoute,
     etaSeconds,
@@ -312,7 +311,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         return true;
       }
 
-      return true;
+      return false;
     });
 
     return () => subscription.remove();
@@ -367,9 +366,6 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
       console.log('Failed to fetch nearby drivers:', error);
     }
   };
-
-  const isSearchingRide =
-    activeRide?.status === 'SEARCHING_DRIVER' || activeCourierOrder?.status === 'SEARCHING_COURIER';
 
   const {
     handleGeocodeAndProceed,

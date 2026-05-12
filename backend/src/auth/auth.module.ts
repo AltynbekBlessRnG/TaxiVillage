@@ -8,13 +8,14 @@ import { AdminGuard } from './admin.guard';
 import { UsersModule } from '../users/users.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { TelegramOtpService } from './telegram-otp.service';
+import { getRequiredEnv } from '../common/required-env';
 
 @Module({
   imports: [
     PassportModule,
     JwtModule.registerAsync({
       useFactory: () => ({
-        secret: process.env.JWT_SECRET || 'dev-secret',
+        secret: getRequiredEnv('JWT_SECRET'),
         signOptions: {
           expiresIn: '15m',
         },

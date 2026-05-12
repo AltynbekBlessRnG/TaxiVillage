@@ -11,8 +11,8 @@ export default {
     "extra": {
       "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY,
       "eas": {
-        "projectId": process.env.EXPO_PUBLIC_EAS_PROJECT_ID
-      }
+  "projectId": "e0a60c8b-e165-49d7-9b26-4c97c40f3644"
+}
     },
     "ios": {
       "bundleIdentifier": "com.taxivillage.app",

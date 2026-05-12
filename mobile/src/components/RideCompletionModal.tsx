@@ -45,7 +45,7 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
       await apiClient.post(`/rides/${rideId}/rate`, { stars: rating });
       onClose();
       onRatingSubmitted?.();
-    } catch (error) {
+    } catch {
       Alert.alert('Ошибка', 'Не удалось отправить оценку');
     } finally {
       setSubmitting(false);

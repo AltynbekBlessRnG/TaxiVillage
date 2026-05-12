@@ -7,7 +7,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Animated,
   FlatList,
   ActivityIndicator,
 } from 'react-native';

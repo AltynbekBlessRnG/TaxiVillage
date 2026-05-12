@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import {
   IsEmail,
   IsIn,
@@ -69,13 +70,27 @@ class ResendCodeDto {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private resolveClientKey(req: Request): string {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim().length > 0) {
+      return forwarded.split(',')[0]?.trim() || req.ip || 'unknown';
+    }
+    return req.ip || 'unknown';
+  }
+
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Post('register/start')
-  startRegister(@Body() dto: RegisterDto) {
+  startRegister(@Req() req: Request, @Body() dto: RegisterDto) {
+    this.authService.enforceRateLimit({
+      bucket: 'auth-register-start',
+      key: this.resolveClientKey(req),
+      limit: 5,
+      windowMs: 60_000,
+    });
     return this.authService.startRegisterVerification(dto);
   }
 
@@ -85,12 +100,24 @@ export class AuthController {
   }
 
   @Post('login')
-  login(@Body() dto: LoginDto) {
+  login(@Req() req: Request, @Body() dto: LoginDto) {
+    this.authService.enforceRateLimit({
+      bucket: 'auth-login',
+      key: this.resolveClientKey(req),
+      limit: 10,
+      windowMs: 60_000,
+    });
     return this.authService.login(dto.phone, dto.password);
   }
 
   @Post('login/start')
-  startLogin(@Body() dto: LoginDto) {
+  startLogin(@Req() req: Request, @Body() dto: LoginDto) {
+    this.authService.enforceRateLimit({
+      bucket: 'auth-login-start',
+      key: this.resolveClientKey(req),
+      limit: 6,
+      windowMs: 60_000,
+    });
     return this.authService.startLoginVerification(dto);
   }
 
@@ -100,17 +127,35 @@ export class AuthController {
   }
 
   @Post('verify-code')
-  verifyCode(@Body() dto: VerifyCodeDto) {
+  verifyCode(@Req() req: Request, @Body() dto: VerifyCodeDto) {
+    this.authService.enforceRateLimit({
+      bucket: 'auth-verify-code',
+      key: this.resolveClientKey(req),
+      limit: 10,
+      windowMs: 60_000,
+    });
     return this.authService.verifyCode(dto.sessionId, dto.code);
   }
 
   @Post('otp/resend')
-  resendCode(@Body() dto: ResendCodeDto) {
+  resendCode(@Req() req: Request, @Body() dto: ResendCodeDto) {
+    this.authService.enforceRateLimit({
+      bucket: 'auth-otp-resend',
+      key: this.resolveClientKey(req),
+      limit: 5,
+      windowMs: 60_000,
+    });
     return this.authService.resendCode(dto.sessionId);
   }
 
   @Post('telegram/webhook')
-  telegramWebhook(@Body() update: any) {
+  telegramWebhook(
+    @Req() req: Request,
+    @Body() update: any,
+  ) {
+    this.authService.validateTelegramWebhookSecret(
+      req.header('x-telegram-bot-api-secret-token') || undefined,
+    );
     return this.authService.handleTelegramWebhook(update);
   }
 

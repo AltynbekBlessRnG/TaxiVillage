@@ -88,7 +88,7 @@ export class IntercityChatGateway implements OnGatewayConnection, OnGatewayDisco
       this.server
         .to(`${data.threadType}:${data.threadId}`)
         .emit('intercity-message:sent', message);
-    } catch (error) {
+    } catch {
       client.emit('error', { message: 'Failed to send intercity message' });
     }
   }

@@ -4,8 +4,10 @@ services:
     runtime: node
     rootDir: backend
     buildCommand: npm install && npm run prisma:generate && npm run build
-    startCommand: npm run start
+    startCommand: npx prisma migrate deploy && npm run start
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: NODE_VERSION
         value: 22
       - key: DATABASE_URL
@@ -14,6 +16,12 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0"
       - key: PORT
         value: 10000
 

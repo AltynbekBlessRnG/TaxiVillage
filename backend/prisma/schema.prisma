@@ -616,6 +616,10 @@ model IntercityBooking {
   comment           String?
   status            IntercityBookingStatus @default(CONFIRMED)
   messages          ChatMessage[]         @relation("IntercityBookingMessages")
+
+  @@index([tripId, status])
+  @@index([passengerId, status])
+  @@unique([tripId, passengerId, status])
 }
 
 model IntercityTripInvite {

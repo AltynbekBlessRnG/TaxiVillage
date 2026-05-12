@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -31,7 +31,7 @@ interface DriverStatusSheetProps {
 
 export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   isOnline,
-  currentRideId,
+  currentRideId: _currentRideId,
   currentRide,
   profile,
   onSwitchMode,

@@ -6,7 +6,13 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"{App.tsx,src/**/*.{ts,tsx}}\"",
+    "lint:fix": "eslint \"{App.tsx,src/**/*.{ts,tsx}}\" --fix",
+    "format": "prettier --write \"{App.tsx,src/**/*.{ts,tsx,js,json}}\"",
+    "format:check": "prettier --check \"{App.tsx,src/**/*.{ts,tsx,js,json}}\"",
+    "test": "node -e \"console.log('No automated mobile tests yet')\""
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.6",
@@ -17,6 +23,7 @@
     "axios": "^1.6.0",
     "dotenv": "^17.3.1",
     "expo": "^55.0.6",
+    "expo-dev-client": "~55.0.32",
     "expo-image-picker": "~55.0.12",
     "expo-location": "~55.1.4",
     "expo-notifications": "^55.0.14",
@@ -36,9 +43,16 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
     "@react-native-community/cli-server-api": "^11.4.1",
     "@types/react": "~19.2.10",
     "@types/react-native": "^0.73.0",
+    "eslint": "^9.37.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "prettier": "^3.6.2",
     "typescript": "^5.4.0"
   }
 }

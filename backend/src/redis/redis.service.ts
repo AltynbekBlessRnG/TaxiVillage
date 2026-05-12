@@ -50,6 +50,19 @@ export class RedisService implements OnModuleDestroy {
     return Boolean(this.redisUrl);
   }
 
+  async ping(): Promise<boolean> {
+    const client = await this.getClient();
+    if (!client) {
+      return false;
+    }
+    try {
+      const pong = await client.ping();
+      return pong === 'PONG';
+    } catch {
+      return false;
+    }
+  }
+
   getRedisUrl() {
     return this.redisUrl;
   }

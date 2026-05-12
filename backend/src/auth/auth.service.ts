@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -33,6 +35,7 @@ export class AuthService {
   private readonly otpTtlMinutes: number;
   private readonly otpResendSeconds: number;
   private readonly maxAttempts = 5;
+  private readonly rateLimitBuckets = new Map<string, number[]>();
 
   constructor(
     private readonly usersService: UsersService,
@@ -320,6 +323,36 @@ export class AuthService {
     return { ok: true };
   }
 
+  validateTelegramWebhookSecret(secretToken?: string) {
+    const expectedSecret = this.configService.get<string>('TELEGRAM_WEBHOOK_SECRET')?.trim();
+    if (!expectedSecret) {
+      throw new UnauthorizedException('Webhook secret is not configured');
+    }
+    if (!secretToken || secretToken !== expectedSecret) {
+      throw new UnauthorizedException('Invalid webhook secret');
+    }
+  }
+
+  enforceRateLimit(params: {
+    bucket: string;
+    key: string;
+    limit: number;
+    windowMs: number;
+  }) {
+    const bucketKey = `${params.bucket}:${params.key}`;
+    const now = Date.now();
+    const windowStart = now - params.windowMs;
+    const existing = this.rateLimitBuckets.get(bucketKey) ?? [];
+    const recent = existing.filter((value) => value > windowStart);
+
+    if (recent.length >= params.limit) {
+      throw new HttpException('Too many requests. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    recent.push(now);
+    this.rateLimitBuckets.set(bucketKey, recent);
+  }
+
   async refresh(refreshToken: string) {
     try {
       const payload = this.jwtService.verify<JwtPayload>(refreshToken);
@@ -463,7 +496,9 @@ export class AuthService {
   }
 
   private toSafeUser(user: any) {
-    const { password: _password, refreshTokenHash: _refreshTokenHash, ...safeUser } = user;
+    const safeUser = { ...user };
+    delete safeUser.password;
+    delete safeUser.refreshTokenHash;
     return safeUser;
   }
 }
