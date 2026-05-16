@@ -1,11 +1,12 @@
-# TaxiVillage production blueprint — Render only (no Supabase).
-# Deploy: Render Dashboard → New → Blueprint → this repo.
+# TaxiVillage — Render Blueprint (FREE tier, no credit card required).
+# Trade-off: backend sleeps after ~15 min idle; free Postgres has limits — see docs/deployment.md
+# For paid always-on stack, use plan: starter / basic-256mb after adding a card that works with Stripe.
 services:
   - type: web
     name: taxivillage-backend
     runtime: node
     rootDir: backend
-    plan: starter
+    plan: free
     buildCommand: npm install && npm run prisma:generate && npm run build
     startCommand: npx prisma migrate deploy && npm run start
     healthCheckPath: /api/health
@@ -48,10 +49,10 @@ services:
 
   - type: keyvalue
     name: taxivillage-redis
-    plan: starter
+    plan: free
     ipAllowList:
       - source: 0.0.0.0/0
-        description: all (tighten in Render dashboard if needed)
+        description: all
     maxmemoryPolicy: noeviction
 
   - type: web
@@ -73,5 +74,5 @@ services:
 
 databases:
   - name: taxivillage-db
-    plan: basic-256mb
+    plan: free
     databaseName: taxivillage
