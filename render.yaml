@@ -1,32 +1,62 @@
+# TaxiVillage production blueprint — Render only (no Supabase).
+# Deploy: Render Dashboard → New → Blueprint → this repo.
 services:
   - type: web
     name: taxivillage-backend
     runtime: node
     rootDir: backend
+    plan: starter
     buildCommand: npm install && npm run prisma:generate && npm run build
     startCommand: npx prisma migrate deploy && npm run start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 22
+        value: "22"
+      - key: PORT
+        value: "10000"
       - key: DATABASE_URL
-        sync: false
-      - key: JWT_SECRET
-        sync: false
+        fromDatabase:
+          name: taxivillage-db
+          property: connectionString
       - key: REDIS_URL
+        fromService:
+          name: taxivillage-redis
+          type: keyvalue
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: APP_ORIGIN
         sync: false
       - key: SENTRY_DSN
         sync: false
       - key: SENTRY_TRACES_SAMPLE_RATE
         value: "0"
-      - key: PORT
-        value: 10000
+      - key: OTP_TTL_MINUTES
+        value: "10"
+      - key: OTP_RESEND_SECONDS
+        value: "45"
 
-  - type: static_site
+  - type: keyvalue
+    name: taxivillage-redis
+    plan: starter
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: all (tighten in Render dashboard if needed)
+    maxmemoryPolicy: noeviction
+
+  - type: web
     name: taxivillage-admin
+    runtime: static
     rootDir: admin
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -34,8 +64,14 @@ services:
       - key: VITE_API_URL
         sync: false
 
-  - type: static_site
+  - type: web
     name: taxivillage-docs
+    runtime: static
     rootDir: docs
-    buildCommand: ""
+    buildCommand: "true"
     staticPublishPath: .
+
+databases:
+  - name: taxivillage-db
+    plan: basic-256mb
+    databaseName: taxivillage
