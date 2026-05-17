@@ -14,8 +14,7 @@
     "skipLibCheck": true,
     "strict": false,
     "moduleResolution": "node",
-    "ignoreDeprecations": "6.0",
-    "types": ["node", "express", "multer"]
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
