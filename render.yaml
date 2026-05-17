@@ -1,12 +1,11 @@
-# TaxiVillage — Render Blueprint (FREE tier, no credit card required).
-# Trade-off: backend sleeps after ~15 min idle; free Postgres has limits — see docs/deployment.md
-# For paid always-on stack, use plan: starter / basic-256mb after adding a card that works with Stripe.
+# TaxiVillage — Render Blueprint (Pro workspace: paid always-on stack).
+# Deploy: Dashboard → Blueprint TaxiVillage → Manual sync after push to main.
 services:
   - type: web
     name: taxivillage-backend
     runtime: node
     rootDir: backend
-    plan: free
+    plan: starter
     buildCommand: npm ci && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm run start
     healthCheckPath: /api/health
@@ -34,7 +33,6 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         generateValue: true
-      # Default hostnames match Render service names; fix in Dashboard if your URLs differ after deploy.
       - key: PUBLIC_BASE_URL
         value: https://taxivillage-backend.onrender.com
       - key: APP_ORIGIN
@@ -48,7 +46,7 @@ services:
 
   - type: keyvalue
     name: taxivillage-redis
-    plan: free
+    plan: starter
     ipAllowList:
       - source: 0.0.0.0/0
         description: all
@@ -58,7 +56,7 @@ services:
     name: taxivillage-admin
     runtime: static
     rootDir: admin
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
@@ -73,5 +71,5 @@ services:
 
 databases:
   - name: taxivillage-db
-    plan: free
+    plan: basic-256mb
     databaseName: taxivillage
