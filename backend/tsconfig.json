@@ -12,9 +12,7 @@
     "sourceMap": true,
     "incremental": true,
     "skipLibCheck": true,
-    "strict": false,
-    "moduleResolution": "node",
-    "ignoreDeprecations": "6.0"
+    "strict": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
