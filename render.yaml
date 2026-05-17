@@ -7,14 +7,14 @@ services:
     runtime: node
     rootDir: backend
     plan: free
-    buildCommand: npm install && npm run prisma:generate && npm run build
+    buildCommand: npm ci && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm run start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "22"
+        value: "20"
       - key: PORT
         value: "10000"
       - key: DATABASE_URL
