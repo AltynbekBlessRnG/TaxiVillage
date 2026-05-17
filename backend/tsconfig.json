@@ -13,9 +13,8 @@
     "incremental": true,
     "skipLibCheck": true,
     "strict": false,
-    "ignoreDeprecations": "5.0",
     "moduleResolution": "node",
-    "types": ["node", "express"]
+    "ignoreDeprecations": "5.0"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
