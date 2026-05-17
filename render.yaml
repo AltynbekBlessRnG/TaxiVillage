@@ -1,5 +1,5 @@
-# TaxiVillage — Render Blueprint (Pro workspace: paid always-on stack).
-# Deploy: Dashboard → Blueprint TaxiVillage → Manual sync after push to main.
+# TaxiVillage — Render Blueprint (Hobby workspace + paid instances ~$23/mo).
+# Fresh deploy: delete old Blueprint in Dashboard → New Blueprint → this repo, branch main.
 services:
   - type: web
     name: taxivillage-backend
