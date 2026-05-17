@@ -34,12 +34,11 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         generateValue: true
+      # Default hostnames match Render service names; fix in Dashboard if your URLs differ after deploy.
       - key: PUBLIC_BASE_URL
-        sync: false
+        value: https://taxivillage-backend.onrender.com
       - key: APP_ORIGIN
-        sync: false
-      - key: SENTRY_DSN
-        sync: false
+        value: https://taxivillage-admin.onrender.com
       - key: SENTRY_TRACES_SAMPLE_RATE
         value: "0"
       - key: OTP_TTL_MINUTES
@@ -63,7 +62,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        sync: false
+        value: https://taxivillage-backend.onrender.com/api
 
   - type: web
     name: taxivillage-docs
