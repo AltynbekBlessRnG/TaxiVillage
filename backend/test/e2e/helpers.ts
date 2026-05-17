@@ -1,12 +1,16 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { io, Socket } from 'socket.io-client';
-import { RideStatus } from '@prisma/client';
+import { RideStatus, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { RedisService } from '../../src/redis/redis.service';
+import { UsersService } from '../../src/users/users.service';
+import type { JwtPayload } from '../../src/auth/auth.service';
 
 type AuthTokens = {
   accessToken: string;
@@ -80,6 +84,7 @@ export async function resetDatabase(prisma: PrismaService) {
     prisma.foodOrder.deleteMany(),
     prisma.menuItem.deleteMany(),
     prisma.menuCategory.deleteMany(),
+    prisma.intercityTripInvite.deleteMany(),
     prisma.intercityTripStatusHistory.deleteMany(),
     prisma.intercityBooking.deleteMany(),
     prisma.intercityTrip.deleteMany(),
@@ -133,6 +138,39 @@ export async function loginUser(
   const response = await http.post('/api/auth/login').send({ phone, password });
   expect(response.status).toBe(201);
   return response.body as AuthTokens;
+}
+
+/**
+ * Mass E2E / load harness: create a verified user in DB and mint an access JWT with the same
+ * secret/options as production auth (OTP is bypassed because phoneVerifiedAt is set).
+ */
+export async function seedVerifiedUserWithAccessToken(
+  app: INestApplication,
+  params: {
+    phone: string;
+    role: UserRole;
+    fullName: string;
+    password?: string;
+  },
+) {
+  const usersService = app.get(UsersService);
+  const jwtService = app.get(JwtService);
+  const password = params.password ?? 'password123';
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await usersService.createUserWithProfile({
+    phone: params.phone,
+    passwordHash,
+    role: params.role,
+    fullName: params.fullName,
+    phoneVerifiedAt: new Date(),
+  });
+  const payload: JwtPayload = {
+    sub: user.id,
+    role: user.role,
+    tokenType: 'access',
+  };
+  const accessToken = jwtService.sign(payload);
+  return { user, accessToken, password };
 }
 
 export async function makeReadyTaxiDriver(
@@ -191,6 +229,36 @@ export async function makeReadyTaxiDriver(
   return prisma.driverProfile.findUnique({
     where: { userId },
     include: { user: true, car: true, documents: true },
+  });
+}
+
+/** Same documents/car as taxi, plus intercity flag (JWT role stays DRIVER for intercity APIs). */
+export async function makeReadyIntercityDriver(
+  prisma: PrismaService,
+  userId: string,
+  fullName = 'Ready Intercity Driver',
+) {
+  const base = await makeReadyTaxiDriver(prisma, userId, fullName);
+  await prisma.driverProfile.update({
+    where: { userId },
+    data: { supportsIntercity: true },
+  });
+  return prisma.driverProfile.findUnique({
+    where: { userId },
+    include: { user: true, car: true, documents: true },
+  });
+}
+
+/** Lower `priority` (0 first) is offered taxi rides earlier when distances tie. */
+export async function setDriverDispatchPriority(
+  prisma: PrismaService,
+  userId: string,
+  priority: number,
+) {
+  const day = new Date(Date.UTC(2020, 0, 2 + priority));
+  await prisma.driverProfile.update({
+    where: { userId },
+    data: { lastRideFinishedAt: day },
   });
 }
 

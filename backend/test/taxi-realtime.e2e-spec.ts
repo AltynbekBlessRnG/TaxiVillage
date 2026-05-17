@@ -32,7 +32,7 @@ describe('Taxi realtime E2E', () => {
   });
 
   afterAll(async () => {
-    await ctx.app.close();
+    await ctx?.app?.close();
   });
 
   it('runs passenger -> offer -> accept -> synced recovery endpoints', async () => {
