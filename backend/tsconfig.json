@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "CommonJS",
+    "module": "commonjs",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -12,8 +12,12 @@
     "rootDir": "./src",
     "incremental": true,
     "skipLibCheck": true,
-    "strict": false,
-    "moduleResolution": "node",
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "moduleResolution": "node16",
     "ignoreDeprecations": "5.0"
   },
   "include": ["src/**/*"],
