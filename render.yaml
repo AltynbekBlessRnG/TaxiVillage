@@ -8,7 +8,7 @@ services:
     plan: starter
     buildCommand: npm ci && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm run start
-    healthCheckPath: /api/health
+    healthCheckPath: /api/health/ready
     envVars:
       - key: NODE_ENV
         value: production
@@ -34,9 +34,9 @@ services:
       - key: TELEGRAM_WEBHOOK_SECRET
         generateValue: true
       - key: PUBLIC_BASE_URL
-        value: https://taxivillage-backend.onrender.com
+        value: https://taxivillage-backend-14gq.onrender.com
       - key: APP_ORIGIN
-        value: https://taxivillage-admin.onrender.com
+        value: https://taxivillage-admin-eul9.onrender.com
       - key: SENTRY_TRACES_SAMPLE_RATE
         value: "0"
       - key: OTP_TTL_MINUTES
@@ -60,7 +60,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://taxivillage-backend.onrender.com/api
+        value: https://taxivillage-backend-14gq.onrender.com/api
 
   - type: web
     name: taxivillage-docs
