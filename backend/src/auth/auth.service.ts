@@ -13,6 +13,7 @@ import { randomInt, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { TelegramOtpService } from './telegram-otp.service';
+import { phonesMatch } from './telegram-phone.util';
 
 type PublicRegisterRole = 'PASSENGER' | 'DRIVER' | 'MERCHANT';
 
@@ -28,6 +29,12 @@ type VerificationSessionResponse = {
   telegramBotUrl: string | null;
   resendAfterSeconds: number;
   debugCode?: string;
+};
+
+type VerificationStatusResponse = {
+  verified: boolean;
+  verificationToken: string | null;
+  expiresAt: string;
 };
 
 @Injectable()
@@ -155,9 +162,8 @@ export class AuthService {
 
     const refreshed = await this.rotateSessionCode(session.id);
     if (refreshed.telegramChatId) {
-      const delivered = await this.telegramOtpService.sendCode(
+      const delivered = await this.telegramOtpService.requestPhoneContact(
         refreshed.telegramChatId,
-        refreshed.code,
         refreshed.phone,
       );
       if (delivered) {
@@ -169,6 +175,22 @@ export class AuthService {
     }
 
     return this.buildSessionResponse(refreshed);
+  }
+
+  async getVerificationStatus(sessionId: string): Promise<VerificationStatusResponse> {
+    const session = await this.prisma.phoneOtpSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session || session.usedAt) {
+      throw new BadRequestException('Сессия подтверждения не найдена');
+    }
+
+    return {
+      verified: Boolean(session.verifiedAt && session.verificationToken),
+      verificationToken: session.verificationToken ?? null,
+      expiresAt: session.expiresAt.toISOString(),
+    };
   }
 
   async verifyCode(sessionId: string, code: string) {
@@ -288,12 +310,14 @@ export class AuthService {
   async handleTelegramWebhook(update: any) {
     const messageText = update?.message?.text?.trim();
     const chatId = update?.message?.chat?.id?.toString();
+    const contact = update?.message?.contact;
+    const fromUserId = update?.message?.from?.id;
 
-    if (!messageText || !chatId) {
+    if (!chatId) {
       return { ok: true };
     }
 
-    if (messageText.startsWith('/start otp_')) {
+    if (messageText?.startsWith('/start otp_')) {
       const sessionId = messageText.replace('/start otp_', '').trim();
       const session = await this.prisma.phoneOtpSession.findUnique({
         where: { id: sessionId },
@@ -308,7 +332,7 @@ export class AuthService {
       }
 
       const refreshed = await this.rotateSessionCode(session.id, { telegramChatId: chatId });
-      const delivered = await this.telegramOtpService.sendCode(chatId, refreshed.code, refreshed.phone);
+      const delivered = await this.telegramOtpService.requestPhoneContact(chatId, refreshed.phone);
 
       if (delivered) {
         await this.prisma.phoneOtpSession.update({
@@ -316,6 +340,62 @@ export class AuthService {
           data: { telegramDeliveredAt: new Date(), telegramChatId: chatId },
         });
       }
+
+      return { ok: true };
+    }
+
+    if (contact) {
+      const session = await this.prisma.phoneOtpSession.findFirst({
+        where: {
+          telegramChatId: chatId,
+          usedAt: null,
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+      });
+
+      if (!session) {
+        await this.telegramOtpService.sendText(
+          chatId,
+          'Активная сессия подтверждения не найдена. Вернитесь в приложение и начните вход заново.',
+        );
+        return { ok: true };
+      }
+
+      if (contact.user_id && fromUserId && contact.user_id !== fromUserId) {
+        await this.telegramOtpService.sendText(
+          chatId,
+          'Нужно отправить именно свой номер через кнопку Telegram, а не чужой контакт.',
+        );
+        return { ok: true };
+      }
+
+      if (!phonesMatch(session.phone, contact.phone_number || '')) {
+        await this.telegramOtpService.sendText(
+          chatId,
+          `Номер из Telegram не совпал с номером из приложения.\n` +
+            `В приложении: ${session.phone}\n` +
+            `Отправьте тот же номер или начните заново.`,
+        );
+        return { ok: true };
+      }
+
+      const verificationToken = session.verificationToken || randomUUID();
+      await this.prisma.phoneOtpSession.update({
+        where: { id: session.id },
+        data: {
+          verifiedAt: new Date(),
+          verificationToken,
+          telegramChatId: chatId,
+          telegramDeliveredAt: new Date(),
+        },
+      });
+
+      await this.telegramOtpService.sendText(
+        chatId,
+        'Номер подтвержден. Возвращайтесь в приложение TaxiVillage, вход можно завершить.',
+      );
 
       return { ok: true };
     }

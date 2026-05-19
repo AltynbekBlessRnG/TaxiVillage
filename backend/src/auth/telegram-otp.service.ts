@@ -69,4 +69,44 @@ export class TelegramOtpService {
 
     return response.ok;
   }
+
+  async requestPhoneContact(chatId: string, phone: string) {
+    if (!this.isConfigured) {
+      return false;
+    }
+
+    const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text:
+          `Подтверди номер для TaxiVillage.\n` +
+          `В приложении указан номер: ${phone}\n\n` +
+          `Нажми кнопку ниже, чтобы отправить свой контакт из Telegram.`,
+        reply_markup: {
+          keyboard: [
+            [
+              {
+                text: 'Поделиться номером',
+                request_contact: true,
+              },
+            ],
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: true,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      this.logger.warn(`Telegram requestPhoneContact failed: ${response.status} ${body}`);
+      return false;
+    }
+
+    return true;
+  }
 }

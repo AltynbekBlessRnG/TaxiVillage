@@ -1,14 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  KeyboardAvoidingView,
   Linking,
-  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -34,10 +31,10 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
   const { flow, sessionId, phone, telegramBotUrl, debugCode } = route.params;
   const [botUrl, setBotUrl] = useState<string | null>(telegramBotUrl);
   const [localDebugCode, setLocalDebugCode] = useState<string | undefined>(debugCode);
-  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
   const title = useMemo(
     () => (flow === 'REGISTER' ? 'Подтверди номер' : 'Подтверди вход'),
@@ -46,47 +43,102 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const completePath = flow === 'REGISTER' ? '/auth/register/complete' : '/auth/login/complete';
 
-  const handleComplete = async () => {
-    setSubmitting(true);
-    setError(null);
+  const finishAuth = useCallback(async (verificationToken: string) => {
+    const completeResponse = await apiClient.post(completePath, {
+      verificationToken,
+    });
+
+    const { accessToken, refreshToken, user } = completeResponse.data;
+    setAuthToken(accessToken);
+    await saveAuth({
+      accessToken,
+      refreshToken,
+      role: user.role,
+      userId: user.id,
+    });
+    await registerPushToken().catch(() => null);
+
+    const nextRoute = routeAfterAuth(user.role);
+    if (nextRoute === 'PassengerHome') {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'PassengerHome', params: {} }],
+      });
+      return;
+    }
+
+    navigation.reset({
+      index: 0,
+      routes: [{ name: nextRoute as 'DriverHome' | 'MerchantDashboard' }],
+    });
+  }, [completePath, navigation]);
+
+  const checkVerificationStatus = async (silent = false) => {
+    if (!silent) {
+      setCheckingStatus(true);
+      setError(null);
+    }
+
     try {
-      const verifyResponse = await apiClient.post('/auth/verify-code', {
-        sessionId,
-        code,
-      });
-      const completeResponse = await apiClient.post(completePath, {
-        verificationToken: verifyResponse.data?.verificationToken,
-      });
-
-      const { accessToken, refreshToken, user } = completeResponse.data;
-      setAuthToken(accessToken);
-      await saveAuth({
-        accessToken,
-        refreshToken,
-        role: user.role,
-        userId: user.id,
-      });
-      await registerPushToken().catch(() => null);
-
-      const nextRoute = routeAfterAuth(user.role);
-      if (nextRoute === 'PassengerHome') {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'PassengerHome', params: {} }],
-        });
+      const statusResponse = await apiClient.post('/auth/verification-status', { sessionId });
+      if (statusResponse.data?.verified && statusResponse.data?.verificationToken) {
+        setSubmitting(true);
+        await finishAuth(statusResponse.data.verificationToken);
         return;
       }
 
-      navigation.reset({
-        index: 0,
-        routes: [{ name: nextRoute as 'DriverHome' | 'MerchantDashboard' }],
-      });
+      if (!silent) {
+        setError('Подтверждение из Telegram еще не получено. Нажми кнопку в боте и отправь свой номер.');
+      }
     } catch (e: any) {
-      const message = e?.response?.data?.message || 'Не удалось подтвердить номер';
-      setError(Array.isArray(message) ? message.join(', ') : String(message));
+      if (!silent) {
+        const message = e?.response?.data?.message || 'Не удалось проверить статус подтверждения';
+        setError(Array.isArray(message) ? message.join(', ') : String(message));
+      }
     } finally {
+      if (!silent) {
+        setCheckingStatus(false);
+      }
       setSubmitting(false);
     }
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const timer = setInterval(() => {
+      void (async () => {
+        if (!active) {
+          return;
+        }
+
+        try {
+          const statusResponse = await apiClient.post('/auth/verification-status', { sessionId });
+          if (statusResponse.data?.verified && statusResponse.data?.verificationToken) {
+            active = false;
+            setSubmitting(true);
+            await finishAuth(statusResponse.data.verificationToken);
+          }
+        } catch {
+          // Ignore polling errors and let the manual button show a visible error.
+        } finally {
+          if (active) {
+            setSubmitting(false);
+          }
+        }
+      })();
+    }, 4000);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [sessionId, finishAuth]);
+
+  const handleComplete = async () => {
+    setSubmitting(true);
+    setError(null);
+    await checkVerificationStatus();
   };
 
   const handleResend = async () => {
@@ -101,7 +153,7 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
         setLocalDebugCode(response.data.debugCode);
       }
     } catch (e: any) {
-      const message = e?.response?.data?.message || 'Не удалось отправить код снова';
+      const message = e?.response?.data?.message || 'Не удалось отправить запрос снова';
       setError(Array.isArray(message) ? message.join(', ') : String(message));
     } finally {
       setResending(false);
@@ -110,11 +162,8 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.content}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Text style={styles.backButtonText}>← Назад</Text>
           </TouchableOpacity>
@@ -123,21 +172,15 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={styles.eyebrow}>Telegram OTP</Text>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>
-              Отправь код в Telegram-боте и введи его здесь. Номер: {phone}
+              Открой Telegram-бота, отправь свой контакт через кнопку Telegram и вернись сюда. Номер: {phone}
             </Text>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.label}>Код подтверждения</Text>
-            <TextInput
-              style={styles.input}
-              value={code}
-              onChangeText={setCode}
-              placeholder="6 цифр"
-              placeholderTextColor="#71717A"
-              keyboardType="number-pad"
-              maxLength={6}
-            />
+            <Text style={styles.label}>Что делать</Text>
+            <Text style={styles.instructions}>1. Открой Telegram-бота.</Text>
+            <Text style={styles.instructions}>2. Нажми кнопку отправки номера в Telegram.</Text>
+            <Text style={styles.instructions}>3. Вернись сюда и нажми кнопку проверки подтверждения.</Text>
 
             {localDebugCode ? (
               <Text style={styles.debugText}>Тестовый код: {localDebugCode}</Text>
@@ -148,10 +191,10 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleComplete}
-              disabled={submitting}
+              disabled={submitting || checkingStatus}
             >
               <Text style={styles.primaryButtonText}>
-                {submitting ? 'Проверяем...' : 'Подтвердить номер'}
+                {submitting || checkingStatus ? 'Проверяем...' : 'Я подтвердил номер в Telegram'}
               </Text>
             </TouchableOpacity>
 
@@ -166,12 +209,12 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
 
             <Pressable onPress={handleResend} disabled={resending}>
               <Text style={styles.linkText}>
-                {resending ? 'Отправляем код...' : 'Отправить код еще раз'}
+                {resending ? 'Отправляем запрос снова...' : 'Отправить запрос в Telegram еще раз'}
               </Text>
             </Pressable>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -240,21 +283,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 10,
   },
-  input: {
-    backgroundColor: '#18181B',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    marginBottom: 10,
-    color: '#F4F4F5',
-    fontSize: 18,
-    letterSpacing: 4,
+  instructions: {
+    color: '#D4D4D8',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 6,
   },
   debugText: {
     color: '#FCD34D',
     fontSize: 13,
+    marginTop: 8,
     marginBottom: 10,
     fontWeight: '700',
   },
@@ -268,7 +306,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
   },
   primaryButtonText: {
     color: '#09090B',

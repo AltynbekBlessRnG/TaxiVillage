@@ -66,6 +66,11 @@ class ResendCodeDto {
   sessionId!: string;
 }
 
+class VerificationStatusDto {
+  @IsString()
+  sessionId!: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -146,6 +151,11 @@ export class AuthController {
       windowMs: 60_000,
     });
     return this.authService.resendCode(dto.sessionId);
+  }
+
+  @Post('verification-status')
+  verificationStatus(@Body() dto: VerificationStatusDto) {
+    return this.authService.getVerificationStatus(dto.sessionId);
   }
 
   @Post('telegram/webhook')
