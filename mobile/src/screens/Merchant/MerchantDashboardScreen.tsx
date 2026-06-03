@@ -3,7 +3,10 @@ import {
   ActivityIndicator,
   Animated,
   ImageBackground,
+  Keyboard,
+  KeyboardAvoidingView,
   Platform,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -274,6 +277,12 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+      >
+        <Pressable style={styles.flex} onPress={Keyboard.dismiss}>
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.burgerBtn} onPress={() => setIsMenuOpen(true)}>
           <Text style={styles.burgerIcon}>☰</Text>
@@ -297,7 +306,12 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      >
         <ImageBackground
           source={coverUri ? { uri: coverUri } : undefined}
           style={[styles.coverPreview, { backgroundColor: profile?.tone || '#7C2D12' }]}
@@ -446,6 +460,8 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+        </Pressable>
+      </KeyboardAvoidingView>
 
       <MerchantSideDrawer
         visible={isMenuOpen}
@@ -504,6 +520,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#09090B',
+  },
+  flex: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

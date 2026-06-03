@@ -59,7 +59,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
-            <Text style={styles.eyebrow}>TaxiVillage</Text>
             <Text style={styles.title}>Вход в аккаунт</Text>
             <Text style={styles.subtitle}>Продолжайте работу в приложении без лишнего шума.</Text>
           </View>

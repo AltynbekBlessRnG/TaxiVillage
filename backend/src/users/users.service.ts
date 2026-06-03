@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client/index';
 import { randomUUID } from 'crypto';
 
+const INITIAL_DRIVER_BALANCE = 2000;
+
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -48,6 +50,7 @@ export class UsersService {
               supportsIntercity: false,
               driverMode: 'TAXI',
               courierTransportType: 'FOOT',
+              balance: INITIAL_DRIVER_BALANCE,
             },
           },
         },
@@ -71,6 +74,7 @@ export class UsersService {
               driverMode: 'COURIER',
               courierTransportType: 'FOOT',
               status: 'APPROVED',
+              balance: INITIAL_DRIVER_BALANCE,
             },
           },
         },
@@ -109,6 +113,7 @@ export class UsersService {
               supportsCourier: false,
               supportsIntercity: true,
               driverMode: 'INTERCITY',
+              balance: INITIAL_DRIVER_BALANCE,
             },
           },
         },
@@ -306,6 +311,7 @@ export class UsersService {
             status: 'APPROVED',
             isOnline: false,
             rating: 5,
+            balance: INITIAL_DRIVER_BALANCE,
             supportsTaxi: false,
             supportsCourier: false,
             supportsIntercity: true,
@@ -320,6 +326,7 @@ export class UsersService {
           status: baseDriver.status,
           isOnline: baseDriver.isOnline,
           rating: baseDriver.rating,
+          balance: Number(baseDriver.balance ?? 0) > 0 ? baseDriver.balance : INITIAL_DRIVER_BALANCE,
           supportsIntercity: true,
           supportsCourier: baseDriver.supportsCourier,
           supportsTaxi: baseDriver.supportsTaxi,
@@ -367,7 +374,7 @@ export class UsersService {
             status: 'APPROVED',
             isOnline: false,
             rating: 5,
-            balance: 0,
+            balance: INITIAL_DRIVER_BALANCE,
             supportsTaxi: false,
             supportsCourier: true,
             supportsIntercity: false,
@@ -383,7 +390,7 @@ export class UsersService {
           status: baseDriver.status,
           isOnline: baseDriver.isOnline,
           rating: baseDriver.rating,
-          balance: baseDriver.balance,
+          balance: Number(baseDriver.balance ?? 0) > 0 ? baseDriver.balance : INITIAL_DRIVER_BALANCE,
           supportsCourier: true,
           supportsTaxi: baseDriver.supportsTaxi,
           supportsIntercity: baseDriver.supportsIntercity,
@@ -432,7 +439,7 @@ export class UsersService {
             status: 'APPROVED',
             isOnline: false,
             rating: 5,
-            balance: 0,
+            balance: INITIAL_DRIVER_BALANCE,
             supportsTaxi: true,
             supportsCourier: true,
             supportsIntercity: false,
@@ -449,6 +456,7 @@ export class UsersService {
           supportsIntercity: baseDriver.supportsIntercity ?? false,
           driverMode: baseDriver.driverMode ?? 'TAXI',
           courierTransportType: baseDriver.courierTransportType ?? 'FOOT',
+          balance: Number(baseDriver.balance ?? 0) > 0 ? baseDriver.balance : INITIAL_DRIVER_BALANCE,
         },
       });
 

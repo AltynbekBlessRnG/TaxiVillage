@@ -73,7 +73,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
-            <Text style={styles.eyebrow}>TaxiVillage</Text>
             <Text style={styles.title}>Создать аккаунт</Text>
             <Text style={styles.subtitle}>
               Быстрая регистрация в строгом интерфейсе без лишних отвлекающих деталей.

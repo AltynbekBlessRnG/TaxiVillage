@@ -39,6 +39,7 @@ export const ServiceScreen: React.FC<ServiceScreenProps> = ({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       >
         <View style={styles.header}>
           {onBack ? (
@@ -125,7 +126,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 40,
+    paddingBottom: 96,
   },
   header: {
     marginBottom: 20,
