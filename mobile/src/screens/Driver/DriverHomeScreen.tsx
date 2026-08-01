@@ -207,21 +207,6 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     refreshMessagesSummary().catch(() => {});
   }, [isFocused, loadDriverShell, refreshMessagesSummary]);
 
-  useEffect(() => {
-    if (!isFocused) {
-      return;
-    }
-
-    Location.getForegroundPermissionsAsync()
-      .then((result) => {
-        if (result.status !== 'granted') {
-          return Location.requestForegroundPermissionsAsync();
-        }
-        return result;
-      })
-      .catch(() => null);
-  }, [isFocused]);
-
   const closeDriverModal = useCallback(() => {
     setDriverModal((current) => ({
       ...current,
@@ -238,7 +223,35 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     });
   }, []);
 
+  const confirmLocationDisclosure = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        openDriverModal({
+          title: 'Геолокация во время работы',
+          message:
+            'Когда вы нажимаете «На линии», TaxiVillage передаёт вашу геопозицию клиенту и серверу, чтобы показывать ближайшие заказы и движение к адресу. Отслеживание продолжается в фоне только пока вы на линии. После перехода офлайн оно останавливается.',
+          primaryLabel: 'Продолжить',
+          secondaryLabel: 'Не сейчас',
+          onPrimary: () => {
+            closeDriverModal();
+            resolve(true);
+          },
+          onSecondary: () => {
+            closeDriverModal();
+            resolve(false);
+          },
+        });
+      }),
+    [closeDriverModal, openDriverModal],
+  );
+
   const ensureBackgroundPermissions = useCallback(async () => {
+    const currentBackground = await Location.getBackgroundPermissionsAsync();
+    if (currentBackground.status !== 'granted') {
+      const accepted = await confirmLocationDisclosure();
+      if (!accepted) return false;
+    }
+
     const foreground = await Location.requestForegroundPermissionsAsync();
     if (foreground.status !== 'granted') {
       openDriverModal({
@@ -260,7 +273,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     return true;
-  }, [openDriverModal]);
+  }, [confirmLocationDisclosure, openDriverModal]);
 
   const openProfileActionModal = useCallback(
     (title: string, message: string) => {
@@ -372,7 +385,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         // Ignore offline cleanup errors.
       }
     },
-    [ensureBackgroundPermissions, openProfileActionModal, profile?.driverMode],
+    [
+      ensureBackgroundPermissions,
+      navigation,
+      openDriverModal,
+      openProfileActionModal,
+      profile?.driverMode,
+    ],
   );
 
   const handleLogout = useCallback(async () => {
@@ -844,7 +863,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           toLng: incomingOffer.toLng,
         })
       : [];
-  }, [availableCourierOrders, courierLocation, currentCourierOrder, currentModeIsCourier, incomingOffer, location]);
+  }, [availableCourierOrders, courierLocation, currentCourierOrder, currentModeIsCourier, currentRide, incomingOffer, location]);
 
   const renderedRouteCoordinates = useMemo(() => {
     if (currentModeIsCourier && currentCourierOrder) {
@@ -1128,6 +1147,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       ) : null}
 
+      <TouchableOpacity
+        style={styles.foodDeliveryBtn}
+        onPress={() => navigation.navigate('FoodDeliveries')}
+      >
+        <Text style={styles.foodDeliveryText}>Доставка еды</Text>
+      </TouchableOpacity>
+
       {incomingOffer ? (
         <RideOfferSheet
           offer={incomingOffer}
@@ -1381,6 +1407,24 @@ const styles = StyleSheet.create({
   },
   intercityHubBtnActive: {
     backgroundColor: '#082F49',
+  },
+  foodDeliveryBtn: {
+    position: 'absolute',
+    top: 156,
+    left: 20,
+    backgroundColor: '#3F1F0F',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#FB923C',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    zIndex: 10,
+    elevation: 22,
+  },
+  foodDeliveryText: {
+    color: '#FED7AA',
+    fontSize: 13,
+    fontWeight: '900',
   },
   intercityHubText: {
     color: '#BAE6FD',

@@ -15,6 +15,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { createChatSocket, Message as ChatSocketMessage } from '../../api/chatSocket';
 import { loadAuth } from '../../storage/authStorage';
+import { showChatSafetyActions } from '../../utils/chatSafety';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatScreen'>;
 
@@ -45,6 +46,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
   const flatListRef = useRef<FlatList>(null);
   const socketRef = useRef<any>(null);
   const currentUserId = useRef<string>('');
@@ -92,6 +94,10 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         if (!auth?.accessToken) return;
 
         currentUserId.current = auth.userId || '';
+        const blockedResponse = await apiClient
+          .get<{ blockedUserIds: string[] }>('/moderation/blocked')
+          .catch(() => null);
+        setBlockedUserIds(new Set(blockedResponse?.data.blockedUserIds || []));
         const socket = createChatSocket();
         socketRef.current = socket;
         await socket.connect(rideId);
@@ -166,6 +172,9 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwnMessage = item.senderId === currentUserId.current;
+    if (!isOwnMessage && blockedUserIds.has(item.senderId)) {
+      return null;
+    }
     const senderName = item.senderName || 'Водитель';
     const receiverName = item.receiverName || 'Пассажир';
 
@@ -177,9 +186,24 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
             {new Date(item.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
-        <View style={[styles.messageContent, isOwnMessage && styles.ownBubble]}>
+        <TouchableOpacity
+          activeOpacity={isOwnMessage ? 1 : 0.8}
+          onLongPress={
+            isOwnMessage
+              ? undefined
+              : () =>
+                  showChatSafetyActions({
+                    messageId: item.id,
+                    targetUserId: item.senderId,
+                    onBlocked: (userId) =>
+                      setBlockedUserIds((current) => new Set([...current, userId])),
+                  })
+          }
+          accessibilityHint={isOwnMessage ? undefined : 'Удерживайте, чтобы пожаловаться или заблокировать'}
+          style={[styles.messageContent, isOwnMessage && styles.ownBubble]}
+        >
           <Text style={styles.messageText}>{item.content}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -218,6 +242,9 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
       />
 
       <View style={styles.inputContainer}>
+        {blockedUserIds.size > 0 ? (
+          <Text style={styles.blockedNotice}>Заблокированные сообщения скрыты</Text>
+        ) : null}
         <TextInput
           style={styles.textInput}
           value={newMessage}
@@ -273,6 +300,7 @@ const styles = StyleSheet.create({
   ownBubble: { backgroundColor: '#27272A' },
   messageText: { fontSize: 14, color: '#F4F4F5', lineHeight: 18 },
   inputContainer: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#09090B', borderTopWidth: 1, borderTopColor: '#18181B' },
+  blockedNotice: { position: 'absolute', top: -22, left: 20, color: '#A1A1AA', fontSize: 12 },
   textInput: { flex: 1, backgroundColor: '#18181B', color: '#F4F4F5', borderRadius: 16, borderWidth: 1, borderColor: '#27272A', paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, maxHeight: 100 },
   sendButton: { backgroundColor: '#F4F4F5', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 18, marginLeft: 12 },
   sendButtonDisabled: { opacity: 0.55 },

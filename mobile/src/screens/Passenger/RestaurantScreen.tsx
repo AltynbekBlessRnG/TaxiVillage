@@ -25,6 +25,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Restaurant'>;
 
 type CartEntry = { menuItemId: string; name: string; price: string; qty: number };
 type CategoryOffset = { id: string; y: number };
+type MerchantModalState = {
+  visible: boolean;
+  title: string;
+  message: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  primaryVariant?: 'default' | 'danger';
+  onPrimary?: () => void;
+  onSecondary?: () => void;
+};
 
 export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
   const { restaurantId, restaurantName } = route.params;
@@ -33,16 +43,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [categoryOffsets, setCategoryOffsets] = useState<Record<string, number>>({});
-  const [modal, setModal] = useState<{
-    visible: boolean;
-    title: string;
-    message: string;
-    primaryLabel?: string;
-    secondaryLabel?: string;
-    primaryVariant?: 'default' | 'danger';
-    onPrimary?: () => void;
-    onSecondary?: () => void;
-  }>({
+  const [modal, setModal] = useState<MerchantModalState>({
     visible: false,
     title: '',
     message: '',
@@ -57,11 +58,11 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
       message: '',
     });
 
-  const openModal = (next: Omit<typeof modal, 'visible'>) =>
+  const openModal = useCallback((next: Omit<MerchantModalState, 'visible'>) =>
     setModal({
       visible: true,
       ...next,
-    });
+    }), []);
 
   const loadMerchant = useCallback(() => {
     setLoading(true);
@@ -76,7 +77,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
         }),
       )
       .finally(() => setLoading(false));
-  }, [restaurantId]);
+  }, [openModal, restaurantId]);
 
   useEffect(() => {
     loadMerchant();
@@ -88,7 +89,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
     }, [loadMerchant]),
   );
 
-  const categories = merchant?.menuCategories ?? [];
+  const categories = useMemo(() => merchant?.menuCategories ?? [], [merchant?.menuCategories]);
 
   useEffect(() => {
     if (!selectedCategoryId && categories.length > 0) {
@@ -245,7 +246,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
 
         <View style={styles.contactRow}>
           <View style={styles.contactInfo}>
-            <Text style={styles.contactLabel}>WhatsApp ресторана</Text>
+            <Text style={styles.contactLabel}>Резервная связь с заведением</Text>
             <Text style={styles.contactValue}>
               {merchant?.whatsAppPhone || 'Номер пока не указан'}
             </Text>
@@ -278,7 +279,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                 }
               }}
             >
-              <Text style={styles.contactButtonText}>WhatsApp</Text>
+              <Text style={styles.contactButtonText}>Написать в WhatsApp</Text>
             </TouchableOpacity>
           ) : null}
         </View>

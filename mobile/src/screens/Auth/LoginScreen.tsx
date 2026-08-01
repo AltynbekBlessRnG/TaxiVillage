@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { apiClient } from '../../api/client';
+import { apiClient, setAuthToken } from '../../api/client';
+import { saveAuth } from '../../storage/authStorage';
+import { registerPushToken } from '../../utils/notifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -28,6 +30,41 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     setError(null);
     try {
+      const reviewPhones = String(process.env.EXPO_PUBLIC_APP_REVIEW_PHONES || '')
+        .split(',')
+        .map((value) => value.replace(/\D/g, ''))
+        .filter(Boolean);
+      const normalizedPhone = phone.replace(/\D/g, '');
+
+      if (reviewPhones.includes(normalizedPhone)) {
+        const response = await apiClient.post('/auth/review-login', { phone, password });
+        const { accessToken, refreshToken, user } = response.data;
+        setAuthToken(accessToken);
+        await saveAuth({
+          accessToken,
+          refreshToken,
+          role: user.role,
+          userId: user.id,
+        });
+        await registerPushToken().catch(() => null);
+
+        const routeName = ['DRIVER', 'DRIVER_TAXI', 'COURIER', 'DRIVER_INTERCITY'].includes(
+          user.role,
+        )
+          ? 'DriverHome'
+          : user.role === 'MERCHANT'
+            ? 'MerchantDashboard'
+            : 'PassengerHome';
+        navigation.reset({
+          index: 0,
+          routes:
+            routeName === 'PassengerHome'
+              ? [{ name: 'PassengerHome', params: {} }]
+              : [{ name: routeName }],
+        });
+        return;
+      }
+
       const response = await apiClient.post('/auth/login/start', { phone, password });
       navigation.navigate('VerifyPhone', {
         flow: 'LOGIN',

@@ -8,6 +8,7 @@ import { IntercityBookingStatus, MessageSender } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ModerationService } from '../moderation/moderation.service';
 
 export type IntercityThreadType = 'ORDER' | 'BOOKING' | 'TRIP';
 
@@ -44,6 +45,7 @@ export class IntercityChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly moderationService: ModerationService,
   ) {}
 
   async getMessages(
@@ -104,6 +106,12 @@ export class IntercityChatService {
 
     if (threadType === 'TRIP') {
       return this.sendTripMessage(userId, threadId, content.trim(), participant);
+    }
+    if (
+      !participant.receiverUserId ||
+      (await this.moderationService.isBlockedBetween(userId, participant.receiverUserId))
+    ) {
+      throw new ForbiddenException('Обмен сообщениями с этим пользователем заблокирован');
     }
 
     const created = await this.prisma.chatMessage.create({
@@ -325,7 +333,17 @@ export class IntercityChatService {
     participant: ParticipantContext,
   ) {
     const messageGroupId = randomUUID();
-    const recipients = Array.from(new Set([userId, ...(participant.receiverUserIds ?? [])]));
+    const candidateRecipients = Array.from(
+      new Set([userId, ...(participant.receiverUserIds ?? [])]),
+    );
+    const blockedCounterparts = await this.moderationService.getBlockedCounterpartIds(
+      userId,
+      candidateRecipients,
+    );
+    const recipients = candidateRecipients.filter(
+      (receiverUserId) =>
+        receiverUserId === userId || !blockedCounterparts.has(receiverUserId),
+    );
 
     const createdMessages = await this.prisma.$transaction(
       recipients.map((receiverUserId) =>

@@ -22,6 +22,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, logout } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { LegalLinks } from '../../components/LegalLinks';
 import { PrimaryButton, SecondaryButton } from '../../components/ServiceScreen';
 import { MerchantSideDrawer } from './MerchantSideDrawer';
 import { resolveApiAssetUrl } from '../../utils/assets';
@@ -49,8 +50,14 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [whatsAppPhone, setWhatsAppPhone] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [etaMinutes, setEtaMinutes] = useState('');
   const [minOrder, setMinOrder] = useState('');
+  const [deliveryFee, setDeliveryFee] = useState('700');
+  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState('8');
+  const [openTime, setOpenTime] = useState('09:00');
+  const [closeTime, setCloseTime] = useState('23:00');
   const [isOpen, setIsOpen] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [modal, setModal] = useState<MerchantModalState>({
@@ -88,8 +95,19 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         setDescription(next?.description || '');
         setCoverImageUrl(next?.coverImageUrl || '');
         setWhatsAppPhone(next?.whatsAppPhone || '');
+        setContactPhone(next?.contactPhone || next?.user?.phone || '');
+        setAddress(next?.address || '');
         setEtaMinutes(next?.etaMinutes ? String(next.etaMinutes) : '');
         setMinOrder(next?.minOrder ? String(Math.round(Number(next.minOrder))) : '');
+        setDeliveryFee(
+          next?.deliveryFee != null ? String(Math.round(Number(next.deliveryFee))) : '700',
+        );
+        setDeliveryRadiusKm(
+          next?.deliveryRadiusKm != null ? String(next.deliveryRadiusKm) : '8',
+        );
+        const firstWindow = next?.openingHours?.mon?.[0];
+        setOpenTime(firstWindow?.open || '09:00');
+        setCloseTime(firstWindow?.close || '23:00');
         setIsOpen(Boolean(next?.isOpen));
       })
       .finally(() => setLoading(false));
@@ -177,25 +195,32 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    if (!whatsAppPhone.trim()) {
-      openModal({
-        title: 'Нужен WhatsApp',
-        message: 'Укажи номер, на который будут приходить заказы.',
-        primaryLabel: 'Понятно',
-      });
-      return;
-    }
-
     try {
       setSaving(true);
+      const dailyWindow = [{ open: openTime.trim(), close: closeTime.trim() }];
       await apiClient.patch('/merchants/profile/me', {
         name: name.trim(),
         cuisine: cuisine.trim() || undefined,
         description: description.trim() || undefined,
         coverImageUrl: coverImageUrl.trim() || undefined,
-        whatsAppPhone: whatsAppPhone.trim(),
+        whatsAppPhone: whatsAppPhone.trim() || undefined,
+        contactPhone: contactPhone.trim() || undefined,
+        address: address.trim() || undefined,
         etaMinutes: etaMinutes.trim() ? Number(etaMinutes) : undefined,
         minOrder: minOrder.trim() ? Number(minOrder) : undefined,
+        deliveryFee: deliveryFee.trim() ? Number(deliveryFee) : undefined,
+        deliveryRadiusKm: deliveryRadiusKm.trim()
+          ? Number(deliveryRadiusKm)
+          : undefined,
+        openingHours: {
+          mon: dailyWindow,
+          tue: dailyWindow,
+          wed: dailyWindow,
+          thu: dailyWindow,
+          fri: dailyWindow,
+          sat: dailyWindow,
+          sun: dailyWindow,
+        },
         isOpen,
       });
       await loadProfile();
@@ -363,8 +388,8 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <View style={styles.metricDivider} />
           <View style={styles.metricItem}>
-            <Text style={styles.metricValue}>{profile?.whatsAppPhone ? 'ON' : 'OFF'}</Text>
-            <Text style={styles.metricLabel}>WhatsApp</Text>
+            <Text style={styles.metricValue}>{profile?.completedOrderCount || 0}</Text>
+            <Text style={styles.metricLabel}>заказов</Text>
           </View>
         </View>
 
@@ -408,12 +433,27 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Заказы</Text>
-          <Text style={styles.sectionTitle}>WhatsApp и доставка</Text>
+          <Text style={styles.sectionTitle}>Контакты и доставка</Text>
+          <TextInput
+            value={contactPhone}
+            onChangeText={setContactPhone}
+            style={styles.input}
+            placeholder="Телефон ответственного"
+            placeholderTextColor="#71717A"
+            keyboardType="phone-pad"
+          />
+          <TextInput
+            value={address}
+            onChangeText={setAddress}
+            style={styles.input}
+            placeholder="Адрес заведения"
+            placeholderTextColor="#71717A"
+          />
           <TextInput
             value={whatsAppPhone}
             onChangeText={setWhatsAppPhone}
             style={styles.input}
-            placeholder="WhatsApp номер для заказов"
+            placeholder="WhatsApp для резервной связи (необязательно)"
             placeholderTextColor="#71717A"
             keyboardType="phone-pad"
           />
@@ -435,10 +475,44 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               keyboardType="numeric"
             />
           </View>
+          <View style={styles.row}>
+            <TextInput
+              value={openTime}
+              onChangeText={setOpenTime}
+              style={[styles.input, styles.halfInput]}
+              placeholder="Открытие 09:00"
+              placeholderTextColor="#71717A"
+            />
+            <TextInput
+              value={closeTime}
+              onChangeText={setCloseTime}
+              style={[styles.input, styles.halfInput]}
+              placeholder="Закрытие 23:00"
+              placeholderTextColor="#71717A"
+            />
+          </View>
+          <View style={styles.row}>
+            <TextInput
+              value={deliveryFee}
+              onChangeText={setDeliveryFee}
+              style={[styles.input, styles.halfInput]}
+              placeholder="Доставка, ₸"
+              placeholderTextColor="#71717A"
+              keyboardType="numeric"
+            />
+            <TextInput
+              value={deliveryRadiusKm}
+              onChangeText={setDeliveryRadiusKm}
+              style={[styles.input, styles.halfInput]}
+              placeholder="Радиус, км"
+              placeholderTextColor="#71717A"
+              keyboardType="numeric"
+            />
+          </View>
           <View style={styles.whatsappPanel}>
-            <Text style={styles.whatsappPanelLabel}>Куда придет заказ</Text>
+            <Text style={styles.whatsappPanelLabel}>Заказы приходят</Text>
             <Text style={styles.whatsappPanelValue}>
-              {whatsAppPhone.trim() || 'Номер пока не указан'}
+              В раздел «Заказы» и push-уведомления TaxiVillage
             </Text>
           </View>
         </View>
@@ -449,6 +523,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => saveProfile().catch(() => null)}
             accentColor="#FB923C"
           />
+          <LegalLinks />
           <TouchableOpacity
             style={styles.deleteAccountButton}
             onPress={handleDeleteAccount}

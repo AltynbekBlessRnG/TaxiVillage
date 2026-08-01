@@ -14,9 +14,12 @@ type Props = NativeStackScreenProps<RootStackParamList, 'MerchantOrders'>;
 const nextStatusMap: Record<string, string | null> = {
   PLACED: 'ACCEPTED',
   ACCEPTED: 'PREPARING',
-  PREPARING: 'READY_FOR_PICKUP',
-  READY_FOR_PICKUP: 'ON_DELIVERY',
-  ON_DELIVERY: 'DELIVERED',
+  PREPARING: 'SEARCHING_DRIVER',
+  READY_FOR_PICKUP: 'SEARCHING_DRIVER',
+  SEARCHING_DRIVER: null,
+  DRIVER_ASSIGNED: null,
+  AT_MERCHANT: null,
+  ON_DELIVERY: null,
   DELIVERED: null,
   CANCELED: null,
 };
@@ -26,7 +29,10 @@ const statusLabels: Record<string, string> = {
   ACCEPTED: 'Принят',
   PREPARING: 'Готовится',
   READY_FOR_PICKUP: 'Готов к выдаче',
-  ON_DELIVERY: 'Передан в доставку',
+  SEARCHING_DRIVER: 'Ищем водителя',
+  DRIVER_ASSIGNED: 'Водитель назначен',
+  AT_MERCHANT: 'Водитель в заведении',
+  ON_DELIVERY: 'Передан водителю',
   DELIVERED: 'Доставлен',
   CANCELED: 'Отменен',
 };
@@ -94,6 +100,35 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
     }
   };
 
+  const cancelOrder = (orderId: string) => {
+    Alert.alert(
+      'Отменить заказ?',
+      'Клиент сразу получит уведомление. Используйте отмену, если блюдо недоступно.',
+      [
+        { text: 'Назад', style: 'cancel' },
+        {
+          text: 'Блюдо недоступно',
+          style: 'destructive',
+          onPress: () => {
+            apiClient
+              .post(`/food-orders/${orderId}/cancel`, {
+                reason: 'Одно или несколько блюд недоступны',
+              })
+              .then(loadOrders)
+              .catch((error: any) => {
+                const message =
+                  error?.response?.data?.message || 'Не удалось отменить заказ';
+                Alert.alert(
+                  'Ошибка',
+                  Array.isArray(message) ? message.join(', ') : message,
+                );
+              });
+          },
+        },
+      ],
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -128,7 +163,7 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
         <ServiceCard compact>
           <Text style={styles.openedFromLinkText}>
             {orders.some((order) => order.id === route.params?.orderId)
-              ? 'Открыто по ссылке из WhatsApp'
+              ? 'Открыт новый заказ'
               : 'Заказ по ссылке еще не появился в списке'}
           </Text>
         </ServiceCard>
@@ -154,6 +189,16 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
           {nextStatusMap[order.status] ? (
             <TouchableOpacity style={styles.actionButton} onPress={() => advanceStatus(order.id, order.status)}>
               <Text style={styles.actionButtonText}>Следующий этап</Text>
+            </TouchableOpacity>
+          ) : null}
+          {['PLACED', 'ACCEPTED', 'PREPARING', 'SEARCHING_DRIVER'].includes(
+            order.status,
+          ) ? (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => cancelOrder(order.id)}
+            >
+              <Text style={styles.cancelButtonText}>Отменить заказ</Text>
             </TouchableOpacity>
           ) : null}
         </ServiceCard>
@@ -223,6 +268,18 @@ const styles = StyleSheet.create({
     color: '#09090B',
     fontWeight: '900',
     fontSize: 15,
+  },
+  cancelButton: {
+    borderWidth: 1,
+    borderColor: '#7F1D1D',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  cancelButtonText: {
+    color: '#FCA5A5',
+    fontWeight: '800',
   },
   emptyText: {
     color: '#A1A1AA',

@@ -13,6 +13,8 @@ const linking: LinkingOptions<RootStackParamList> = {
   config: {
     screens: {
       FoodOrderStatus: 'food-order/:orderId',
+      FoodOrderHistory: 'food-orders',
+      FoodDeliveries: 'driver/food-deliveries',
       MerchantOrders: 'merchant-orders/:orderId',
     },
   },

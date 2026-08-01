@@ -36,7 +36,7 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
       accentColor="#FB923C"
       eyebrow="Корзина"
       title={restaurantName}
-      subtitle="Собери заказ и передай его ресторану в WhatsApp."
+      subtitle="Проверь блюда и перейди к адресу, оплате и доставке."
       backLabel="К меню"
       onBack={() => navigation.goBack()}
     >
@@ -85,7 +85,7 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
       </ServiceCard>
 
       <PrimaryButton
-        title="К адресу и WhatsApp"
+        title="Перейти к оформлению"
         onPress={() =>
           navigation.navigate('FoodCheckout', {
             restaurantId,

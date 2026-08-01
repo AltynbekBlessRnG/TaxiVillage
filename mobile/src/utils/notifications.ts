@@ -93,6 +93,18 @@ function openNotificationTarget(data: Record<string, unknown>) {
     return navigateRoot('MerchantOrders', undefined);
   }
 
+  if (
+    (type === 'FOOD_DELIVERY_AVAILABLE' ||
+      type === 'FOOD_DELIVERY_ASSIGNED') &&
+    orderId
+  ) {
+    return navigateRoot('FoodDeliveries', undefined);
+  }
+
+  if (type === 'FOOD_ORDER_STALLED' && orderId) {
+    return navigateRoot('FoodOrderStatus', { orderId });
+  }
+
   if (courierOrderId || rideId) {
     return navigateRoot('PassengerHome', {});
   }

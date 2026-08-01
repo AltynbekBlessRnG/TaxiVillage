@@ -1,0 +1,16 @@
+.git/
+.github/
+node_modules/
+dist/
+build/
+.expo/
+android/
+*.log
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# EAS intentionally receives no checked-in native project. It runs Expo
+# prebuild/CNG so app.config.js is the single source for iOS permissions,
+# privacy manifests, icons, entitlements, and config plugins.

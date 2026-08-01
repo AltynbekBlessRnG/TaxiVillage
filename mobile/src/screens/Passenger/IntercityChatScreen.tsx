@@ -20,6 +20,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { loadAuth } from '../../storage/authStorage';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { resolveApiAssetUrl } from '../../utils/assets';
+import { showChatSafetyActions } from '../../utils/chatSafety';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityChat'>;
 
@@ -45,6 +46,7 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ visible: boolean; title: string; message: string }>({
     visible: false,
     title: '',
@@ -101,6 +103,10 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
         }
 
         currentUserId.current = auth.userId || '';
+        const blockedResponse = await apiClient
+          .get<{ blockedUserIds: string[] }>('/moderation/blocked')
+          .catch(() => null);
+        setBlockedUserIds(new Set(blockedResponse?.data.blockedUserIds || []));
         const socket = createIntercityChatSocket();
         socketRef.current = socket;
         await socket.connect(threadType, threadId);
@@ -188,6 +194,9 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const renderMessage = ({ item }: { item: IntercityMessage }) => {
     const isOwnMessage = item.senderId === currentUserId.current;
+    if (!isOwnMessage && blockedUserIds.has(item.senderId)) {
+      return null;
+    }
     const senderName = item.senderName || 'Участник';
     const receiverName = item.receiverName || 'Чат рейса';
     const isTripThread = threadType === 'TRIP';
@@ -224,9 +233,24 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           </View>
         </View>
-        <View style={[styles.messageContent, isOwnMessage && styles.ownBubble]}>
+        <TouchableOpacity
+          activeOpacity={isOwnMessage ? 1 : 0.8}
+          onLongPress={
+            isOwnMessage
+              ? undefined
+              : () =>
+                  showChatSafetyActions({
+                    messageId: item.id,
+                    targetUserId: item.senderId,
+                    onBlocked: (userId) =>
+                      setBlockedUserIds((current) => new Set([...current, userId])),
+                  })
+          }
+          accessibilityHint={isOwnMessage ? undefined : 'Удерживайте, чтобы пожаловаться или заблокировать'}
+          style={[styles.messageContent, isOwnMessage && styles.ownBubble]}
+        >
           <Text style={styles.messageText}>{item.content}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   };

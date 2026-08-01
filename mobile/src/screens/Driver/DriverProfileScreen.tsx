@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, logout } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { LegalLinks } from '../../components/LegalLinks';
 import { resolveApiAssetUrl } from '../../utils/assets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverProfile'>;
@@ -691,6 +692,8 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
           </View>
+
+          <LegalLinks />
 
           <TouchableOpacity
             style={styles.deleteAccountButton}

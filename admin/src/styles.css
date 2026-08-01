@@ -356,3 +356,46 @@ input[type="checkbox"] {
   accent-color: #3B82F6;
 }
 
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.section-heading h2 {
+  margin-bottom: 4px;
+}
+
+.muted {
+  color: #94A3B8;
+  font-size: 12px;
+  margin: 3px 0;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 210px;
+  }
+
+  .content {
+    padding: 16px;
+    overflow-x: hidden;
+  }
+
+  .section-heading {
+    flex-direction: column;
+  }
+}
+

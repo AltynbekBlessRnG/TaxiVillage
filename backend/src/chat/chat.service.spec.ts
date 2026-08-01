@@ -18,7 +18,9 @@ describe('ChatService', () => {
       },
     };
     notificationsService = { sendPush: jest.fn() };
-    service = new ChatService(prisma, notificationsService as any);
+    service = new ChatService(prisma, notificationsService as any, {
+      isBlockedBetween: jest.fn().mockResolvedValue(false),
+    } as any);
   });
 
   it('sends taxi chat message and pushes notification to the counterpart', async () => {

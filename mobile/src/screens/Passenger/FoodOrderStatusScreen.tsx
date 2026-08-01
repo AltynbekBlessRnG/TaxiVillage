@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import MapView, { Marker } from 'react-native-maps';
 import { useFocusEffect } from '@react-navigation/native';
 import type { Socket } from 'socket.io-client';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -22,6 +23,9 @@ const statusLabels: Record<string, string> = {
   ACCEPTED: 'Заведение приняло заказ',
   PREPARING: 'Готовится',
   READY_FOR_PICKUP: 'Готов к выдаче',
+  SEARCHING_DRIVER: 'Ищем водителя',
+  DRIVER_ASSIGNED: 'Водитель едет в заведение',
+  AT_MERCHANT: 'Водитель забирает заказ',
   ON_DELIVERY: 'Курьер в пути',
   DELIVERED: 'Доставлено',
   CANCELED: 'Отменено',
@@ -31,7 +35,9 @@ const foodStages = [
   { key: 'PLACED', title: 'Заказ оформлен' },
   { key: 'ACCEPTED', title: 'Заведение приняло заказ' },
   { key: 'PREPARING', title: 'Готовится' },
-  { key: 'READY_FOR_PICKUP', title: 'Готов к выдаче' },
+  { key: 'SEARCHING_DRIVER', title: 'Ищем водителя' },
+  { key: 'DRIVER_ASSIGNED', title: 'Водитель назначен' },
+  { key: 'AT_MERCHANT', title: 'Водитель в заведении' },
   { key: 'ON_DELIVERY', title: 'Курьер в пути' },
   { key: 'DELIVERED', title: 'Доставлено' },
 ];
@@ -39,6 +45,7 @@ const foodStages = [
 export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const loadOrder = useCallback(() => {
     apiClient
@@ -46,6 +53,49 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       .then((response) => setOrder(response.data))
       .finally(() => setLoading(false));
   }, [route.params.orderId]);
+
+  const cancelOrder = () => {
+    Alert.alert('Отменить заказ?', 'Отмена доступна до принятия заведением.', [
+      { text: 'Оставить', style: 'cancel' },
+      {
+        text: 'Отменить',
+        style: 'destructive',
+        onPress: () => {
+          setActionLoading(true);
+          apiClient
+            .post(`/food-orders/${order.id}/cancel`, {
+              reason: 'Отменено клиентом',
+            })
+            .then((response) => setOrder(response.data))
+            .catch((error: any) =>
+              Alert.alert(
+                'Не удалось отменить',
+                error?.response?.data?.message || 'Попробуйте ещё раз.',
+              ),
+            )
+            .finally(() => setActionLoading(false));
+        },
+      },
+    ]);
+  };
+
+  const repeatOrder = async () => {
+    setActionLoading(true);
+    try {
+      const key = `repeat-${order.id}-${Date.now()}`;
+      const response = await apiClient.post(
+        `/food-orders/${order.id}/repeat`,
+        {},
+        { headers: { 'Idempotency-Key': key } },
+      );
+      navigation.replace('FoodOrderStatus', { orderId: response.data.id });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось повторить заказ';
+      Alert.alert('Заказ не создан', Array.isArray(message) ? message.join(', ') : message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadOrder();
@@ -120,8 +170,82 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
         </View>
         <InlineLabel label="Заведение" value={order?.merchant?.name || '-'} />
         <InlineLabel label="Адрес доставки" value={order?.deliveryAddress || '-'} />
-        <InlineLabel label="Итого" value={`${Math.round(Number(order?.totalPrice || 0))} тг`} accentColor="#60A5FA" />
+        <InlineLabel label="Блюда" value={`${Math.round(Number(order?.subtotal || 0))} ₸`} />
+        <InlineLabel label="Доставка" value={`${Math.round(Number(order?.deliveryFee || 0))} ₸`} />
+        {Number(order?.discountAmount || 0) > 0 ? (
+          <InlineLabel
+            label="Скидка"
+            value={`−${Math.round(Number(order.discountAmount))} ₸`}
+            accentColor="#86EFAC"
+          />
+        ) : null}
+        <InlineLabel label="Итого" value={`${Math.round(Number(order?.totalPrice || 0))} ₸`} accentColor="#60A5FA" />
+        <InlineLabel
+          label="Оплата"
+          value={order?.paymentMethod === 'KASPI_TRANSFER' ? 'Перевод Kaspi' : 'Наличными'}
+        />
+        {order?.cancellationReason ? (
+          <InlineLabel
+            label="Причина отмены"
+            value={order.cancellationReason}
+            accentColor="#FCA5A5"
+          />
+        ) : null}
       </ServiceCard>
+
+      {order?.driver ? (
+        <ServiceCard compact>
+          <SectionTitle>Водитель</SectionTitle>
+          <InlineLabel
+            label="Имя"
+            value={order.driver.fullName || order.driver.user?.phone || 'Водитель'}
+          />
+          <InlineLabel
+            label="Автомобиль"
+            value={
+              order.driver.car
+                ? `${order.driver.car.make} ${order.driver.car.model}, ${order.driver.car.plateNumber}`
+                : 'Автомобиль не указан'
+            }
+          />
+          <InlineLabel
+            label="Телефон"
+            value={order.driver.user?.phone || 'Не указан'}
+          />
+          {order.driver.lat != null && order.driver.lng != null ? (
+            <MapView
+              style={styles.driverMap}
+              initialRegion={{
+                latitude: order.driver.lat,
+                longitude: order.driver.lng,
+                latitudeDelta: 0.025,
+                longitudeDelta: 0.025,
+              }}
+              scrollEnabled={false}
+              zoomEnabled={false}
+            >
+              <Marker
+                coordinate={{
+                  latitude: order.driver.lat,
+                  longitude: order.driver.lng,
+                }}
+                title="Водитель"
+                pinColor="#FB923C"
+              />
+              {order.deliveryLat != null && order.deliveryLng != null ? (
+                <Marker
+                  coordinate={{
+                    latitude: order.deliveryLat,
+                    longitude: order.deliveryLng,
+                  }}
+                  title="Адрес доставки"
+                  pinColor="#3B82F6"
+                />
+              ) : null}
+            </MapView>
+          ) : null}
+        </ServiceCard>
+      ) : null}
 
       <ServiceCard compact>
         <SectionTitle>Этапы</SectionTitle>
@@ -139,7 +263,27 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
         </View>
       </ServiceCard>
 
-        <PrimaryButton title="Вернуться в такси" onPress={() => navigation.navigate('PassengerHome', {})} />
+      {order?.status === 'PLACED' ? (
+        <PrimaryButton
+          title={actionLoading ? 'Отменяем…' : 'Отменить заказ'}
+          onPress={cancelOrder}
+          accentColor="#FCA5A5"
+          disabled={actionLoading}
+        />
+      ) : null}
+      {['DELIVERED', 'CANCELED'].includes(order?.status) ? (
+        <PrimaryButton
+          title={actionLoading ? 'Создаём…' : 'Повторить заказ'}
+          onPress={repeatOrder}
+          disabled={actionLoading}
+        />
+      ) : null}
+      <PrimaryButton
+        title="Мои заказы"
+        onPress={() => navigation.navigate('FoodOrderHistory')}
+        accentColor="#FDBA74"
+      />
+      <PrimaryButton title="На главную" onPress={() => navigation.navigate('PassengerHome', {})} />
     </ServiceScreen>
   );
 };
@@ -204,5 +348,11 @@ const styles = StyleSheet.create({
   },
   timelineTextActive: {
     color: '#F4F4F5',
+  },
+  driverMap: {
+    height: 170,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 12,
   },
 });

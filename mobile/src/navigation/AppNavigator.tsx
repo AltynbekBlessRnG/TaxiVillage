@@ -13,6 +13,7 @@ import { RestaurantScreen } from '../screens/Passenger/RestaurantScreen';
 import { CartScreen } from '../screens/Passenger/CartScreen';
 import { FoodCheckoutScreen } from '../screens/Passenger/FoodCheckoutScreen';
 import { FoodOrderStatusScreen } from '../screens/Passenger/FoodOrderStatusScreen';
+import { FoodOrderHistoryScreen } from '../screens/Passenger/FoodOrderHistoryScreen';
 import { IntercityHomeScreen } from '../screens/Passenger/IntercityHomeScreen';
 import { IntercityOffersScreen } from '../screens/Passenger/IntercityOffersScreen';
 import { IntercityBookingScreen } from '../screens/Passenger/IntercityBookingScreen';
@@ -20,6 +21,7 @@ import { IntercityTripStatusScreen } from '../screens/Passenger/IntercityTripSta
 import { IntercityOrderStatusScreen } from '../screens/Passenger/IntercityOrderStatusScreen';
 import { IntercityChatScreen } from '../screens/Passenger/IntercityChatScreen';
 import { DriverHomeScreen } from '../screens/Driver/DriverHomeScreen';
+import { FoodDeliveriesScreen } from '../screens/Driver/FoodDeliveriesScreen';
 import { DriverProfileScreen } from '../screens/Driver/DriverProfileScreen';
 import { DriverBalanceScreen } from '../screens/Driver/DriverBalanceScreen';
 import { DriverDocumentsScreen } from '../screens/Driver/DriverDocumentsScreen';
@@ -66,6 +68,7 @@ export type RootStackParamList = {
     items: Array<{ menuItemId: string; name: string; price: string; qty: number }>;
   };
   FoodOrderStatus: { orderId: string };
+  FoodOrderHistory: undefined;
   IntercityHome: undefined;
   IntercityOffers: {
     fromCity: string;
@@ -99,6 +102,7 @@ export type RootStackParamList = {
   RideDetails: { rideId: string };
   ChatScreen: { rideId: string };
   DriverHome: undefined;
+  FoodDeliveries: undefined;
   DriverProfile: undefined;
   DriverBalance: undefined;
   DriverDocuments: undefined;
@@ -176,6 +180,7 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="FoodCheckout" component={FoodCheckoutScreen} />
       <Stack.Screen name="FoodOrderStatus" component={FoodOrderStatusScreen} />
+      <Stack.Screen name="FoodOrderHistory" component={FoodOrderHistoryScreen} />
       <Stack.Screen
         name="IntercityHome"
         component={IntercityHomeScreen}
@@ -194,6 +199,7 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen name="RideDetails" component={RideDetailsScreen} />
       <Stack.Screen name="ChatScreen" component={ChatScreen} />
       <Stack.Screen name="DriverHome" component={DriverHomeScreen} />
+      <Stack.Screen name="FoodDeliveries" component={FoodDeliveriesScreen} />
       <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
       <Stack.Screen name="DriverBalance" component={DriverBalanceScreen} />
       <Stack.Screen name="DriverDocuments" component={DriverDocumentsScreen} />

@@ -9,6 +9,10 @@ services:
     buildCommand: npm ci && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm run start
     healthCheckPath: /api/health/ready
+    disk:
+      name: taxivillage-uploads
+      mountPath: /opt/render/project/src/backend/uploads
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -37,12 +41,26 @@ services:
         value: https://taxivillage-backend-14gq.onrender.com
       - key: APP_ORIGIN
         value: https://taxivillage-admin-eul9.onrender.com
+      - key: UPLOAD_DIR
+        value: /opt/render/project/src/backend/uploads
       - key: SENTRY_TRACES_SAMPLE_RATE
         value: "0"
       - key: OTP_TTL_MINUTES
         value: "10"
       - key: OTP_RESEND_SECONDS
         value: "45"
+      - key: APP_REVIEW_LOGIN_ENABLED
+        value: "false"
+      - key: APP_REVIEW_PHONES
+        sync: false
+      - key: APP_REVIEW_PASSWORD
+        sync: false
+      - key: APP_REVIEW_PASSENGER_PHONE
+        sync: false
+      - key: APP_REVIEW_DRIVER_PHONE
+        sync: false
+      - key: APP_REVIEW_MERCHANT_PHONE
+        sync: false
 
   - type: keyvalue
     name: taxivillage-redis

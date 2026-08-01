@@ -32,7 +32,7 @@ export const RideOfferSheet: React.FC<Props> = ({ offer, onAccept, onReject, var
     } else {
       Animated.timing(slideAnim, { toValue: height, duration: 300, useNativeDriver: true }).start();
     }
-  }, [offer]);
+  }, [offer, slideAnim]);
 
   if (!offer) return null;
 

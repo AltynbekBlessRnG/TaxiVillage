@@ -171,6 +171,13 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
       backLabel="К карте"
       onBack={() => navigation.goBack()}
     >
+      <TouchableOpacity
+        style={styles.historyButton}
+        onPress={() => navigation.navigate('FoodOrderHistory')}
+      >
+        <Text style={styles.historyButtonText}>Мои заказы</Text>
+        <Text style={styles.historyButtonArrow}>›</Text>
+      </TouchableOpacity>
       {featuredRestaurant ? (
         <TouchableOpacity
           style={styles.featuredCard}
@@ -291,11 +298,9 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
               {restaurant.cuisine || restaurant.description || 'Кухня уточняется'}
             </Text>
             <View style={styles.restaurantMetaRow}>
-              {restaurant.whatsAppPhone ? (
-                <View style={styles.restaurantWhatsappPill}>
-                  <Text style={styles.restaurantWhatsappText}>Заказ через WhatsApp</Text>
-                </View>
-              ) : null}
+              <View style={styles.restaurantWhatsappPill}>
+                <Text style={styles.restaurantWhatsappText}>Заказ внутри TaxiVillage</Text>
+              </View>
               <View style={styles.restaurantPromoPill}>
                 <Text style={styles.restaurantPromoText}>{getPromoTag(restaurant)}</Text>
               </View>
@@ -313,6 +318,28 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#3F3F46',
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    marginBottom: 16,
+  },
+  historyButtonText: {
+    color: '#F4F4F5',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  historyButtonArrow: {
+    color: '#FB923C',
+    fontSize: 25,
+    lineHeight: 25,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

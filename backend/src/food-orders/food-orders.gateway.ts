@@ -16,6 +16,7 @@ interface FoodOrderPayload {
   id: string;
   passenger?: { userId: string };
   merchant?: { userId: string };
+  driver?: { userId: string } | null;
   [key: string]: unknown;
 }
 
@@ -69,12 +70,15 @@ export class FoodOrdersGateway implements OnGatewayConnection, OnGatewayDisconne
   async handleJoinOrder(client: import('socket.io').Socket, orderId: string) {
     const order = await this.prisma.foodOrder.findUnique({
       where: { id: orderId },
-      include: { passenger: true, merchant: true },
+      include: { passenger: true, merchant: true, driver: true },
     });
 
     const userId = (client as any).userId;
     const isParticipant =
-      !!order && (order.passenger?.userId === userId || order.merchant?.userId === userId);
+      !!order &&
+      (order.passenger?.userId === userId ||
+        order.merchant?.userId === userId ||
+        order.driver?.userId === userId);
 
     if (!isParticipant) {
       client.emit('error', { message: 'Access denied to food order room' });
@@ -100,7 +104,16 @@ export class FoodOrdersGateway implements OnGatewayConnection, OnGatewayDisconne
     if (order.merchant?.userId) {
       this.server.to(`user:${order.merchant.userId}`).emit('food-order:updated', order);
     }
+    if (order.driver?.userId) {
+      this.server.to(`user:${order.driver.userId}`).emit('food-order:updated', order);
+    }
     this.server.to(`food-order:${order.id}`).emit('food-order:updated', order);
+  }
+
+  emitDeliveryAvailable(order: FoodOrderPayload, driverUserIds: string[]) {
+    for (const userId of driverUserIds) {
+      this.server.to(`user:${userId}`).emit('food-delivery:available', order);
+    }
   }
 
   private rejectUnauthorized(client: import('socket.io').Socket) {

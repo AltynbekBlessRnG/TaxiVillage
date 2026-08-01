@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../prisma/prisma.module';
-import { FoodOrdersController } from './food-orders.controller';
+import {
+  DriverFoodDeliveriesController,
+  FoodOrdersController,
+} from './food-orders.controller';
 import { FoodOrdersService } from './food-orders.service';
 import { FoodOrdersGateway } from './food-orders.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { getRequiredEnv } from '../common/required-env';
+import { FoodOrderAlertsService } from './food-order-alerts.service';
 
 @Module({
   imports: [
@@ -16,8 +20,8 @@ import { getRequiredEnv } from '../common/required-env';
       signOptions: { expiresIn: '15m' },
     }),
   ],
-  controllers: [FoodOrdersController],
-  providers: [FoodOrdersService, FoodOrdersGateway],
+  controllers: [FoodOrdersController, DriverFoodDeliveriesController],
+  providers: [FoodOrdersService, FoodOrdersGateway, FoodOrderAlertsService],
   exports: [FoodOrdersService],
 })
 export class FoodOrdersModule {}

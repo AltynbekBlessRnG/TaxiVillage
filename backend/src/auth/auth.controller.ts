@@ -126,6 +126,17 @@ export class AuthController {
     return this.authService.startLoginVerification(dto);
   }
 
+  @Post('review-login')
+  reviewLogin(@Req() req: Request, @Body() dto: LoginDto) {
+    this.authService.enforceRateLimit({
+      bucket: 'auth-review-login',
+      key: this.resolveClientKey(req),
+      limit: 10,
+      windowMs: 60_000,
+    });
+    return this.authService.reviewLogin(dto.phone, dto.password);
+  }
+
   @Post('login/complete')
   completeLogin(@Body() dto: CompleteVerificationDto) {
     return this.authService.completeLogin(dto.verificationToken);

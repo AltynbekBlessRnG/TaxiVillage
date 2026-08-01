@@ -19,7 +19,10 @@ describe('IntercityChatService', () => {
       },
     };
     notificationsService = { sendPush: jest.fn() };
-    service = new IntercityChatService(prisma, notificationsService as any);
+    service = new IntercityChatService(prisma, notificationsService as any, {
+      isBlockedBetween: jest.fn().mockResolvedValue(false),
+      getBlockedCounterpartIds: jest.fn().mockResolvedValue(new Set()),
+    } as any);
   });
 
   it('sends intercity order chat message and notifies receiver', async () => {

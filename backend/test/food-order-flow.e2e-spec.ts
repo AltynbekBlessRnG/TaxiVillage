@@ -40,7 +40,12 @@ describe('Food order flow E2E', () => {
 
     await ctx.prisma.merchant.update({
       where: { id: merchant.id },
-      data: { name: 'E2E Test Kitchen', isOpen: true },
+      data: {
+        name: 'E2E Test Kitchen',
+        isOpen: true,
+        verificationStatus: 'VERIFIED',
+        deliveryFee: new Prisma.Decimal(700),
+      },
     });
 
     const category = await ctx.prisma.menuCategory.create({
@@ -67,6 +72,20 @@ describe('Food order flow E2E', () => {
       fullName: 'Hungry Passenger',
     });
 
+    const driverUser = await seedVerifiedUserWithAccessToken(ctx.app, {
+      phone: buildPhone(base + 2),
+      role: 'DRIVER',
+      fullName: 'Food Driver',
+    });
+    await ctx.prisma.driverProfile.update({
+      where: { userId: driverUser.user.id },
+      data: {
+        status: 'APPROVED',
+        supportsTaxi: true,
+        isOnline: true,
+      },
+    });
+
     const createRes = await ctx.http
       .post('/api/food-orders')
       .set(authHeader(passenger.accessToken))
@@ -74,25 +93,46 @@ describe('Food order flow E2E', () => {
         merchantId: merchant.id,
         deliveryAddress: 'Abay 150',
         items: [{ menuItemId: item.id, qty: 2 }],
-        paymentMethod: 'CARD',
+        paymentMethod: 'CASH',
       });
 
     expect(createRes.status).toBe(201);
     const orderId = createRes.body.id as string;
     expect(createRes.body.status).toBe(FoodOrderStatus.PLACED);
+    expect(Number(createRes.body.subtotal)).toBe(5000);
+    expect(Number(createRes.body.deliveryFee)).toBe(700);
+    expect(Number(createRes.body.totalPrice)).toBe(5700);
 
-    const chain: FoodOrderStatus[] = [
+    const merchantChain: FoodOrderStatus[] = [
       FoodOrderStatus.ACCEPTED,
       FoodOrderStatus.PREPARING,
-      FoodOrderStatus.READY_FOR_PICKUP,
-      FoodOrderStatus.ON_DELIVERY,
-      FoodOrderStatus.DELIVERED,
+      FoodOrderStatus.SEARCHING_DRIVER,
     ];
 
-    for (const status of chain) {
+    for (const status of merchantChain) {
       const res = await ctx.http
         .post(`/api/food-orders/${orderId}/status`)
         .set(authHeader(merchantUser.accessToken))
+        .send({ status });
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe(status);
+    }
+
+    const claimRes = await ctx.http
+      .post(`/api/driver/food-deliveries/${orderId}/claim`)
+      .set(authHeader(driverUser.accessToken));
+    expect(claimRes.status).toBe(201);
+    expect(claimRes.body.status).toBe(FoodOrderStatus.DRIVER_ASSIGNED);
+
+    const driverChain: FoodOrderStatus[] = [
+      FoodOrderStatus.AT_MERCHANT,
+      FoodOrderStatus.ON_DELIVERY,
+      FoodOrderStatus.DELIVERED,
+    ];
+    for (const status of driverChain) {
+      const res = await ctx.http
+        .post(`/api/driver/food-deliveries/${orderId}/status`)
+        .set(authHeader(driverUser.accessToken))
         .send({ status });
       expect(res.status).toBe(201);
       expect(res.body.status).toBe(status);

@@ -142,6 +142,31 @@ export class AuthService {
     return this.buildSessionResponse(session);
   }
 
+  async reviewLogin(phone: string, password: string) {
+    const enabled = this.configService.get('APP_REVIEW_LOGIN_ENABLED') === 'true';
+    const allowedPhones = String(this.configService.get('APP_REVIEW_PHONES') || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (!enabled || !allowedPhones.some((allowedPhone) => phonesMatch(allowedPhone, phone))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    let user = await this.usersService.findByPhone(phone);
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    user = await this.normalizeLegacyUser(user.id, user.role);
+    if (!user || user.isDeleted) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const tokens = await this.issueTokens(user.id, user.role);
+    return { user: this.toSafeUser(user), ...tokens };
+  }
+
   async resendCode(sessionId: string) {
     const session = await this.prisma.phoneOtpSession.findUnique({
       where: { id: sessionId },

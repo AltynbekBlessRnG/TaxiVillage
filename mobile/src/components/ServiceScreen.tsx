@@ -77,8 +77,18 @@ export const PrimaryButton: React.FC<{
   title: string;
   onPress: () => void;
   accentColor?: string;
-}> = ({ title, onPress, accentColor = '#F4F4F5' }) => (
-  <TouchableOpacity style={[styles.primaryButton, { backgroundColor: accentColor }]} onPress={onPress} activeOpacity={0.9}>
+  disabled?: boolean;
+}> = ({ title, onPress, accentColor = '#F4F4F5', disabled = false }) => (
+  <TouchableOpacity
+    style={[
+      styles.primaryButton,
+      { backgroundColor: accentColor },
+      disabled && { opacity: 0.55 },
+    ]}
+    onPress={onPress}
+    activeOpacity={0.9}
+    disabled={disabled}
+  >
     <Text style={styles.primaryButtonText}>{title}</Text>
   </TouchableOpacity>
 );

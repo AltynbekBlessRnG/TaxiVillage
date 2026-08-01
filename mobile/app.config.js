@@ -5,6 +5,7 @@ export default {
     "name": "TaxiVillage",
     "slug": "taxivillage",
     "version": "1.0.0",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "taxivillage",
@@ -16,9 +17,24 @@ export default {
     },
     "ios": {
       "bundleIdentifier": "com.taxivillage.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "This app needs access to location to show your position on the map and find nearby drivers.",
-        "NSLocationAlwaysUsageDescription": "This app needs access to location to show your position on the map and find nearby drivers."
+        "NSLocationWhenInUseUsageDescription": "TaxiVillage uses your location to show your position on the map, choose pickup and delivery addresses, and find nearby drivers.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "When you go online as a driver or courier, TaxiVillage uses your location to send nearby orders and update the customer with your position, including while the app is in the background.",
+        "NSLocationAlwaysUsageDescription": "When you go online as a driver or courier, TaxiVillage uses your location to send nearby orders and update the customer with your position, including while the app is in the background.",
+        "NSPhotoLibraryUsageDescription": "TaxiVillage lets you choose a profile photo or a driver document from your photo library."
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
       }
     },
     "android": {
@@ -36,19 +52,28 @@ export default {
         "android.permission.FOREGROUND_SERVICE_LOCATION",
         "android.permission.INTERNET"
       ],
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": false
     },
     "plugins": [
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
-          "locationAlwaysPermission": "Allow $(PRODUCT_NAME) to use your location.",
-          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
+          "locationAlwaysAndWhenInUsePermission": "Allow TaxiVillage to use your location while you are online as a driver or courier, including in the background.",
+          "locationAlwaysPermission": "Allow TaxiVillage to use your location while you are online as a driver or courier, including in the background.",
+          "locationWhenInUsePermission": "Allow TaxiVillage to use your location to show the map and choose pickup or delivery addresses.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TaxiVillage lets you choose a profile photo or a driver document from your photo library.",
+          "cameraPermission": "TaxiVillage lets you take a profile photo or a driver document photo.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-font",
       "expo-notifications"
     ]
   }

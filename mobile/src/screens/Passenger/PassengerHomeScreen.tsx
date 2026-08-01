@@ -121,14 +121,21 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     } catch (error) {
       console.log(error);
     }
-  }, []);
+  }, [
+    setFromAddress,
+    setFromCoord,
+    setFromLocationPrecision,
+    setToAddress,
+    setToCoord,
+    setToLocationPrecision,
+  ]);
 
   const changeState = useCallback((newState: PassengerScreenState) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     setScreenState(newState);
     Keyboard.dismiss();
-  }, []);
+  }, [setScreenState]);
 
   const {
     userProfile,
@@ -157,12 +164,12 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleRideReturnedToIdle = useCallback(() => {
     setShowSearchingDetails(false);
     changeState('IDLE');
-  }, [changeState]);
+  }, [changeState, setShowSearchingDetails]);
 
   const handleCourierReturnedToIdle = useCallback(() => {
     setShowSearchingDetails(false);
     changeState('IDLE');
-  }, [changeState]);
+  }, [changeState, setShowSearchingDetails]);
 
   const {
     currentRideId,
@@ -227,7 +234,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     }, 250);
 
     return () => clearTimeout(timeoutId);
-  }, [fromCoord, routeCoordinates, stops, toCoord]);
+  }, [fromCoord, routeCoordinates, setDisplayRoute, stops, toCoord]);
 
   useEffect(() => {
     initializeNotifications().catch(() => {});
@@ -293,6 +300,8 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     refreshMessagesSummary,
     refreshThreadUnread,
     screenState,
+    setScreenState,
+    setShowSearchingDetails,
   ]);
 
   useEffect(() => {
@@ -317,11 +326,26 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     return () => subscription.remove();
   }, [changeState, isFocused, isMenuOpen, screenState]);
 
+  const fetchNearbyDrivers = useCallback(async () => {
+    if (!userLocation) {
+      return;
+    }
+
+    try {
+      const res = await apiClient.get('/drivers/nearby', {
+        params: { lat: userLocation.lat, lng: userLocation.lng, radius: 5 },
+      });
+      setNearbyDrivers(res.data || []);
+    } catch (error) {
+      console.log('Failed to fetch nearby drivers:', error);
+    }
+  }, [userLocation]);
+
   useEffect(() => {
     if (screenState === 'IDLE' && userLocation) {
-      fetchNearbyDrivers();
+      void fetchNearbyDrivers();
     }
-  }, [screenState, userLocation]);
+  }, [fetchNearbyDrivers, screenState, userLocation]);
 
   useEffect(() => {
     const selectedAddress = route.params?.selectedAddress;
@@ -350,22 +374,20 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     );
 
     navigation.setParams({ selectedAddress: undefined });
-  }, [changeState, fromCoord?.lat, fromCoord?.lng, navigation, route.params?.selectedAddress, userLocation?.lat, userLocation?.lng]);
-
-  const fetchNearbyDrivers = async () => {
-    if (!userLocation) {
-      return;
-    }
-
-    try {
-      const res = await apiClient.get('/drivers/nearby', {
-        params: { lat: userLocation.lat, lng: userLocation.lng, radius: 5 },
-      });
-      setNearbyDrivers(res.data || []);
-    } catch (error) {
-      console.log('Failed to fetch nearby drivers:', error);
-    }
-  };
+  }, [
+    changeState,
+    fromCoord?.lat,
+    fromCoord?.lng,
+    navigation,
+    route.params?.selectedAddress,
+    setIsStopSelectionMode,
+    setSearchMode,
+    setToAddress,
+    setToCoord,
+    setToLocationPrecision,
+    userLocation?.lat,
+    userLocation?.lng,
+  ]);
 
   const {
     handleGeocodeAndProceed,

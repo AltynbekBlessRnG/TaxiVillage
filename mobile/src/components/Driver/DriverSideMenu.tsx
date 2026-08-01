@@ -50,7 +50,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
         useNativeDriver: true,
       })
     ]).start();
-  }, [isOpen]);
+  }, [fadeAnim, isOpen, slideAnim]);
 
   if (!isOpen && slideAnim.interpolate({ inputRange: [-width, 0], outputRange: [0, 1] }) as any === 0) {
     return null;

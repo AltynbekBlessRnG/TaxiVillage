@@ -107,6 +107,20 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    if (
+      (type === 'FOOD_DELIVERY_AVAILABLE' ||
+        type === 'FOOD_DELIVERY_ASSIGNED') &&
+      orderId
+    ) {
+      navigation.navigate('FoodDeliveries');
+      return;
+    }
+
+    if (type === 'FOOD_ORDER_STALLED' && orderId) {
+      navigation.navigate('FoodOrderStatus', { orderId });
+      return;
+    }
+
     if (courierOrderId || rideId) {
       navigation.navigate('PassengerHome', {});
     }

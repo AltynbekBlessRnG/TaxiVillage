@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, logout } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { LegalLinks } from '../../components/LegalLinks';
 import { resolveApiAssetUrl } from '../../utils/assets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PassengerProfile'>;
@@ -177,7 +178,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
           <ActivityIndicator size="large" color="#F4F4F5" />
         </View>
       ) : (
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.heroCard}>
             <TouchableOpacity style={styles.avatarWrap} onPress={() => pickAndUploadAvatar().catch(() => null)} activeOpacity={0.88}>
               <View style={styles.avatarCircle}>
@@ -227,6 +228,8 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
+          <LegalLinks />
+
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={confirmDeleteAccount}
@@ -236,7 +239,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
               {deletingAccount ? 'Удаляем аккаунт...' : 'Удалить аккаунт'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       )}
 
       <DarkAlertModal
@@ -313,6 +316,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 18,
     paddingTop: 12,
+    paddingBottom: 32,
     gap: 14,
   },
   heroCard: {

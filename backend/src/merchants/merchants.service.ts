@@ -8,7 +8,7 @@ export class MerchantsService {
 
   listPublicMerchants() {
     return this.prisma.merchant.findMany({
-      where: { isOpen: true },
+      where: { isOpen: true, verificationStatus: 'VERIFIED' },
       orderBy: [{ rating: 'desc' }, { name: 'asc' }],
     });
   }
@@ -58,11 +58,18 @@ export class MerchantsService {
     userId: string,
     data: {
       whatsAppPhone?: string;
+      contactPhone?: string;
       name?: string;
       cuisine?: string;
       description?: string;
+      address?: string;
+      openingHours?: Record<string, unknown>;
+      lat?: number;
+      lng?: number;
       etaMinutes?: number;
       minOrder?: number;
+      deliveryRadiusKm?: number;
+      deliveryFee?: number;
       tone?: string;
       coverImageUrl?: string;
       isOpen?: boolean;
@@ -70,11 +77,18 @@ export class MerchantsService {
   ) {
     const updateData: Prisma.MerchantUpdateInput = {
       whatsAppPhone: data.whatsAppPhone,
+      contactPhone: data.contactPhone,
       name: data.name,
       cuisine: data.cuisine,
       description: data.description,
+      address: data.address,
+      openingHours: data.openingHours as Prisma.InputJsonValue | undefined,
+      lat: data.lat,
+      lng: data.lng,
       etaMinutes: data.etaMinutes,
       minOrder: data.minOrder,
+      deliveryRadiusKm: data.deliveryRadiusKm,
+      deliveryFee: data.deliveryFee,
       tone: data.tone,
       coverImageUrl: data.coverImageUrl,
       isOpen: data.isOpen,
@@ -369,6 +383,17 @@ export class MerchantsService {
         passenger: {
           include: {
             user: true,
+          },
+        },
+        driver: {
+          include: {
+            user: true,
+            car: true,
+          },
+        },
+        statusHistory: {
+          orderBy: {
+            createdAt: 'asc',
           },
         },
       },

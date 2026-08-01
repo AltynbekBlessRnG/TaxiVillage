@@ -7,6 +7,7 @@ import {
 import { MessageSender, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ModerationService } from '../moderation/moderation.service';
 
 interface SendMessageDto {
   content: string;
@@ -32,6 +33,7 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly moderationService: ModerationService,
   ) {}
 
   async getChatMessages(userId: string, rideId: string, params: GetMessagesParams = {}) {
@@ -75,6 +77,9 @@ export class ChatService {
 
     if (!receiverUserId) {
       throw new BadRequestException('Message receiver is unavailable');
+    }
+    if (await this.moderationService.isBlockedBetween(userId, receiverUserId)) {
+      throw new ForbiddenException('Обмен сообщениями с этим пользователем заблокирован');
     }
 
     const created = await this.prisma.chatMessage.create({

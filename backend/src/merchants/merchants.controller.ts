@@ -13,7 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { memoryStorage } from 'multer';
 import { AuthGuard } from '@nestjs/passport';
@@ -30,6 +30,10 @@ class UpdateMerchantProfileDto {
 
   @IsOptional()
   @IsString()
+  contactPhone?: string;
+
+  @IsOptional()
+  @IsString()
   name?: string;
 
   @IsOptional()
@@ -41,6 +45,24 @@ class UpdateMerchantProfileDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsObject()
+  openingHours?: Record<string, unknown>;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lat?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lng?: number;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   etaMinutes?: number;
@@ -49,6 +71,16 @@ class UpdateMerchantProfileDto {
   @Type(() => Number)
   @IsNumber()
   minOrder?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  deliveryRadiusKm?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  deliveryFee?: number;
 
   @IsOptional()
   @IsString()

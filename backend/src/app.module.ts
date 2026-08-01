@@ -20,6 +20,7 @@ import { IntercityOrdersModule } from './intercity-orders/intercity-orders.modul
 import { IntercityChatModule } from './intercity-chat/intercity-chat.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
+import { ModerationModule } from './moderation/moderation.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { HealthModule } from './health/health.module';
     IntercityTripsModule,
     IntercityOrdersModule,
     IntercityChatModule,
+    ModerationModule,
   ],
 })
 export class AppModule {}

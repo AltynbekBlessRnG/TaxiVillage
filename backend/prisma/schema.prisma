@@ -66,6 +66,7 @@ model PassengerProfile {
   rides     Ride[]   @relation("PassengerRides")
   courierOrders CourierOrder[] @relation("PassengerCourierOrders")
   foodOrders FoodOrder[] @relation("PassengerFoodOrders")
+  promoCodeRedemptions PromoCodeRedemption[]
   intercityOrders IntercityOrder[] @relation("PassengerIntercityOrders")
   intercityBookings IntercityBooking[] @relation("PassengerIntercityBookings")
   favoriteAddresses FavoriteAddress[]
@@ -98,6 +99,7 @@ model DriverProfile {
   courierOrders CourierOrder[] @relation("CourierOrders")
   intercityOrders IntercityOrder[] @relation("IntercityDriverOrders")
   intercityTrips IntercityTrip[] @relation("DriverIntercityTrips")
+  foodDeliveries FoodOrder[] @relation("DriverFoodDeliveries")
   documents    DriverDocument[]
 }
 
@@ -109,17 +111,33 @@ model Merchant {
 
   name        String
   whatsAppPhone String?
+  contactPhone String?
   cuisine     String?
   description String?
+  address     String?
+  lat         Float?
+  lng         Float?
+  openingHours Json?
   etaMinutes  Int           @default(35)
   minOrder    Decimal       @default(0) @db.Decimal(10, 2)
+  deliveryRadiusKm Float    @default(8)
+  deliveryFee Decimal       @default(700) @db.Decimal(10, 2)
+  commissionPercent Int     @default(7)
+  freeOrderLimit Int        @default(30)
+  completedOrderCount Int   @default(0)
+  commissionDebt Decimal    @default(0) @db.Decimal(10, 2)
+  commissionDebtLimit Decimal @default(10000) @db.Decimal(10, 2)
+  verificationStatus MerchantVerificationStatus @default(PENDING)
   rating      Float         @default(5.0)
   isOpen      Boolean       @default(true)
   tone        String?       @default("#7C2D12")
+  logoImageUrl String?
   coverImageUrl String?
 
   menuCategories MenuCategory[]
   foodOrders     FoodOrder[] @relation("MerchantFoodOrders")
+  promoCodes     PromoCode[]
+  settlements    MerchantSettlement[]
 }
 
 
@@ -285,9 +303,29 @@ enum FoodOrderStatus {
   ACCEPTED
   PREPARING
   READY_FOR_PICKUP
+  SEARCHING_DRIVER
+  DRIVER_ASSIGNED
+  AT_MERCHANT
   ON_DELIVERY
   DELIVERED
   CANCELED
+}
+
+enum MerchantVerificationStatus {
+  PENDING
+  VERIFIED
+  SUSPENDED
+}
+
+enum PromoDiscountType {
+  FIXED
+  PERCENT
+}
+
+enum MerchantSettlementType {
+  COMMISSION_CHARGE
+  PAYMENT
+  ADJUSTMENT
 }
 
 enum IntercityOrderStatus {
@@ -344,6 +382,7 @@ enum MessageSender {
 enum PaymentMethod {
   CARD
   CASH
+  KASPI_TRANSFER
 }
 
 enum PhoneOtpChannel {
@@ -353,6 +392,12 @@ enum PhoneOtpChannel {
 enum PhoneOtpPurpose {
   REGISTER
   LOGIN
+}
+
+enum ModerationReportStatus {
+  OPEN
+  REVIEWED
+  RESOLVED
 }
 
 enum AddressPrecision {
@@ -408,6 +453,32 @@ model ChatMessage {
   @@index([intercityOrderId, createdAt])
   @@index([intercityBookingId, createdAt])
   @@index([intercityTripId, createdAt])
+}
+
+model UserBlock {
+  id            String   @id @default(cuid())
+  blockerUserId String
+  blockedUserId String
+  createdAt     DateTime @default(now())
+
+  @@unique([blockerUserId, blockedUserId])
+  @@index([blockerUserId, createdAt])
+  @@index([blockedUserId])
+}
+
+model MessageReport {
+  id             String                 @id @default(cuid())
+  reporterUserId String
+  reportedUserId String
+  messageId      String
+  reason         String
+  context        String?
+  status         ModerationReportStatus @default(OPEN)
+  createdAt      DateTime               @default(now())
+
+  @@index([reporterUserId, createdAt])
+  @@index([reportedUserId, status, createdAt])
+  @@index([messageId])
 }
 
 /// Курьерский заказ
@@ -488,6 +559,7 @@ model FoodOrder {
   id              String           @id @default(cuid())
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  idempotencyKey  String?          @unique
 
   passengerId     String
   passenger       PassengerProfile @relation("PassengerFoodOrders", fields: [passengerId], references: [id])
@@ -495,14 +567,40 @@ model FoodOrder {
   merchantId      String
   merchant        Merchant         @relation("MerchantFoodOrders", fields: [merchantId], references: [id])
 
+  driverId         String?
+  driver           DriverProfile?  @relation("DriverFoodDeliveries", fields: [driverId], references: [id])
+
   status          FoodOrderStatus  @default(PLACED)
   deliveryAddress String
+  deliveryLat     Float?
+  deliveryLng     Float?
   comment         String?
-  paymentMethod   PaymentMethod    @default(CARD)
+  paymentMethod   PaymentMethod    @default(CASH)
+  subtotal        Decimal          @default(0) @db.Decimal(10, 2)
+  deliveryFee     Decimal          @default(0) @db.Decimal(10, 2)
+  discountAmount  Decimal          @default(0) @db.Decimal(10, 2)
+  commissionAmount Decimal         @default(0) @db.Decimal(10, 2)
+  driverPayout    Decimal          @default(0) @db.Decimal(10, 2)
   totalPrice      Decimal          @db.Decimal(10, 2)
+  passengerPhoneSnapshot String?
+  merchantPhoneSnapshot String?
+  cancellationReason String?
+  acceptedAt      DateTime?
+  searchingDriverAt DateTime?
+  driverAssignedAt DateTime?
+  arrivedAtMerchantAt DateTime?
+  pickedUpAt      DateTime?
+  deliveredAt     DateTime?
+  merchantAlertedAt DateTime?
+  driverAlertedAt DateTime?
 
   items           FoodOrderItem[]
   statusHistory   FoodOrderStatusHistory[]
+  promoRedemption PromoCodeRedemption?
+
+  @@index([status, createdAt])
+  @@index([driverId, status])
+  @@index([merchantId, status])
 }
 
 model FoodOrderItem {
@@ -525,6 +623,56 @@ model FoodOrderStatusHistory {
 
   status      FoodOrderStatus
   createdAt   DateTime        @default(now())
+}
+
+model PromoCode {
+  id             String            @id @default(cuid())
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  code           String            @unique
+  merchantId     String?
+  merchant       Merchant?         @relation(fields: [merchantId], references: [id])
+  discountType   PromoDiscountType
+  discountValue  Decimal           @db.Decimal(10, 2)
+  maxDiscount    Decimal?          @db.Decimal(10, 2)
+  minSubtotal    Decimal           @default(0) @db.Decimal(10, 2)
+  usageLimit     Int?
+  usageCount     Int               @default(0)
+  perUserLimit   Int               @default(1)
+  startsAt       DateTime?
+  expiresAt      DateTime?
+  isActive       Boolean           @default(true)
+  redemptions    PromoCodeRedemption[]
+
+  @@index([merchantId, isActive])
+}
+
+model PromoCodeRedemption {
+  id          String           @id @default(cuid())
+  createdAt   DateTime         @default(now())
+  promoCodeId String
+  promoCode   PromoCode        @relation(fields: [promoCodeId], references: [id])
+  passengerId String
+  passenger   PassengerProfile @relation(fields: [passengerId], references: [id])
+  foodOrderId String           @unique
+  foodOrder   FoodOrder        @relation(fields: [foodOrderId], references: [id])
+  amount      Decimal          @db.Decimal(10, 2)
+
+  @@unique([promoCodeId, passengerId])
+}
+
+model MerchantSettlement {
+  id          String                 @id @default(cuid())
+  createdAt   DateTime               @default(now())
+  merchantId  String
+  merchant    Merchant               @relation(fields: [merchantId], references: [id])
+  foodOrderId String?
+  type        MerchantSettlementType
+  amount      Decimal                @db.Decimal(10, 2)
+  note        String?
+
+  @@index([merchantId, createdAt])
+  @@index([foodOrderId])
 }
 
 model IntercityOrder {

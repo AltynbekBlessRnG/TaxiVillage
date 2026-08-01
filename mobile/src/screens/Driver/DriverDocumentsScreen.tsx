@@ -77,7 +77,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
   const [carColor, setCarColor] = useState('');
   const [carPlate, setCarPlate] = useState('');
 
-  const documents = profile?.documents ?? [];
+  const documents = useMemo(() => profile?.documents ?? [], [profile?.documents]);
   const approvedCount = useMemo(
     () => documents.filter((doc) => doc.approved).length,
     [documents],
