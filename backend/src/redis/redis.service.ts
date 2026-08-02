@@ -2,7 +2,7 @@ import {
   INestApplicationContext,
   Injectable,
   Logger,
-  OnModuleDestroy,
+  OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
@@ -29,7 +29,7 @@ export type CachedLocationPayload = {
 };
 
 @Injectable()
-export class RedisService implements OnModuleDestroy {
+export class RedisService implements OnApplicationShutdown {
   private readonly logger = new Logger(RedisService.name);
   private readonly redisUrl?: string;
   private readonly defaultTtlSeconds = 120;
@@ -274,7 +274,7 @@ export class RedisService implements OnModuleDestroy {
     await client.del(this.activeAssignmentKey(kind, userId));
   }
 
-  async onModuleDestroy() {
+  async onApplicationShutdown() {
     this.shuttingDown = true;
     const client = this.client;
     const pubClient = this.pubClient;
