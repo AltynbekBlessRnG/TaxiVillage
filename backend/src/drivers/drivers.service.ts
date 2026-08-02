@@ -56,11 +56,11 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Cleanup on service destruction
-  onModuleDestroy() {
+  async onModuleDestroy() {
     this.unsubscribeOfflinePresence?.();
     if (this.locationBatchTimer) {
       clearInterval(this.locationBatchTimer);
-      this.flushLocationBatch(); // Flush any remaining updates
+      await this.flushLocationBatch(); // Flush any remaining updates
     }
     if (this.cacheCleanupTimer) {
       clearInterval(this.cacheCleanupTimer);
@@ -669,4 +669,3 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
     return nearbyDrivers;
   }
 }
-

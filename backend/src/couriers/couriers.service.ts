@@ -40,10 +40,10 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
     }, this.CACHE_CLEANUP_INTERVAL);
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
     if (this.locationBatchTimer) {
       clearInterval(this.locationBatchTimer);
-      void this.flushLocationBatch();
+      await this.flushLocationBatch();
     }
 
     if (this.cacheCleanupTimer) {
