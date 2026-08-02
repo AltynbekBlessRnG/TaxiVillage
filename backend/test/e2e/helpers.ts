@@ -2,7 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import request from 'supertest';
+import request = require('supertest');
 import { io, Socket } from 'socket.io-client';
 import { RideStatus, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
