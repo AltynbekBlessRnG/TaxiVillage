@@ -102,7 +102,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
         // Batch update all locations in a single transaction
         await this.prisma.$transaction(
           updates.map(({ userId, lat, lng }) =>
-            this.prisma.driverProfile.update({
+            this.prisma.driverProfile.updateMany({
               where: { userId },
               data: { lat, lng },
             })

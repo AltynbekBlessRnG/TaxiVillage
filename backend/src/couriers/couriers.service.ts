@@ -82,7 +82,7 @@ export class CouriersService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.prisma.$transaction(
         updates.map(({ userId, lat, lng }) =>
-          this.prisma.driverProfile.update({
+          this.prisma.driverProfile.updateMany({
             where: { userId },
             data: { lat, lng },
           }),
