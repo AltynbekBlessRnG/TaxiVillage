@@ -41,8 +41,7 @@ TaxiVillage объединяет местные поездки и доставк
 
 ## Контакты
 
-- Privacy: `https://taxivillage-docs.onrender.com/privacy-policy.html`
-- Support: `https://taxivillage-docs.onrender.com/support.html`
-- Delete account: `https://taxivillage-docs.onrender.com/delete-account.html`
+- Privacy: `https://taxivillage-docs-xp2f.onrender.com/privacy-policy.html`
+- Support: `https://taxivillage-docs-xp2f.onrender.com/support.html`
+- Delete account: `https://taxivillage-docs-xp2f.onrender.com/delete-account.html`
 - Email: `support@taxivillage.app`
-

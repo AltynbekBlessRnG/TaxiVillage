@@ -74,9 +74,9 @@ Confirm against the production build and every integrated SDK. Expected declarat
 | Push token / device identifier | Yes | No | App Functionality |
 | Server diagnostics, if retained | Usually no | No | Analytics / App Functionality |
 
-Privacy policy URL: `https://taxivillage-docs.onrender.com/privacy-policy.html`
+Privacy policy URL: `https://taxivillage-docs-xp2f.onrender.com/privacy-policy.html`
 
-Support URL: `https://taxivillage-docs.onrender.com/support.html`
+Support URL: `https://taxivillage-docs-xp2f.onrender.com/support.html`
 
 ## 5. TestFlight acceptance pass
 

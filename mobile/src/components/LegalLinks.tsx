@@ -2,7 +2,7 @@ import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const legalBaseUrl = (
-  process.env.EXPO_PUBLIC_LEGAL_BASE_URL || 'https://taxivillage-docs.onrender.com'
+  process.env.EXPO_PUBLIC_LEGAL_BASE_URL || 'https://taxivillage-docs-xp2f.onrender.com'
 ).replace(/\/+$/, '');
 
 const links = [
