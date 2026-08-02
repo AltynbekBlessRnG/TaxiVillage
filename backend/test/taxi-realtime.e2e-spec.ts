@@ -9,11 +9,10 @@ import {
   createTaxiRide,
   E2eAppContext,
   expectRideStatus,
-  loginUser,
   makeReadyTaxiDriver,
-  registerUser,
   resetDatabase,
   resetRedis,
+  seedVerifiedUserWithAccessToken,
   sleep,
   waitForCondition,
   waitForSocketEvent,
@@ -39,12 +38,12 @@ describe('Taxi realtime E2E', () => {
     const passengerSeed = Date.now() % 10000;
     const driverSeed = passengerSeed + 1;
 
-    const passengerRegistration = await registerUser(ctx.http, {
+    const passengerRegistration = await seedVerifiedUserWithAccessToken(ctx.app, {
       phone: buildPhone(passengerSeed),
       role: 'PASSENGER',
       fullName: 'E2E Passenger',
     });
-    const driverRegistration = await registerUser(ctx.http, {
+    const driverRegistration = await seedVerifiedUserWithAccessToken(ctx.app, {
       phone: buildPhone(driverSeed),
       role: 'DRIVER',
       fullName: 'E2E Driver',
@@ -52,16 +51,8 @@ describe('Taxi realtime E2E', () => {
 
     await makeReadyTaxiDriver(ctx.prisma, driverRegistration.user.id, 'E2E Driver');
 
-    const passengerLogin = await loginUser(
-      ctx.http,
-      passengerRegistration.user.phone,
-      passengerRegistration.password,
-    );
-    const driverLogin = await loginUser(
-      ctx.http,
-      driverRegistration.user.phone,
-      driverRegistration.password,
-    );
+    const passengerLogin = passengerRegistration;
+    const driverLogin = driverRegistration;
 
     const passengerSocket = await connectSocket(ctx.baseUrl, passengerLogin.accessToken);
     const driverSocket = await connectSocket(ctx.baseUrl, driverLogin.accessToken);
@@ -146,12 +137,12 @@ describe('Taxi realtime E2E', () => {
   });
 
   it('broadcasts status transitions and keeps Redis recovery in sync', async () => {
-    const passengerRegistration = await registerUser(ctx.http, {
+    const passengerRegistration = await seedVerifiedUserWithAccessToken(ctx.app, {
       phone: buildPhone((Date.now() + 2) % 10000),
       role: 'PASSENGER',
       fullName: 'Status Passenger',
     });
-    const driverRegistration = await registerUser(ctx.http, {
+    const driverRegistration = await seedVerifiedUserWithAccessToken(ctx.app, {
       phone: buildPhone((Date.now() + 3) % 10000),
       role: 'DRIVER',
       fullName: 'Status Driver',
@@ -159,16 +150,8 @@ describe('Taxi realtime E2E', () => {
 
     await makeReadyTaxiDriver(ctx.prisma, driverRegistration.user.id, 'Status Driver');
 
-    const passengerLogin = await loginUser(
-      ctx.http,
-      passengerRegistration.user.phone,
-      passengerRegistration.password,
-    );
-    const driverLogin = await loginUser(
-      ctx.http,
-      driverRegistration.user.phone,
-      driverRegistration.password,
-    );
+    const passengerLogin = passengerRegistration;
+    const driverLogin = driverRegistration;
 
     const passengerSocket = await connectSocket(ctx.baseUrl, passengerLogin.accessToken);
     const driverSocket = await connectSocket(ctx.baseUrl, driverLogin.accessToken);
@@ -257,12 +240,12 @@ describe('Taxi realtime E2E', () => {
   });
 
   it('cleans active assignments on cancellation and restores ride after socket reconnect', async () => {
-    const passengerRegistration = await registerUser(ctx.http, {
+    const passengerRegistration = await seedVerifiedUserWithAccessToken(ctx.app, {
       phone: buildPhone((Date.now() + 4) % 10000),
       role: 'PASSENGER',
       fullName: 'Reconnect Passenger',
     });
-    const driverRegistration = await registerUser(ctx.http, {
+    const driverRegistration = await seedVerifiedUserWithAccessToken(ctx.app, {
       phone: buildPhone((Date.now() + 5) % 10000),
       role: 'DRIVER',
       fullName: 'Reconnect Driver',
@@ -270,16 +253,8 @@ describe('Taxi realtime E2E', () => {
 
     await makeReadyTaxiDriver(ctx.prisma, driverRegistration.user.id, 'Reconnect Driver');
 
-    const passengerLogin = await loginUser(
-      ctx.http,
-      passengerRegistration.user.phone,
-      passengerRegistration.password,
-    );
-    const driverLogin = await loginUser(
-      ctx.http,
-      driverRegistration.user.phone,
-      driverRegistration.password,
-    );
+    const passengerLogin = passengerRegistration;
+    const driverLogin = driverRegistration;
 
     const passengerSocket = await connectSocket(ctx.baseUrl, passengerLogin.accessToken);
     let driverSocket: Socket | null = await connectSocket(ctx.baseUrl, driverLogin.accessToken);
