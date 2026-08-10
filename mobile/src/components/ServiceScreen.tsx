@@ -2,13 +2,13 @@ import React from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type ServiceScreenProps = {
   accentColor: string;
@@ -29,7 +29,7 @@ export const ServiceScreen: React.FC<ServiceScreenProps> = ({
   onBack,
   children,
 }) => (
-  <SafeAreaView style={styles.container}>
+  <SafeAreaView style={styles.container} edges={['top', 'right', 'bottom', 'left']}>
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

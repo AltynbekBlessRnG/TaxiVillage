@@ -488,14 +488,14 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.itemSummaryPrice}>{Math.round(Number(item.price))} тг</Text>
                 <View style={styles.itemActionsRow}>
                   <TouchableOpacity
-                    style={styles.itemActionButton}
+                    style={[styles.itemActionButton, styles.itemMoveButton]}
                     onPress={() => reorderItem(item.id, 'up').catch(() => null)}
                     disabled={reorderingItemId === item.id}
                   >
                     <Text style={styles.itemActionButtonText}>↑</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.itemActionButton}
+                    style={[styles.itemActionButton, styles.itemMoveButton]}
                     onPress={() => reorderItem(item.id, 'down').catch(() => null)}
                     disabled={reorderingItemId === item.id}
                   >
@@ -564,10 +564,14 @@ const styles = StyleSheet.create({
   },
   categoryChipWrap: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 6,
+    width: '100%',
   },
   categoryChip: {
+    flex: 1,
+    minWidth: 120,
     backgroundColor: '#111827',
     borderRadius: 16,
     borderWidth: 1,
@@ -686,6 +690,7 @@ const styles = StyleSheet.create({
   },
   itemActionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   itemActionButton: {
@@ -702,6 +707,10 @@ const styles = StyleSheet.create({
     color: '#F4F4F5',
     fontSize: 13,
     fontWeight: '800',
+  },
+  itemMoveButton: {
+    flex: 0,
+    width: 48,
   },
   itemDeleteButton: {
     backgroundColor: '#2A1515',

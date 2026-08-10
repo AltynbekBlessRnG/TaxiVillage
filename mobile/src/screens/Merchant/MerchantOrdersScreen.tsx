@@ -147,9 +147,9 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
       onBack={() => navigation.goBack()}
     >
       <View style={styles.heroBlock}>
-        <Text style={styles.heroTitle}>Кухня в работе</Text>
+        <Text style={styles.heroTitle}>Работа с заказами</Text>
         <Text style={styles.heroText}>
-          Сначала принимай новые заказы, затем двигай их по этапам до передачи в доставку.
+          Примите новый заказ и обновляйте этапы по мере приготовления и передачи водителю.
         </Text>
       </View>
 

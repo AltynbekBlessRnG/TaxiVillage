@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -16,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -301,7 +301,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'right', 'bottom', 'left']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -368,7 +368,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickActionCard} onPress={() => navigation.navigate('MerchantOrders')}>
             <Text style={styles.quickActionTitle}>Заказы</Text>
-            <Text style={styles.quickActionText}>Что пришло сейчас</Text>
+            <Text style={styles.quickActionText}>Новые и активные</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickActionCard} onPress={handleOpenPreview}>
             <Text style={styles.quickActionTitle}>Превью</Text>
@@ -396,7 +396,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeading}>
-              <Text style={styles.sectionEyebrow}>Ресторан</Text>
+              <Text style={styles.sectionEyebrow}>Для клиентов</Text>
               <Text style={styles.sectionTitle}>Карточка заведения</Text>
             </View>
             <View style={styles.photoButtonWrap}>
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 22 : 10,
+    paddingTop: 10,
     paddingBottom: 14,
   },
   burgerBtn: {
@@ -715,11 +715,14 @@ const styles = StyleSheet.create({
   },
   quickActionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginBottom: 16,
   },
   quickActionCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 96,
     minHeight: 92,
     borderRadius: 22,
     padding: 16,

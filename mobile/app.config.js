@@ -39,6 +39,7 @@ export default {
     },
     "android": {
       "package": "com.taxivillage.app",
+      "softwareKeyboardLayoutMode": "resize",
       "config": {
         "googleMaps": {
           "apiKey": process.env.GOOGLE_MAPS_API_KEY

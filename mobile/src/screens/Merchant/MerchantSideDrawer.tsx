@@ -1,7 +1,15 @@
 import React from 'react';
-import { Animated, Dimensions, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import {
+  Animated,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
   visible: boolean;
@@ -29,21 +37,30 @@ export const MerchantSideDrawer: React.FC<Props> = ({
   onOpenOrders,
   onOpenPreview,
   onLogout,
-}) => (
-  <Modal
-    visible={visible}
-    transparent
-    animationType="none"
-    onRequestClose={onClose}
-  >
+}) => {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+    >
     <View style={styles.modalRoot}>
       <View style={styles.overlayRoot} pointerEvents="box-none">
         <Animated.View style={[styles.menuBackdrop, { opacity: menuBackdropOpacity }]} />
         <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
       </View>
 
-      <Animated.View style={[styles.sideDrawer, { transform: [{ translateX: sideMenuAnim }] }]}>
-        <View style={styles.drawerHeader}>
+      <Animated.View
+        style={[
+          styles.sideDrawer,
+          { width: Math.min(width * 0.84, 320), transform: [{ translateX: sideMenuAnim }] },
+        ]}
+      >
+        <View style={[styles.drawerHeader, { paddingTop: insets.top + 52 }]}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
@@ -58,7 +75,7 @@ export const MerchantSideDrawer: React.FC<Props> = ({
                 .toUpperCase()}
             </Text>
           </View>
-          <Text style={styles.drName}>{name || 'Ресторан'}</Text>
+          <Text style={styles.drName}>{name || 'Заведение'}</Text>
           {phone ? <Text style={styles.drPhone}>{phone}</Text> : null}
           <View style={[styles.statusPill, isOpen ? styles.statusPillOpen : styles.statusPillClosed]}>
             <Text style={[styles.statusPillText, isOpen ? styles.statusPillTextOpen : styles.statusPillTextClosed]}>
@@ -86,8 +103,9 @@ export const MerchantSideDrawer: React.FC<Props> = ({
         </View>
       </Animated.View>
     </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   modalRoot: {
@@ -104,7 +122,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    width: width * 0.8,
     backgroundColor: '#09090B',
     zIndex: 1000,
     elevation: 1000,
@@ -114,7 +131,6 @@ const styles = StyleSheet.create({
   drawerHeader: {
     backgroundColor: '#131316',
     padding: 28,
-    paddingTop: 68,
     borderBottomWidth: 1,
     borderBottomColor: '#27272A',
   },
