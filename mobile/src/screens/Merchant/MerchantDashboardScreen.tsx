@@ -462,7 +462,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               value={etaMinutes}
               onChangeText={setEtaMinutes}
               style={[styles.input, styles.halfInput]}
-              placeholder="ETA, мин"
+              placeholder="Приготовление, мин"
               placeholderTextColor="#71717A"
               keyboardType="numeric"
             />

@@ -140,9 +140,9 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
   return (
     <ServiceScreen
       accentColor="#FB923C"
-      eyebrow="Kitchen"
-      title="Входящие food orders"
-      subtitle="Рабочий экран кухни: новые заказы, состав и быстрый перевод по этапам."
+      eyebrow="Заведение"
+      title="Входящие заказы"
+      subtitle="Принимайте заказы и обновляйте их статус."
       backLabel="К кабинету"
       onBack={() => navigation.goBack()}
     >
@@ -155,7 +155,7 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
 
       {orders.length === 0 ? (
         <ServiceCard compact>
-          <Text style={styles.emptyText}>Пока нет входящих food orders.</Text>
+          <Text style={styles.emptyText}>Пока нет входящих заказов.</Text>
         </ServiceCard>
       ) : null}
 

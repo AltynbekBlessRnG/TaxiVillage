@@ -169,7 +169,7 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
           </TouchableOpacity>
 
           <View style={styles.hero}>
-            <Text style={styles.eyebrow}>Telegram OTP</Text>
+            <Text style={styles.eyebrow}>Подтверждение номера</Text>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>
               Открой Telegram-бота, отправь свой контакт через кнопку Telegram и вернись сюда. Номер: {phone}

@@ -1,21 +1,11 @@
-import React, { useState } from 'react';
-import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useRef, useState } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
 import { saveAuth } from '../../storage/authStorage';
 import { registerPushToken } from '../../utils/notifications';
+import { AuthScreenLayout } from '../../components/AuthScreenLayout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -25,6 +15,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<'phone' | 'password' | null>(null);
+  const passwordInputRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -83,79 +74,63 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
-    >
-      <Pressable style={styles.flex} onPress={Keyboard.dismiss}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.hero}>
-            <Text style={styles.title}>Вход в аккаунт</Text>
-            <Text style={styles.subtitle}>Продолжайте работу в приложении без лишнего шума.</Text>
-          </View>
+    <AuthScreenLayout>
+      <View style={styles.hero}>
+        <Text style={styles.title}>Вход в аккаунт</Text>
+        <Text style={styles.subtitle}>Введите номер телефона и пароль.</Text>
+      </View>
 
-          <View style={styles.formCard}>
-            <TextInput
-              style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
-              placeholder="Телефон"
-              placeholderTextColor="#71717A"
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-              value={phone}
-              onChangeText={setPhone}
-              onFocus={() => setFocusedField('phone')}
-              onBlur={() => setFocusedField((current) => (current === 'phone' ? null : current))}
-            />
-            <TextInput
-              style={[styles.input, focusedField === 'password' && styles.inputFocused]}
-              placeholder="Пароль"
-              placeholderTextColor="#71717A"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              onFocus={() => setFocusedField('password')}
-              onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
-            />
+      <View style={styles.formCard}>
+        <TextInput
+          style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
+          placeholder="Телефон"
+          placeholderTextColor="#71717A"
+          keyboardType="phone-pad"
+          autoCapitalize="none"
+          autoComplete="tel"
+          textContentType="telephoneNumber"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          value={phone}
+          onChangeText={setPhone}
+          onSubmitEditing={() => passwordInputRef.current?.focus()}
+          onFocus={() => setFocusedField('phone')}
+          onBlur={() => setFocusedField((current) => (current === 'phone' ? null : current))}
+        />
+        <TextInput
+          ref={passwordInputRef}
+          style={[styles.input, focusedField === 'password' && styles.inputFocused]}
+          placeholder="Пароль"
+          placeholderTextColor="#71717A"
+          secureTextEntry
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="done"
+          value={password}
+          onChangeText={setPassword}
+          onSubmitEditing={handleLogin}
+          onFocus={() => setFocusedField('password')}
+          onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
+        />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-              <Text style={styles.buttonText}>{loading ? 'Вход...' : 'Войти'}</Text>
-            </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+          <Text style={styles.buttonText}>{loading ? 'Вход...' : 'Войти'}</Text>
+        </TouchableOpacity>
 
-            <View style={styles.linkRow}>
-              <Text style={styles.linkText}>Нет аккаунта?</Text>
-              <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
-                Зарегистрироваться
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-      </Pressable>
-    </KeyboardAvoidingView>
+        <View style={styles.linkRow}>
+          <Text style={styles.linkText}>Нет аккаунта?</Text>
+          <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
+            Зарегистрироваться
+          </Text>
+        </View>
+      </View>
+    </AuthScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#09090B',
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-  },
   hero: {
     marginBottom: 28,
   },

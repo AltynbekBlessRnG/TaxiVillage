@@ -154,7 +154,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       accentColor="#FB923C"
       eyebrow="Еда"
       title="Заказ оформлен"
-      subtitle="Следи за кухней, доставкой и итогом заказа без лишних переходов."
+      subtitle="Здесь отображаются приготовление и доставка заказа."
       backLabel="На главную"
       onBack={() => navigation.navigate('PassengerHome', {})}
     >
@@ -166,7 +166,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       <ServiceCard>
         <SectionTitle>Статус кухни</SectionTitle>
         <View style={styles.statusPill}>
-          <Text style={styles.statusText}>{statusLabels[order?.status] || 'Food order'}</Text>
+          <Text style={styles.statusText}>{statusLabels[order?.status] || 'Заказ'}</Text>
         </View>
         <InlineLabel label="Заведение" value={order?.merchant?.name || '-'} />
         <InlineLabel label="Адрес доставки" value={order?.deliveryAddress || '-'} />
