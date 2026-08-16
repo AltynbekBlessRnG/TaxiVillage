@@ -1141,12 +1141,24 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         />
       </View>
 
-      <TouchableOpacity style={styles.recenterBtn} onPress={recenterMap}>
-        <Text style={styles.iconDark}>🎯</Text>
+      <TouchableOpacity
+        style={[styles.recenterBtn, { bottom: Math.max(insets.bottom, 16) + 246 }]}
+        onPress={recenterMap}
+      >
+        <View style={styles.recenterOuter}>
+          <View style={styles.recenterInner} />
+        </View>
       </TouchableOpacity>
 
       {profile?.supportsIntercity ? (
-        <TouchableOpacity style={[styles.intercityHubBtn, profile?.driverMode === 'INTERCITY' && styles.intercityHubBtnActive]} onPress={openIntercityHub}>
+        <TouchableOpacity
+          style={[
+            styles.intercityHubBtn,
+            { top: topInset + 66 },
+            profile?.driverMode === 'INTERCITY' && styles.intercityHubBtnActive,
+          ]}
+          onPress={openIntercityHub}
+        >
           <Text style={[styles.intercityHubText, profile?.driverMode === 'INTERCITY' && styles.intercityHubTextActive]}>
             Межгород
           </Text>
@@ -1154,7 +1166,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       ) : null}
 
       <TouchableOpacity
-        style={styles.foodDeliveryBtn}
+        style={[styles.foodDeliveryBtn, { top: topInset + 114 }]}
         onPress={() => navigation.navigate('FoodDeliveries')}
       >
         <Text style={styles.foodDeliveryText}>Доставка еды</Text>
@@ -1373,9 +1385,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  recenterOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recenterInner: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#F4F4F5',
+  },
   recenterBtn: {
     position: 'absolute',
-    bottom: 262,
     right: 20,
     width: 50,
     height: 50,
@@ -1388,17 +1414,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
     elevation: 20,
   },
-  modeSwitcher: {
-    position: 'absolute',
-    top: 108,
-    right: 20,
-    flexDirection: 'row',
-    gap: 8,
-    zIndex: 10,
-  },
   intercityHubBtn: {
     position: 'absolute',
-    top: 108,
     left: 20,
     backgroundColor: '#18181B',
     borderRadius: 999,
@@ -1414,7 +1431,6 @@ const styles = StyleSheet.create({
   },
   foodDeliveryBtn: {
     position: 'absolute',
-    top: 156,
     left: 20,
     backgroundColor: '#3F1F0F',
     borderRadius: 999,
@@ -1602,5 +1618,4 @@ const styles = StyleSheet.create({
     color: '#F4F4F5',
   },
   iconText: { fontSize: 24, color: '#fff' },
-  iconDark: { fontSize: 22 },
 });

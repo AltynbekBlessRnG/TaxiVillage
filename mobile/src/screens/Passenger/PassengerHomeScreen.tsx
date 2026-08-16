@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useIsFocused } from '@react-navigation/native';
@@ -48,6 +49,7 @@ const hasValidCoordinates = (coords?: { lat: number; lng: number } | null) =>
   !!coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng) && !(coords.lat === 0 && coords.lng === 0);
 
 export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const {
     screenState,
@@ -559,7 +561,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
       {isFocused && incomingChatToast ? (
         <TouchableOpacity
-          style={styles.chatToast}
+          style={[styles.chatToast, { top: Math.max(insets.top, 12) + 66 }]}
           activeOpacity={0.9}
           onPress={() => {
             setIncomingChatToast(null);
@@ -783,24 +785,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#09090B',
   },
-  uiOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
-  burgerBtn: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    width: 46,
-    height: 46,
-    backgroundColor: '#18181B',
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    zIndex: 100,
-  },
   chatToast: {
     position: 'absolute',
-    top: 108,
     left: 16,
     right: 16,
     backgroundColor: '#18181B',
