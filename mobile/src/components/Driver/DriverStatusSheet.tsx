@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 interface DriverStatusSheetProps {
@@ -8,7 +9,12 @@ interface DriverStatusSheetProps {
   currentRide?: any;
   profile: any;
   onSwitchMode: (mode: 'TAXI' | 'COURIER') => void;
+  onToggleOnline?: (next: boolean) => void;
+  onOpenIntercity?: () => void;
+  onOpenFoodDeliveries?: () => void;
   onOpenToday?: () => void;
+  /** Reports the sheet height so the map can keep its controls clear of it. */
+  onHeightChange?: (height: number) => void;
   currentCourierOrder?: any;
   availableCourierOrders?: any[];
   onAcceptCourierOrder?: (orderId: string) => void;
@@ -35,7 +41,11 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   currentRide,
   profile,
   onSwitchMode,
+  onToggleOnline,
+  onOpenIntercity,
+  onOpenFoodDeliveries,
   onOpenToday,
+  onHeightChange,
   currentCourierOrder,
   availableCourierOrders = [],
   onAcceptCourierOrder,
@@ -48,9 +58,13 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   onShowDriverNotice,
   metrics,
 }) => {
+  const insets = useSafeAreaInsets();
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isActiveExpanded, setIsActiveExpanded] = useState(false);
-  const maxEarnings = Math.max(...(metrics?.dailyBuckets?.map((bucket) => bucket.earnings) ?? [0]), 1);
+  const maxEarnings = Math.max(
+    ...(metrics?.dailyBuckets?.map((bucket) => bucket.earnings) ?? [0]),
+    1,
+  );
 
   useEffect(() => {
     if (currentRide || currentCourierOrder) {
@@ -81,8 +95,11 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
     const cancelAction = compactActions.find((action) => action.placement === 'cancel');
 
     return (
-      <View style={styles.container}>
-        <View style={styles.workspace}>
+      <View
+        style={styles.container}
+        onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
+      >
+        <View style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}>
           <View style={[styles.activeCard, currentCourierOrder && styles.activeCardCourier]}>
             <View style={styles.handleLineActive} />
             <TouchableOpacity
@@ -92,14 +109,21 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
             >
               <View style={styles.activeSummaryMain}>
                 <Text style={styles.activeSummaryTime}>
-                  {rideStatus === 'IN_PROGRESS' || courierStatus === 'TO_RECIPIENT' ? 'В пути' : 'Подача'}
+                  {rideStatus === 'IN_PROGRESS' || courierStatus === 'TO_RECIPIENT'
+                    ? 'В пути'
+                    : 'Подача'}
                 </Text>
                 <Text style={styles.activeSummaryAddress} numberOfLines={1}>
                   {currentRide?.fromAddress || currentCourierOrder?.pickupAddress || '-'}
                 </Text>
               </View>
               <View style={styles.activeSummarySide}>
-                <Text style={[styles.activeSummaryPrice, currentCourierOrder && styles.activeSummaryPriceCourier]}>
+                <Text
+                  style={[
+                    styles.activeSummaryPrice,
+                    currentCourierOrder && styles.activeSummaryPriceCourier,
+                  ]}
+                >
                   {Math.round(
                     Number(
                       currentRide?.finalPrice ??
@@ -166,17 +190,23 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                       <View style={styles.routeCardActive}>
                         <View style={styles.routePointCompact}>
                           <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
-                          <Text style={styles.routeText}>{currentCourierOrder?.pickupAddress || '-'}</Text>
+                          <Text style={styles.routeText}>
+                            {currentCourierOrder?.pickupAddress || '-'}
+                          </Text>
                         </View>
                         <View style={styles.routeArrowWrap}>
                           <Ionicons name="arrow-down" size={16} color="#5F5F68" />
                         </View>
                         <View style={styles.routePointCompact}>
                           <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-                          <Text style={styles.routeText}>{currentCourierOrder?.dropoffAddress || '-'}</Text>
+                          <Text style={styles.routeText}>
+                            {currentCourierOrder?.dropoffAddress || '-'}
+                          </Text>
                         </View>
                         {currentCourierOrder?.itemDescription ? (
-                          <Text style={styles.courierMiniMeta}>{currentCourierOrder.itemDescription}</Text>
+                          <Text style={styles.courierMiniMeta}>
+                            {currentCourierOrder.itemDescription}
+                          </Text>
                         ) : null}
                       </View>
                     ) : null}
@@ -224,7 +254,10 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                       </Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.bottomHalfActionCancel} onPress={cancelAction.onPress}>
+                    <TouchableOpacity
+                      style={styles.bottomHalfActionCancel}
+                      onPress={cancelAction.onPress}
+                    >
                       <Text style={styles.bottomHalfActionCancelText}>{cancelAction.label}</Text>
                     </TouchableOpacity>
                   </View>
@@ -263,8 +296,11 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.workspace}>
+    <View
+      style={styles.container}
+      onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
+    >
+      <View style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.modeTabs}>
           <TouchableOpacity
             style={[styles.modeTab, profile?.driverMode === 'TAXI' && styles.modeTabActive]}
@@ -272,110 +308,170 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
             disabled={profile?.driverMode === 'TAXI'}
             activeOpacity={profile?.driverMode === 'TAXI' ? 1 : 0.85}
           >
-            <Text style={[styles.modeTabText, profile?.driverMode === 'TAXI' && styles.modeTabTextActive]}>
+            <Text
+              style={[
+                styles.modeTabText,
+                profile?.driverMode === 'TAXI' && styles.modeTabTextActive,
+              ]}
+            >
               Такси
             </Text>
           </TouchableOpacity>
           {profile?.supportsCourier ? (
             <TouchableOpacity
-              style={[styles.modeTab, profile?.driverMode === 'COURIER' && styles.modeTabActiveCourier]}
+              style={[
+                styles.modeTab,
+                profile?.driverMode === 'COURIER' && styles.modeTabActiveCourier,
+              ]}
               onPress={() => onSwitchMode('COURIER')}
               disabled={profile?.driverMode === 'COURIER'}
               activeOpacity={profile?.driverMode === 'COURIER' ? 1 : 0.85}
             >
-              <Text style={[styles.modeTabText, profile?.driverMode === 'COURIER' && styles.modeTabTextActive]}>
+              <Text
+                style={[
+                  styles.modeTabText,
+                  profile?.driverMode === 'COURIER' && styles.modeTabTextActive,
+                ]}
+              >
                 Курьер
               </Text>
             </TouchableOpacity>
           ) : null}
+          {profile?.supportsIntercity ? (
+            <TouchableOpacity
+              style={[
+                styles.modeTab,
+                profile?.driverMode === 'INTERCITY' && styles.modeTabActiveIntercity,
+              ]}
+              onPress={onOpenIntercity}
+              activeOpacity={0.85}
+            >
+              <Text
+                style={[
+                  styles.modeTabText,
+                  profile?.driverMode === 'INTERCITY' && styles.modeTabTextActive,
+                ]}
+              >
+                Межгород
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-        
+
+        {profile?.supportsCourier ? (
+          <TouchableOpacity style={styles.sectionLink} onPress={onOpenFoodDeliveries}>
+            <Text style={styles.sectionLinkText}>Доставка еды</Text>
+            <Text style={styles.sectionLinkChevron}>›</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <View style={styles.onlineShell}>
           <View style={styles.waitingPanel}>
-                <View style={styles.infoCardCompact}>
-                  <TouchableOpacity
-                    style={styles.infoHeaderRow}
-                    onPress={() => setIsStatsExpanded((prev) => !prev)}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.infoHeader}>
-                      <Text style={styles.infoTitle}>7 дней</Text>
-                      {!isStatsExpanded ? (
-                        <Text style={styles.infoSummary}>
-                          Сегодня {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={styles.infoChevron}>{isStatsExpanded ? '⌃' : '⌄'}</Text>
-                  </TouchableOpacity>
-                  {isStatsExpanded ? (
-                    <View style={styles.chartRow}>
-                      {(metrics?.dailyBuckets ?? []).map((bucket) => (
-                        <View key={bucket.date} style={styles.chartItem}>
-                          <View style={styles.chartTrack}>
-                            <View
-                              style={[
-                                styles.chartBar,
-                                {
-                                  height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
-                                  backgroundColor: profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
-                                },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.chartValue}>{Math.round(bucket.earnings)}</Text>
-                          <Text style={styles.chartLabel}>{bucket.label}</Text>
-                        </View>
-                      ))}
-                    </View>
+            <View style={styles.infoCardCompact}>
+              <TouchableOpacity
+                style={styles.infoHeaderRow}
+                onPress={() => setIsStatsExpanded((prev) => !prev)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.infoHeader}>
+                  <Text style={styles.infoTitle}>7 дней</Text>
+                  {!isStatsExpanded ? (
+                    <Text style={styles.infoSummary}>
+                      Сегодня {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
+                    </Text>
                   ) : null}
                 </View>
-
-                <TouchableOpacity style={styles.card} onPress={onOpenToday}>
-                  <Text style={styles.cardTitle}>Сегодня</Text>
-                  <View style={styles.cardRight}>
-                    <Text style={styles.cardValue}>{Math.round(Number(metrics?.todayEarnings ?? 0))} ₸</Text>
-                    <Text style={styles.chevron}>›</Text>
-                  </View>
-                </TouchableOpacity>
-
-                <View style={styles.metricsCard}>
-                  <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>Баланс</Text>
-                    <Text style={styles.metricValueWhite}>{Math.round(Number(metrics?.balance ?? profile?.balance ?? 0))} ₸</Text>
-                  </View>
-                  
-                  <View style={styles.verticalDivider} />
-                  
-                  <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>Завершено</Text>
-                    <Text style={styles.metricValueWhite}>
-                      {(metrics?.completedTaxiRides ?? 0) + (metrics?.completedCourierDeliveries ?? 0)}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.verticalDivider} />
-                  
-                  <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>Рейтинг</Text>
-                    <Text style={styles.metricValueYellow}>{Number(metrics?.rating ?? profile?.rating ?? 5).toFixed(1)} ★</Text>
-                  </View>
+                <Text style={styles.infoChevron}>{isStatsExpanded ? '⌃' : '⌄'}</Text>
+              </TouchableOpacity>
+              {isStatsExpanded ? (
+                <View style={styles.chartRow}>
+                  {(metrics?.dailyBuckets ?? []).map((bucket) => (
+                    <View key={bucket.date} style={styles.chartItem}>
+                      <View style={styles.chartTrack}>
+                        <View
+                          style={[
+                            styles.chartBar,
+                            {
+                              height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
+                              backgroundColor:
+                                profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.chartValue}>{Math.round(bucket.earnings)}</Text>
+                      <Text style={styles.chartLabel}>{bucket.label}</Text>
+                    </View>
+                  ))}
                 </View>
+              ) : null}
+            </View>
 
-                {isOnline && profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
-                  <View style={styles.offerBlockCompact}>
-                    {availableCourierOrders.slice(0, 2).map((order) => (
-                      <TouchableOpacity key={order.id} style={styles.offerCard} onPress={() => onAcceptCourierOrder?.(order.id)}>
-                        <Text style={styles.offerRoute}>{order.pickupAddress}</Text>
-                        <Text style={styles.offerMeta}>
-                          {order.dropoffAddress} • {Math.round(Number(order.estimatedPrice || 0))} ₸
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ) : null}
+            <TouchableOpacity style={styles.card} onPress={onOpenToday}>
+              <Text style={styles.cardTitle}>Сегодня</Text>
+              <View style={styles.cardRight}>
+                <Text style={styles.cardValue}>
+                  {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
+                </Text>
+                <Text style={styles.chevron}>›</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.metricsCard}>
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Баланс</Text>
+                <Text style={styles.metricValueWhite}>
+                  {Math.round(Number(metrics?.balance ?? profile?.balance ?? 0))} ₸
+                </Text>
+              </View>
+
+              <View style={styles.verticalDivider} />
+
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Завершено</Text>
+                <Text style={styles.metricValueWhite}>
+                  {(metrics?.completedTaxiRides ?? 0) + (metrics?.completedCourierDeliveries ?? 0)}
+                </Text>
+              </View>
+
+              <View style={styles.verticalDivider} />
+
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Рейтинг</Text>
+                <Text style={styles.metricValueYellow}>
+                  {Number(metrics?.rating ?? profile?.rating ?? 5).toFixed(1)} ★
+                </Text>
+              </View>
+            </View>
+
+            {isOnline && profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
+              <View style={styles.offerBlockCompact}>
+                {availableCourierOrders.slice(0, 2).map((order) => (
+                  <TouchableOpacity
+                    key={order.id}
+                    style={styles.offerCard}
+                    onPress={() => onAcceptCourierOrder?.(order.id)}
+                  >
+                    <Text style={styles.offerRoute}>{order.pickupAddress}</Text>
+                    <Text style={styles.offerMeta}>
+                      {order.dropoffAddress} • {Math.round(Number(order.estimatedPrice || 0))} ₸
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
           </View>
         </View>
+
+        <TouchableOpacity
+          style={[styles.goButton, isOnline ? styles.goButtonOnline : styles.goButtonOffline]}
+          onPress={() => onToggleOnline?.(!isOnline)}
+          activeOpacity={0.9}
+        >
+          <Text style={[styles.goButtonText, isOnline && styles.goButtonTextOnline]}>
+            {isOnline ? 'Завершить смену' : 'Выйти на линию'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -383,12 +479,12 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
 
 const styles = StyleSheet.create({
   container: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 100 },
-  workspace: { 
-    backgroundColor: '#09090B', 
+  workspace: {
+    backgroundColor: '#09090B',
     padding: 16,
     paddingBottom: 24,
-    borderTopLeftRadius: 24, 
-    borderTopRightRadius: 24, 
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: '#2F2F35',
@@ -426,6 +522,48 @@ const styles = StyleSheet.create({
   modeTabActiveCourier: {
     backgroundColor: '#3F2B05',
   },
+  modeTabActiveIntercity: {
+    backgroundColor: '#08303F',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  sectionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+  },
+  sectionLinkText: { color: '#F4F4F5', fontSize: 15, fontWeight: '700' },
+  sectionLinkChevron: { color: '#71717A', fontSize: 22, fontWeight: '300' },
+  goButton: {
+    borderRadius: 18,
+    minHeight: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  goButtonOffline: {
+    backgroundColor: '#10B981',
+  },
+  goButtonOnline: {
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#3F3F46',
+  },
+  goButtonText: {
+    color: '#04231A',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  goButtonTextOnline: {
+    color: '#F4F4F5',
+  },
   modeTabText: {
     color: '#A1A1AA',
     fontSize: 14,
@@ -434,8 +572,13 @@ const styles = StyleSheet.create({
   modeTabTextActive: {
     color: '#F4F4F5',
   },
-  
-  statusRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, justifyContent: 'center' },
+
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    justifyContent: 'center',
+  },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
   statusText: { color: '#F4F4F5', fontSize: 15, fontWeight: '600' },
   waitingPanel: {
@@ -531,31 +674,31 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  card: { 
-    backgroundColor: '#18181B', 
-    borderRadius: 18, 
-    padding: 16, 
-    marginBottom: 10, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  card: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#27272A'
+    borderColor: '#27272A',
   },
   cardTitle: { color: '#F4F4F5', fontSize: 16, fontWeight: '600' },
   cardRight: { flexDirection: 'row', alignItems: 'center' },
   cardValue: { color: '#F4F4F5', fontSize: 18, fontWeight: '800' },
   chevron: { color: '#71717A', fontSize: 22, marginLeft: 10, marginTop: -2 },
-  
+
   metricsCard: {
-    backgroundColor: '#18181B', 
-    borderRadius: 18, 
+    backgroundColor: '#18181B',
+    borderRadius: 18,
     height: 76,
-    flexDirection: 'row', 
+    flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#27272A'
+    borderColor: '#27272A',
   },
   offerBlock: {
     marginBottom: 14,
@@ -584,35 +727,43 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     fontSize: 13,
   },
-  metricBox: { 
+  metricBox: {
     width: '30%', // Жестко задаем ширину вместо flex: 1
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
-  verticalDivider: { 
-    width: 1, 
-    height: 36, 
-    backgroundColor: '#27272A' 
+  verticalDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#27272A',
   },
-  metricLabel: { 
-    color: '#71717A', 
-    fontSize: 11, 
-    textTransform: 'uppercase', 
-    marginBottom: 4, 
-    fontWeight: '600' 
+  metricLabel: {
+    color: '#71717A',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    fontWeight: '600',
   },
-  metricValueWhite: { 
-    color: '#F4F4F5', 
-    fontSize: 16, 
-    fontWeight: '800' 
+  metricValueWhite: {
+    color: '#F4F4F5',
+    fontSize: 16,
+    fontWeight: '800',
   },
-  metricValueYellow: { 
-    color: '#F59E0B', 
-    fontSize: 16, 
-    fontWeight: '800' 
+  metricValueYellow: {
+    color: '#F59E0B',
+    fontSize: 16,
+    fontWeight: '800',
   },
 
-  activeCard: { backgroundColor: '#09090B', paddingHorizontal: 14, paddingTop: 18, paddingBottom: 14, borderRadius: 20, borderWidth: 1, borderColor: '#27272A' },
+  activeCard: {
+    backgroundColor: '#09090B',
+    paddingHorizontal: 14,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
   activeCardCourier: { backgroundColor: '#09090B', borderColor: '#27272A' },
   handleLineActive: {
     alignSelf: 'center',
@@ -823,8 +974,7 @@ function buildRideActions({
     tone: 'default' | 'primary' | 'success' | 'danger';
     placement?: 'icon' | 'primary' | 'cancel';
     onPress?: () => void;
-  }> =
-    [];
+  }> = [];
 
   if (rideStatus === 'ON_THE_WAY' || rideStatus === 'DRIVER_ASSIGNED') {
     actions.push({
@@ -840,21 +990,55 @@ function buildRideActions({
   }
 
   if (rideStatus === 'DRIVER_ARRIVED') {
-    actions.push({ label: 'В путь', icon: 'paper-plane-outline', tone: 'primary', placement: 'primary', onPress: () => onRideStatusChange?.('IN_PROGRESS') });
+    actions.push({
+      label: 'В путь',
+      icon: 'paper-plane-outline',
+      tone: 'primary',
+      placement: 'primary',
+      onPress: () => onRideStatusChange?.('IN_PROGRESS'),
+    });
   }
 
   if (rideStatus === 'IN_PROGRESS') {
-    actions.push({ label: 'Завершить', icon: 'checkmark-outline', tone: 'success', placement: 'primary', onPress: onCompleteRide });
+    actions.push({
+      label: 'Завершить',
+      icon: 'checkmark-outline',
+      tone: 'success',
+      placement: 'primary',
+      onPress: onCompleteRide,
+    });
   }
 
   if (hasPassengerPhone) {
-    actions.push({ label: 'Позвонить', icon: 'call-outline', tone: 'default', placement: 'icon', onPress: onCallPassenger });
+    actions.push({
+      label: 'Позвонить',
+      icon: 'call-outline',
+      tone: 'default',
+      placement: 'icon',
+      onPress: onCallPassenger,
+    });
   }
 
-  actions.push({ label: 'Чат', icon: 'chatbubble-ellipses-outline', tone: 'default', placement: 'icon', onPress: onOpenRideChat });
+  actions.push({
+    label: 'Чат',
+    icon: 'chatbubble-ellipses-outline',
+    tone: 'default',
+    placement: 'icon',
+    onPress: onOpenRideChat,
+  });
 
-  if (rideStatus === 'ON_THE_WAY' || rideStatus === 'DRIVER_ASSIGNED' || rideStatus === 'DRIVER_ARRIVED') {
-    actions.push({ label: 'Отменить заказ', icon: 'close-outline', tone: 'danger', placement: 'cancel', onPress: onCancelRide });
+  if (
+    rideStatus === 'ON_THE_WAY' ||
+    rideStatus === 'DRIVER_ASSIGNED' ||
+    rideStatus === 'DRIVER_ARRIVED'
+  ) {
+    actions.push({
+      label: 'Отменить заказ',
+      icon: 'close-outline',
+      tone: 'danger',
+      placement: 'cancel',
+      onPress: onCancelRide,
+    });
   }
 
   return actions.filter((action) => !!action.onPress);
@@ -873,19 +1057,36 @@ function buildCourierActions({
     tone: 'default' | 'primary' | 'success' | 'danger';
     placement?: 'icon' | 'primary' | 'cancel';
     onPress?: () => void;
-  }> =
-    [];
+  }> = [];
 
   if (courierStatus === 'TO_PICKUP') {
-    actions.push({ label: 'На месте', icon: 'paper-plane-outline', tone: 'primary', placement: 'primary', onPress: () => onCourierStatusChange?.('COURIER_ARRIVED') });
+    actions.push({
+      label: 'На месте',
+      icon: 'paper-plane-outline',
+      tone: 'primary',
+      placement: 'primary',
+      onPress: () => onCourierStatusChange?.('COURIER_ARRIVED'),
+    });
   }
 
   if (courierStatus === 'COURIER_ARRIVED' || courierStatus === 'PICKED_UP') {
-    actions.push({ label: 'К получателю', icon: 'paper-plane-outline', tone: 'primary', placement: 'primary', onPress: () => onCourierStatusChange?.('TO_RECIPIENT') });
+    actions.push({
+      label: 'К получателю',
+      icon: 'paper-plane-outline',
+      tone: 'primary',
+      placement: 'primary',
+      onPress: () => onCourierStatusChange?.('TO_RECIPIENT'),
+    });
   }
 
   if (courierStatus === 'TO_RECIPIENT' || courierStatus === 'DELIVERING') {
-    actions.push({ label: 'Доставлено', icon: 'checkmark-outline', tone: 'success', placement: 'primary', onPress: () => onCourierStatusChange?.('DELIVERED') });
+    actions.push({
+      label: 'Доставлено',
+      icon: 'checkmark-outline',
+      tone: 'success',
+      placement: 'primary',
+      onPress: () => onCourierStatusChange?.('DELIVERED'),
+    });
   }
 
   return actions.filter((action) => !!action.onPress);

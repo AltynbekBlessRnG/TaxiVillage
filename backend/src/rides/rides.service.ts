@@ -859,7 +859,14 @@ export class RidesService implements OnModuleDestroy {
       `Ride ${rideWithUsers.id} - Offering to driver ${selectedDriver.driver.userId} (attempt ${attempt}/${this.MAX_ATTEMPTS})`,
     );
 
-    this.ridesGateway.emitRideOffer(selectedDriver.driver.userId, rideWithUsers);
+    // How far the pickup is decides whether a driver takes the ride, so send it
+    // along with the deadline the offer cycle is already enforcing.
+    this.ridesGateway.emitRideOffer(selectedDriver.driver.userId, {
+      ...rideWithUsers,
+      pickupDistanceKm: Math.round(selectedDriver.distance * 10) / 10,
+      pickupEtaMinutes: Math.max(1, Math.ceil(selectedDriver.distance / 0.5)),
+      offerExpiresInSeconds: Math.round(this.OFFER_TIMEOUT / 1000),
+    });
     this.scheduleOfferRetry(
       rideWithUsers,
       selectedDriver.driver.id,

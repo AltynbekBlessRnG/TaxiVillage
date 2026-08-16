@@ -6,7 +6,6 @@ import {
   Platform,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -63,6 +62,9 @@ interface RideOffer {
   pickupLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
   dropoffLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
   passenger?: { user?: { phone?: string | null } | null } | null;
+  pickupDistanceKm?: number;
+  pickupEtaMinutes?: number;
+  offerExpiresInSeconds?: number;
 }
 
 export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -96,6 +98,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [courierRoute, setCourierRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [driverRoute, setDriverRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [metrics, setMetrics] = useState<any>(null);
+  const [statusSheetHeight, setStatusSheetHeight] = useState(0);
   const [driverModal, setDriverModal] = useState<DriverModalState>({
     visible: false,
     title: '',
@@ -1131,45 +1134,21 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         ) : null}
       </TouchableOpacity>
 
-      <View style={[styles.toggleContainer, { top: topInset + 8 }]}>
-        <Text style={styles.toggleText}>{isOnline ? 'На линии' : 'Офлайн'}</Text>
-        <Switch
-          value={isOnline}
-          onValueChange={toggleOnline}
-          trackColor={{ false: '#475569', true: '#10B981' }}
-          thumbColor="#fff"
-        />
+      <View style={[styles.statusPill, { top: topInset + 8 }]} pointerEvents="none">
+        <View style={[styles.statusDot, isOnline && styles.statusDotOnline]} />
+        <Text style={styles.statusPillText}>{isOnline ? 'На линии' : 'Офлайн'}</Text>
       </View>
 
       <TouchableOpacity
-        style={[styles.recenterBtn, { bottom: Math.max(insets.bottom, 16) + 246 }]}
+        style={[
+          styles.recenterBtn,
+          { bottom: (statusSheetHeight || Math.max(insets.bottom, 16) + 246) + 16 },
+        ]}
         onPress={recenterMap}
       >
         <View style={styles.recenterOuter}>
           <View style={styles.recenterInner} />
         </View>
-      </TouchableOpacity>
-
-      {profile?.supportsIntercity ? (
-        <TouchableOpacity
-          style={[
-            styles.intercityHubBtn,
-            { top: topInset + 66 },
-            profile?.driverMode === 'INTERCITY' && styles.intercityHubBtnActive,
-          ]}
-          onPress={openIntercityHub}
-        >
-          <Text style={[styles.intercityHubText, profile?.driverMode === 'INTERCITY' && styles.intercityHubTextActive]}>
-            Межгород
-          </Text>
-        </TouchableOpacity>
-      ) : null}
-
-      <TouchableOpacity
-        style={[styles.foodDeliveryBtn, { top: topInset + 114 }]}
-        onPress={() => navigation.navigate('FoodDeliveries')}
-      >
-        <Text style={styles.foodDeliveryText}>Доставка еды</Text>
       </TouchableOpacity>
 
       {incomingOffer ? (
@@ -1188,6 +1167,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           metrics={metrics}
           onOpenToday={() => navigation.navigate('RideHistory')}
           onSwitchMode={switchDriverMode}
+          onHeightChange={setStatusSheetHeight}
+          onToggleOnline={toggleOnline}
+          onOpenIntercity={openIntercityHub}
+          onOpenFoodDeliveries={() => navigation.navigate('FoodDeliveries')}
           currentCourierOrder={currentCourierOrder}
           availableCourierOrders={currentModeIsCourier ? availableCourierOrders : []}
           onAcceptCourierOrder={acceptCourierOrder}
@@ -1314,21 +1297,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   burgerBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  toggleContainer: {
+  statusPill: {
     position: 'absolute',
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#18181B',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
+    gap: 8,
+    backgroundColor: 'rgba(24,24,27,0.94)',
+    paddingHorizontal: 14,
+    height: 46,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#27272A',
     zIndex: 10,
     elevation: 20,
   },
-  toggleText: { color: '#F4F4F5', fontSize: 14, fontWeight: '600', marginRight: 10 },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#71717A',
+  },
+  statusDotOnline: {
+    backgroundColor: '#10B981',
+  },
+  statusPillText: { color: '#F4F4F5', fontSize: 14, fontWeight: '700' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(9,9,11,0.72)',
@@ -1413,46 +1406,6 @@ const styles = StyleSheet.create({
     borderColor: '#27272A',
     zIndex: 10,
     elevation: 20,
-  },
-  intercityHubBtn: {
-    position: 'absolute',
-    left: 20,
-    backgroundColor: '#18181B',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#0EA5E9',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    zIndex: 10,
-    elevation: 22,
-  },
-  intercityHubBtnActive: {
-    backgroundColor: '#082F49',
-  },
-  foodDeliveryBtn: {
-    position: 'absolute',
-    left: 20,
-    backgroundColor: '#3F1F0F',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#FB923C',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    zIndex: 10,
-    elevation: 22,
-  },
-  foodDeliveryText: {
-    color: '#FED7AA',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  intercityHubText: {
-    color: '#BAE6FD',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  intercityHubTextActive: {
-    color: '#E0F2FE',
   },
   modeChip: {
     backgroundColor: '#18181B',
