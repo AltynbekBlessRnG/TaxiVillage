@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -49,6 +50,7 @@ interface RideData {
 }
 
 export const RideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
+  const insets = useSafeAreaInsets();
   const { rideId } = route.params;
   const [ride, setRide] = useState<RideData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,7 +136,10 @@ export const RideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         ) : null}
       </MapView>
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <TouchableOpacity
+        style={[styles.backBtn, { top: Math.max(insets.top, 12) + 8 }]}
+        onPress={() => navigation.goBack()}
+      >
         <Text style={styles.backBtnText}>← Назад</Text>
       </TouchableOpacity>
 
@@ -217,7 +222,6 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     position: 'absolute',
-    top: 50,
     left: 20,
     backgroundColor: '#18181B',
     paddingHorizontal: 16,

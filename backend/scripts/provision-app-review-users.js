@@ -1,4 +1,9 @@
-const { PrismaClient, UserRole, DriverStatus } = require('@prisma/client');
+const {
+  PrismaClient,
+  UserRole,
+  DriverStatus,
+  MerchantVerificationStatus,
+} = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
@@ -67,6 +72,7 @@ async function upsertUser({ phone, passwordHash, role, fullName }) {
         description: 'Демонстрационное заведение для проверки App Store',
         cuisine: 'Домашняя кухня',
         isOpen: true,
+        verificationStatus: MerchantVerificationStatus.VERIFIED,
       },
       create: {
         userId: user.id,
@@ -74,6 +80,7 @@ async function upsertUser({ phone, passwordHash, role, fullName }) {
         description: 'Демонстрационное заведение для проверки App Store',
         cuisine: 'Домашняя кухня',
         isOpen: true,
+        verificationStatus: MerchantVerificationStatus.VERIFIED,
       },
     });
   }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   fromAddress: string;
@@ -31,85 +32,121 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
   onOpenActiveCourier,
   onSelectService,
   unreadNotificationsCount,
-}) => (
-  <View style={styles.uiOverlay} pointerEvents="box-none">
-    <TouchableOpacity style={styles.burgerBtn} onPress={onOpenMenu}>
-      <Text style={styles.burgerIcon}>☰</Text>
-      {unreadNotificationsCount > 0 ? (
-        <View style={styles.burgerBadge}>
-          <Text style={styles.burgerBadgeText}>
-            {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
-          </Text>
-        </View>
-      ) : null}
-    </TouchableOpacity>
+}) => {
+  // Notches, punch holes and the home indicator all live in this overlay's
+  // space, so every anchored element is offset by the real inset.
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, 12);
+  const bottomInset = Math.max(insets.bottom, 16);
 
-    <View style={styles.ashenSearchCard}>
-      <TouchableOpacity style={styles.ashenRow} onPress={() => onOpenSearch('from')}>
-        <View style={styles.dotBlue} />
-        <Text style={styles.ashenInputText} numberOfLines={1}>
-          {fromAddress}
-        </Text>
-      </TouchableOpacity>
-
-      <View style={styles.zincDivider} />
-
-      <TouchableOpacity style={styles.ashenRow} onPress={() => onOpenSearch('to')}>
-        <View style={styles.squareRed} />
-        <Text style={toAddress ? styles.ashenInputText : styles.placeholderZinc} numberOfLines={1}>
-          {toAddress || (activeService === 'Курьер' ? 'Куда доставить?' : 'Куда едем?')}
-        </Text>
-      </TouchableOpacity>
-    </View>
-
-    <TouchableOpacity style={styles.recenterBtn} onPress={onRecenter}>
-      <Text style={styles.recenterIcon}>🎯</Text>
-    </TouchableOpacity>
-
-    {activeRideId && !activeRide ? (
-      <TouchableOpacity style={styles.activeRideBanner} onPress={onOpenActiveRide}>
-        <View style={styles.dotGreen} />
-        <Text style={styles.activeRideText}>У вас есть активная поездка!</Text>
-        <Text style={styles.activeRideArrow}>›</Text>
-      </TouchableOpacity>
-    ) : null}
-
-    {!activeRideId && activeCourierOrderId ? (
-      <TouchableOpacity style={[styles.activeRideBanner, styles.activeCourierBanner]} onPress={onOpenActiveCourier}>
-        <View style={styles.dotGreen} />
-        <Text style={styles.activeRideText}>У вас есть активная доставка!</Text>
-        <Text style={styles.activeRideArrow}>›</Text>
-      </TouchableOpacity>
-    ) : null}
-
-    <View style={styles.bottomAshenBar}>
-      {(['Такси', 'Курьер', 'Еда', 'Межгород'] as const).map((service) => (
-        <TouchableOpacity key={service} style={styles.servicePill} onPress={() => onSelectService(service)}>
-          <View style={[styles.serviceCircle, activeService === service && styles.serviceCircleActive]}>
-            <Text style={styles.serviceIcon}>
-              {service === 'Такси'
-                ? '🚕'
-                : service === 'Курьер'
-                ? '📦'
-                : service === 'Еда'
-                ? '🍕'
-                : '🛣️'}
+  return (
+    <View style={styles.uiOverlay} pointerEvents="box-none">
+      <TouchableOpacity style={[styles.burgerBtn, { top: topInset + 8 }]} onPress={onOpenMenu}>
+        <Text style={styles.burgerIcon}>☰</Text>
+        {unreadNotificationsCount > 0 ? (
+          <View style={styles.burgerBadge}>
+            <Text style={styles.burgerBadgeText}>
+              {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
             </Text>
           </View>
-          <Text style={[styles.serviceLabel, activeService === service && styles.serviceLabelActive]}>
-            {service}
+        ) : null}
+      </TouchableOpacity>
+
+      <View style={[styles.ashenSearchCard, { marginTop: topInset + 66 }]}>
+        <TouchableOpacity style={styles.ashenRow} onPress={() => onOpenSearch('from')}>
+          <View style={styles.dotBlue} />
+          <Text style={styles.ashenInputText} numberOfLines={1}>
+            {fromAddress}
           </Text>
         </TouchableOpacity>
-      ))}
+
+        <View style={styles.zincDivider} />
+
+        <TouchableOpacity style={styles.ashenRow} onPress={() => onOpenSearch('to')}>
+          <View style={styles.squareRed} />
+          <Text
+            style={toAddress ? styles.ashenInputText : styles.placeholderZinc}
+            numberOfLines={1}
+          >
+            {toAddress || (activeService === 'Курьер' ? 'Куда доставить?' : 'Куда едем?')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.recenterBtn, { bottom: bottomInset + 190 }]}
+        onPress={onRecenter}
+      >
+        <View style={styles.recenterOuter}>
+          <View style={styles.recenterInner} />
+        </View>
+      </TouchableOpacity>
+
+      {activeRideId && !activeRide ? (
+        <TouchableOpacity
+          style={[styles.activeRideBanner, { bottom: bottomInset + 120 }]}
+          onPress={onOpenActiveRide}
+        >
+          <View style={styles.dotGreen} />
+          <Text style={styles.activeRideText}>У вас есть активная поездка</Text>
+          <Text style={styles.activeRideArrow}>›</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {!activeRideId && activeCourierOrderId ? (
+        <TouchableOpacity
+          style={[
+            styles.activeRideBanner,
+            styles.activeCourierBanner,
+            { bottom: bottomInset + 120 },
+          ]}
+          onPress={onOpenActiveCourier}
+        >
+          <View style={styles.dotGreen} />
+          <Text style={styles.activeRideText}>У вас есть активная доставка</Text>
+          <Text style={styles.activeRideArrow}>›</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      <View style={[styles.bottomAshenBar, { bottom: bottomInset + 12 }]}>
+        {(['Такси', 'Курьер', 'Еда', 'Межгород'] as const).map((service) => (
+          <TouchableOpacity
+            key={service}
+            style={styles.servicePill}
+            onPress={() => onSelectService(service)}
+          >
+            <View
+              style={[
+                styles.serviceCircle,
+                activeService === service && styles.serviceCircleActive,
+              ]}
+            >
+              <Text style={styles.serviceIcon}>
+                {service === 'Такси'
+                  ? '🚕'
+                  : service === 'Курьер'
+                    ? '📦'
+                    : service === 'Еда'
+                      ? '🍕'
+                      : '🛣️'}
+              </Text>
+            </View>
+            <Text
+              style={[styles.serviceLabel, activeService === service && styles.serviceLabelActive]}
+            >
+              {service}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   uiOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
   burgerBtn: {
     position: 'absolute',
-    top: 50,
     left: 20,
     width: 46,
     height: 46,
@@ -136,7 +173,6 @@ const styles = StyleSheet.create({
   },
   burgerBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   ashenSearchCard: {
-    marginTop: 115,
     marginHorizontal: 16,
     backgroundColor: '#18181B',
     borderRadius: 20,
@@ -153,7 +189,6 @@ const styles = StyleSheet.create({
   squareRed: { width: 8, height: 8, backgroundColor: '#EF4444', marginRight: 15 },
   recenterBtn: {
     position: 'absolute',
-    bottom: 160,
     right: 20,
     width: 50,
     height: 50,
@@ -164,10 +199,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#27272A',
   },
-  recenterIcon: { fontSize: 22 },
+  recenterOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recenterInner: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#F4F4F5',
+  },
   activeRideBanner: {
     position: 'absolute',
-    bottom: 110,
     left: 20,
     right: 20,
     backgroundColor: '#10B981',
@@ -184,7 +232,6 @@ const styles = StyleSheet.create({
   activeRideArrow: { color: '#fff', fontSize: 24, fontWeight: '300', marginTop: -4 },
   bottomAshenBar: {
     position: 'absolute',
-    bottom: 40,
     left: 20,
     right: 20,
     flexDirection: 'row',
@@ -212,6 +259,12 @@ const styles = StyleSheet.create({
     borderColor: '#F4F4F5',
   },
   serviceIcon: { fontSize: 23 },
-  serviceLabel: { color: '#A1A1AA', fontSize: 12, fontWeight: '700', marginTop: 8, textAlign: 'center' },
+  serviceLabel: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+    textAlign: 'center',
+  },
   serviceLabelActive: { color: '#F4F4F5' },
 });

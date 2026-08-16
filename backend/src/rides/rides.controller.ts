@@ -56,6 +56,38 @@ class CreateRideDto {
   stops?: any[]; // Остановки
 }
 
+class EstimateRideDto {
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  fromLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  fromLng?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  toLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  toLng?: number;
+
+  @IsOptional()
+  stops?: any[];
+}
+
+class RaiseRidePriceDto {
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  estimatedPrice!: number;
+}
+
 class UpdateRideStatusDto {
   @IsEnum(RideStatus)
   status!: RideStatus;
@@ -100,6 +132,28 @@ export class RidesController {
   create(@Body() dto: CreateRideDto, @Req() req: any) {
     const userId: string = req.user.userId;
     return this.ridesService.createRideForPassenger(userId, dto);
+  }
+
+  @Post('estimate')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  estimate(@Body() dto: EstimateRideDto) {
+    return this.ridesService.estimateRidePrice(dto);
+  }
+
+  @Post(':id/price')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PASSENGER)
+  raisePrice(
+    @Param('id') id: string,
+    @Body() dto: RaiseRidePriceDto,
+    @Req() req: any,
+  ) {
+    return this.ridesService.raiseRidePrice(
+      req.user.userId,
+      id,
+      dto.estimatedPrice,
+    );
   }
 
   @Get(':id')

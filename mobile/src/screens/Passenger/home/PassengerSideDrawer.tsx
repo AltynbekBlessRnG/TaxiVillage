@@ -1,5 +1,6 @@
 import React from 'react';
 import { Animated, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { resolveApiAssetUrl } from '../../../utils/assets';
 
 const { width } = Dimensions.get('window');
@@ -39,6 +40,7 @@ export const PassengerSideDrawer: React.FC<Props> = ({
   onOpenFavoriteAddresses,
   onLogout,
 }) => {
+  const insets = useSafeAreaInsets();
   const avatarUri = resolveApiAssetUrl(avatarUrl);
 
   return (
@@ -50,7 +52,7 @@ export const PassengerSideDrawer: React.FC<Props> = ({
     ) : null}
 
     <Animated.View style={[styles.sideDrawer, { transform: [{ translateX: sideMenuAnim }] }]}>
-      <View style={styles.drawerHeader}>
+      <View style={[styles.drawerHeader, { paddingTop: Math.max(insets.top, 12) + 16 }]}>
         <View style={styles.avatarRow}>
           <View style={styles.avatarCircle}>
             {avatarUri ? (
@@ -136,7 +138,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: '#18181B',
   },
-  drawerHeader: { backgroundColor: '#18181B', padding: 28, paddingTop: 65 },
+  drawerHeader: { backgroundColor: '#18181B', padding: 28 },
   avatarRow: {
     flexDirection: 'row',
     alignItems: 'center',

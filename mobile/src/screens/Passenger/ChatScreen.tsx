@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
@@ -210,6 +211,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>← Назад</Text>
@@ -217,6 +219,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={styles.headerTitle}>Чат</Text>
         <View style={styles.headerSpacer} />
       </View>
+      </SafeAreaView>
 
       <FlatList
         ref={flatListRef}
@@ -265,7 +268,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#09090B' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   backButton: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: '#18181B', borderWidth: 1, borderColor: '#27272A' },
   backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#F4F4F5' },

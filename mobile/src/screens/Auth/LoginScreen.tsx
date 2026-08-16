@@ -6,29 +6,47 @@ import { apiClient, setAuthToken } from '../../api/client';
 import { saveAuth } from '../../storage/authStorage';
 import { registerPushToken } from '../../utils/notifications';
 import { AuthScreenLayout } from '../../components/AuthScreenLayout';
+import { formatPhoneInput, isCompletePhone, toE164 } from '../../utils/phone';
+import { extractApiError } from '../../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<'phone' | 'password' | null>(null);
   const passwordInputRef = useRef<TextInput>(null);
 
+  const canSubmit = isCompletePhone(phone) && password.length > 0;
+
   const handleLogin = async () => {
+    if (!isCompletePhone(phone)) {
+      setError('Введите номер полностью: +7 700 000 00 00');
+      return;
+    }
+    if (!password) {
+      setError('Введите пароль');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
+      const e164Phone = toE164(phone);
       const reviewPhones = String(process.env.EXPO_PUBLIC_APP_REVIEW_PHONES || '')
         .split(',')
         .map((value) => value.replace(/\D/g, ''))
         .filter(Boolean);
-      const normalizedPhone = phone.replace(/\D/g, '');
+      const normalizedPhone = e164Phone.replace(/\D/g, '');
 
       if (reviewPhones.includes(normalizedPhone)) {
-        const response = await apiClient.post('/auth/review-login', { phone, password });
+        const response = await apiClient.post('/auth/review-login', {
+          phone: e164Phone,
+          password,
+        });
         const { accessToken, refreshToken, user } = response.data;
         setAuthToken(accessToken);
         await saveAuth({
@@ -56,18 +74,23 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
 
-      const response = await apiClient.post('/auth/login/start', { phone, password });
+      const response = await apiClient.post('/auth/login/start', {
+        phone: e164Phone,
+        password,
+      });
       navigation.navigate('VerifyPhone', {
         flow: 'LOGIN',
         sessionId: response.data.sessionId,
-        phone,
+        phone: e164Phone,
         telegramBotUrl: response.data.telegramBotUrl ?? null,
         debugCode: response.data.debugCode,
       });
     } catch (e: any) {
-      const errorMessage =
-        e?.response?.data?.message || e?.message || 'Не удалось подключиться к серверу';
-      setError(`Ошибка: ${errorMessage}`);
+      if (e?.response?.status === 401) {
+        setError('Неверный номер телефона или пароль');
+      } else {
+        setError(extractApiError(e, 'Не удалось войти. Попробуйте ещё раз.'));
+      }
     } finally {
       setLoading(false);
     }
@@ -83,7 +106,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.formCard}>
         <TextInput
           style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
-          placeholder="Телефон"
+          placeholder="+7 700 000 00 00"
           placeholderTextColor="#71717A"
           keyboardType="phone-pad"
           autoCapitalize="none"
@@ -92,30 +115,48 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           returnKeyType="next"
           blurOnSubmit={false}
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(text) => setPhone(formatPhoneInput(text))}
           onSubmitEditing={() => passwordInputRef.current?.focus()}
           onFocus={() => setFocusedField('phone')}
           onBlur={() => setFocusedField((current) => (current === 'phone' ? null : current))}
         />
-        <TextInput
-          ref={passwordInputRef}
-          style={[styles.input, focusedField === 'password' && styles.inputFocused]}
-          placeholder="Пароль"
-          placeholderTextColor="#71717A"
-          secureTextEntry
-          autoComplete="current-password"
-          textContentType="password"
-          returnKeyType="done"
-          value={password}
-          onChangeText={setPassword}
-          onSubmitEditing={handleLogin}
-          onFocus={() => setFocusedField('password')}
-          onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
-        />
+        <View
+          style={[
+            styles.passwordWrapper,
+            focusedField === 'password' && styles.inputFocused,
+          ]}
+        >
+          <TextInput
+            ref={passwordInputRef}
+            style={styles.passwordInput}
+            placeholder="Пароль"
+            placeholderTextColor="#71717A"
+            secureTextEntry={!showPassword}
+            autoComplete="current-password"
+            textContentType="password"
+            returnKeyType="done"
+            value={password}
+            onChangeText={setPassword}
+            onSubmitEditing={handleLogin}
+            onFocus={() => setFocusedField('password')}
+            onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
+          />
+          <TouchableOpacity
+            style={styles.revealButton}
+            onPress={() => setShowPassword((value) => !value)}
+            hitSlop={8}
+          >
+            <Text style={styles.revealText}>{showPassword ? 'Скрыть' : 'Показать'}</Text>
+          </TouchableOpacity>
+        </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+        <TouchableOpacity
+          style={[styles.button, (!canSubmit || loading) && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={loading || !canSubmit}
+        >
           <Text style={styles.buttonText}>{loading ? 'Вход...' : 'Войти'}</Text>
         </TouchableOpacity>
 
@@ -169,6 +210,32 @@ const styles = StyleSheet.create({
   inputFocused: {
     borderColor: '#3B82F6',
   },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    borderRadius: 16,
+    paddingLeft: 18,
+    paddingRight: 8,
+    marginBottom: 14,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 16,
+    color: '#F4F4F5',
+    fontSize: 16,
+  },
+  revealButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  revealText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   error: {
     color: '#EF4444',
     marginBottom: 14,
@@ -180,6 +247,9 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     marginTop: 6,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
   },
   buttonText: {
     color: '#000000',

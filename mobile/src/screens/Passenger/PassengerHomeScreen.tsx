@@ -28,6 +28,7 @@ import { PassengerIdleOverlay } from './home/PassengerIdleOverlay';
 import { PassengerSheetHost } from './home/PassengerSheetHost';
 import { PassengerSideDrawer } from './home/PassengerSideDrawer';
 import { usePassengerHomeController } from './home/usePassengerHomeController';
+import { useRideQuote } from './home/useRideQuote';
 import { usePassengerLocation } from './home/usePassengerLocation';
 import { usePassengerRideState } from './home/usePassengerRideState';
 import { usePassengerCourierState } from './home/usePassengerCourierState';
@@ -393,6 +394,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     handleGeocodeAndProceed,
     handleCreateRide,
     handleCancelSearchingRide,
+    handleRaiseRidePrice,
     handleAddressSelect,
     handleCustomLandmarkSelect,
     openSearchSheet,
@@ -437,6 +439,13 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     setIsStopSelectionMode,
     setSearchInitialField,
   });
+
+  const rideQuote = useRideQuote(
+    screenState === 'ORDER_SETUP' && activeService !== 'Курьер',
+    fromCoord,
+    toCoord,
+    stops,
+  );
 
   const toggleMenu = (show: boolean) => {
     if (show) {
@@ -602,6 +611,8 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         screenState={screenState}
         activeService={activeService}
         loading={loading}
+        rideQuote={rideQuote}
+        onRaiseRidePrice={handleRaiseRidePrice}
         fromAddress={fromAddress}
         toAddress={toAddress}
         fromCoord={fromCoord}

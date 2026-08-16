@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { resolveApiAssetUrl } from '../../utils/assets';
 
 const { width } = Dimensions.get('window');
@@ -23,6 +24,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
   onNavigate,
   onLogout,
 }) => {
+  const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(-width)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const avatarUri = useMemo(() => resolveApiAssetUrl(profile?.user?.avatarUrl), [profile?.user?.avatarUrl]);
@@ -65,7 +67,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
 
       {/* Само меню */}
       <Animated.View style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 16 }]}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarCircle}>
               {avatarUri ? (
@@ -142,7 +144,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
 const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 900 },
   drawer: { position: 'absolute', top: 0, bottom: 0, left: 0, width: width * 0.8, backgroundColor: '#09090B', zIndex: 1000, borderRightWidth: 1, borderColor: '#18181B' },
-  header: { backgroundColor: '#18181B', padding: 24, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: '#27272A' },
+  header: { backgroundColor: '#18181B', padding: 24, borderBottomWidth: 1, borderBottomColor: '#27272A' },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatarCircle: {
     width: 56,

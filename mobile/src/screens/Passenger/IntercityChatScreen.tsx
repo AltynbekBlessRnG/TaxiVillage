@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiClient } from '../../api/client';
 import {
@@ -260,6 +261,7 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <SafeAreaView edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>← Назад</Text>
@@ -267,6 +269,7 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
         <Text style={styles.headerTitle}>{title || 'Чат межгорода'}</Text>
         <View style={styles.headerSpacer} />
       </View>
+      </SafeAreaView>
 
       <FlatList
         ref={flatListRef}
@@ -329,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 12,
     paddingBottom: 16,
   },
   backButton: {

@@ -14,19 +14,25 @@ import { AuthService } from './auth.service';
 
 type PublicRegisterRole = 'PASSENGER' | 'DRIVER' | 'MERCHANT';
 
+// These messages are shown to the user as-is by the app, so they are in Russian.
+const PHONE_MESSAGE = 'Введите номер в формате +7 700 000 00 00';
+const PASSWORD_MESSAGE = 'Пароль должен содержать минимум 6 символов';
+
 class RegisterDto {
-  @IsPhoneNumber()
+  @IsPhoneNumber(undefined, { message: PHONE_MESSAGE })
   phone!: string;
 
   @IsOptional()
-  @IsEmail()
+  @IsEmail({}, { message: 'Введите корректный email' })
   email?: string;
 
-  @IsString()
-  @MinLength(6)
+  @IsString({ message: PASSWORD_MESSAGE })
+  @MinLength(6, { message: PASSWORD_MESSAGE })
   password!: string;
 
-  @IsIn([UserRole.PASSENGER, UserRole.DRIVER, UserRole.MERCHANT])
+  @IsIn([UserRole.PASSENGER, UserRole.DRIVER, UserRole.MERCHANT], {
+    message: 'Выберите роль',
+  })
   role!: PublicRegisterRole;
 
   @IsOptional()
@@ -35,10 +41,10 @@ class RegisterDto {
 }
 
 class LoginDto {
-  @IsPhoneNumber()
+  @IsPhoneNumber(undefined, { message: PHONE_MESSAGE })
   phone!: string;
 
-  @IsString()
+  @IsString({ message: 'Введите пароль' })
   password!: string;
 }
 

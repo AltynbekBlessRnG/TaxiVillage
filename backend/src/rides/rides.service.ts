@@ -32,6 +32,9 @@ function haversineDistance(
   return R * c;
 }
 
+/** Floor for any passenger-offered price, in tenge. */
+const MIN_RIDE_PRICE = 300;
+
 type RideRecord = Awaited<ReturnType<RidesService['loadRideRecord']>>;
 type RideAssignmentRecord = {
   id: string;
@@ -69,30 +72,18 @@ export class RidesService implements OnModuleDestroy {
     this.rideOfferStates.clear();
   }
 
-  async createRideForPassenger(
-    userId: string,
-    data: {
-      fromAddress: string;
-      toAddress: string;
-      fromLat?: number;
-      fromLng?: number;
-      toLat?: number;
-      toLng?: number;
-      pickupLocationPrecision?: AddressPrecision;
-      dropoffLocationPrecision?: AddressPrecision;
-      comment?: string;
-      stops?: Array<{ address: string; lat: number; lng: number }>;
-      paymentMethod?: 'CARD' | 'CASH';
-      estimatedPrice?: number;
-    },
-  ) {
-    const passengerProfile = await this.prisma.passengerProfile.findUnique({
-      where: { userId },
-    });
-    if (!passengerProfile) {
-      throw new NotFoundException('Passenger profile not found');
-    }
-
+  /**
+   * Shared pricing logic. The passenger may override the result with their own
+   * offer, but we always need the tariff-based number: it is the fallback when
+   * no price is offered and the suggestion shown in the app before ordering.
+   */
+  private async calculateRideQuote(data: {
+    fromLat?: number;
+    fromLng?: number;
+    toLat?: number;
+    toLng?: number;
+    stops?: Array<{ lat: number; lng: number }>;
+  }) {
     const activeTariff = await this.prisma.tariff.findFirst({
       where: { isActive: true },
     });
@@ -112,10 +103,6 @@ export class RidesService implements OnModuleDestroy {
     const toLng = data.toLng ?? 0;
     const hasFrom = fromLat !== 0 || fromLng !== 0;
     const hasTo = toLat !== 0 || toLng !== 0;
-    const pickupLocationPrecision =
-      data.pickupLocationPrecision ?? (hasFrom ? AddressPrecision.EXACT : AddressPrecision.LANDMARK_TEXT);
-    const dropoffLocationPrecision =
-      data.dropoffLocationPrecision ?? (hasTo ? AddressPrecision.EXACT : AddressPrecision.LANDMARK_TEXT);
 
     const coordinates: Array<{ lat: number; lng: number }> = [];
     if (hasFrom) {
@@ -150,11 +137,90 @@ export class RidesService implements OnModuleDestroy {
     const pricePerMinute = tariff.pricePerMinute
       ? Number(tariff.pricePerMinute)
       : 0;
-    const suggestedPrice = new Prisma.Decimal(
-      baseFare + distanceKm * pricePerKm + estimatedMinutes * pricePerMinute,
-    );
+    const rawPrice =
+      baseFare + distanceKm * pricePerKm + estimatedMinutes * pricePerMinute;
+
+    return {
+      tariffId,
+      hasFrom,
+      hasTo,
+      distanceKm,
+      estimatedMinutes,
+      // Round to 50 ₸ so the app suggests a number people actually say out loud.
+      suggestedPrice: new Prisma.Decimal(Math.round(rawPrice / 50) * 50),
+    };
+  }
+
+  /**
+   * Price suggestion for the order screen, before the ride exists.
+   */
+  async estimateRidePrice(data: {
+    fromLat?: number;
+    fromLng?: number;
+    toLat?: number;
+    toLng?: number;
+    stops?: Array<{ lat: number; lng: number }>;
+  }) {
+    const quote = await this.calculateRideQuote(data);
+
+    return {
+      suggestedPrice: Number(quote.suggestedPrice),
+      minPrice: Math.max(
+        MIN_RIDE_PRICE,
+        Math.round((Number(quote.suggestedPrice) * 0.6) / 50) * 50,
+      ),
+      distanceKm: Math.round(quote.distanceKm * 10) / 10,
+      estimatedMinutes: quote.estimatedMinutes,
+      // Tells the app whether the number is based on real coordinates or on the
+      // fallback distance, so it can avoid presenting a guess as an estimate.
+      isRoughEstimate: !quote.hasFrom || !quote.hasTo,
+    };
+  }
+
+  async createRideForPassenger(
+    userId: string,
+    data: {
+      fromAddress: string;
+      toAddress: string;
+      fromLat?: number;
+      fromLng?: number;
+      toLat?: number;
+      toLng?: number;
+      pickupLocationPrecision?: AddressPrecision;
+      dropoffLocationPrecision?: AddressPrecision;
+      comment?: string;
+      stops?: Array<{ address: string; lat: number; lng: number }>;
+      paymentMethod?: 'CARD' | 'CASH';
+      estimatedPrice?: number;
+    },
+  ) {
+    const passengerProfile = await this.prisma.passengerProfile.findUnique({
+      where: { userId },
+    });
+    if (!passengerProfile) {
+      throw new NotFoundException('Passenger profile not found');
+    }
+
+    const fromLat = data.fromLat ?? 0;
+    const fromLng = data.fromLng ?? 0;
+    const toLat = data.toLat ?? 0;
+    const toLng = data.toLng ?? 0;
+
+    const { tariffId, hasFrom, hasTo, suggestedPrice } =
+      await this.calculateRideQuote(data);
+
+    const pickupLocationPrecision =
+      data.pickupLocationPrecision ?? (hasFrom ? AddressPrecision.EXACT : AddressPrecision.LANDMARK_TEXT);
+    const dropoffLocationPrecision =
+      data.dropoffLocationPrecision ?? (hasTo ? AddressPrecision.EXACT : AddressPrecision.LANDMARK_TEXT);
 
     // In this product the passenger can suggest a custom price.
+    if (data.estimatedPrice && data.estimatedPrice < MIN_RIDE_PRICE) {
+      throw new BadRequestException(
+        `Минимальная цена поездки — ${MIN_RIDE_PRICE} ₸`,
+      );
+    }
+
     const negotiatedPrice =
       data.estimatedPrice && data.estimatedPrice > 0
         ? new Prisma.Decimal(data.estimatedPrice)
@@ -373,6 +439,49 @@ export class RidesService implements OnModuleDestroy {
     await this.notifyOfferedDriverAboutCancellation(clearedOfferState, rideWithUsers);
     await this.sendPassengerRideNotification(rideWithUsers);
     return updated;
+  }
+
+  /**
+   * Raise the offered price while still searching. The offer cycle restarts from
+   * scratch so drivers who already declined the cheaper ride see it again.
+   */
+  async raiseRidePrice(userId: string, rideId: string, newPrice: number) {
+    const passenger = await this.prisma.passengerProfile.findUnique({
+      where: { userId },
+    });
+    if (!passenger) {
+      throw new NotFoundException('Passenger profile not found');
+    }
+
+    const ride = await this.loadRideRecord(rideId);
+    if (ride.passengerId !== passenger.id) {
+      throw new NotFoundException('Ride not found');
+    }
+    if (ride.status !== RideStatus.SEARCHING_DRIVER) {
+      throw new BadRequestException(
+        'Поднять цену можно только пока идет поиск водителя',
+      );
+    }
+
+    const currentPrice = Number(ride.estimatedPrice ?? 0);
+    if (newPrice <= currentPrice) {
+      throw new BadRequestException(
+        `Новая цена должна быть больше текущей (${Math.round(currentPrice)} ₸)`,
+      );
+    }
+
+    this.clearOfferState(rideId);
+
+    await this.prisma.ride.update({
+      where: { id: rideId },
+      data: { estimatedPrice: new Prisma.Decimal(newPrice) },
+    });
+
+    const rideWithUsers = await this.loadRideRecord(rideId);
+    this.ridesGateway.emitRideUpdated(rideWithUsers as any);
+    await this.findAndOfferRideToDriver(rideWithUsers);
+
+    return rideWithUsers;
   }
 
   async updateRideStatus(

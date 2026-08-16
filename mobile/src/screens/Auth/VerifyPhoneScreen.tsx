@@ -1,19 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Linking,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, setAuthToken } from '../../api/client';
 import { saveAuth } from '../../storage/authStorage';
 import { registerPushToken } from '../../utils/notifications';
+import { extractApiError } from '../../utils/apiError';
+
+/** Matches the backend rate limit of 5 resend requests per minute. */
+const RESEND_COOLDOWN_SECONDS = 30;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VerifyPhone'>;
 
@@ -35,6 +40,16 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+
+    const timer = setTimeout(() => setResendCooldown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const title = useMemo(
     () => (flow === 'REGISTER' ? 'Подтверди номер' : 'Подтверди вход'),
@@ -88,12 +103,13 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
       }
 
       if (!silent) {
-        setError('Подтверждение из Telegram еще не получено. Нажми кнопку в боте и отправь свой номер.');
+        setError(
+          'Подтверждение пока не пришло. Откройте бота и нажмите там кнопку отправки номера.',
+        );
       }
     } catch (e: any) {
       if (!silent) {
-        const message = e?.response?.data?.message || 'Не удалось проверить статус подтверждения';
-        setError(Array.isArray(message) ? message.join(', ') : String(message));
+        setError(extractApiError(e, 'Не удалось проверить статус подтверждения'));
       }
     } finally {
       if (!silent) {
@@ -152,9 +168,9 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
       if (response.data?.debugCode) {
         setLocalDebugCode(response.data.debugCode);
       }
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (e: any) {
-      const message = e?.response?.data?.message || 'Не удалось отправить запрос снова';
-      setError(Array.isArray(message) ? message.join(', ') : String(message));
+      setError(extractApiError(e, 'Не удалось отправить запрос снова'));
     } finally {
       setResending(false);
     }
@@ -172,15 +188,17 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={styles.eyebrow}>Подтверждение номера</Text>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>
-              Открой Telegram-бота, отправь свой контакт через кнопку Telegram и вернись сюда. Номер: {phone}
+              Откройте бота в Telegram и нажмите там кнопку «Отправить номер». Мы поймём это
+              автоматически и продолжим сами.
             </Text>
+            <Text style={styles.phoneValue}>{phone}</Text>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.label}>Что делать</Text>
-            <Text style={styles.instructions}>1. Открой Telegram-бота.</Text>
-            <Text style={styles.instructions}>2. Нажми кнопку отправки номера в Telegram.</Text>
-            <Text style={styles.instructions}>3. Вернись сюда и нажми кнопку проверки подтверждения.</Text>
+            <Text style={styles.label}>Что нужно сделать</Text>
+            <Text style={styles.instructions}>1. Откройте бота кнопкой ниже.</Text>
+            <Text style={styles.instructions}>2. Нажмите в Telegram кнопку отправки номера.</Text>
+            <Text style={styles.instructions}>3. Вернитесь в приложение — вход произойдёт сам.</Text>
 
             {localDebugCode ? (
               <Text style={styles.debugText}>Тестовый код: {localDebugCode}</Text>
@@ -188,28 +206,39 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={handleComplete}
-              disabled={submitting || checkingStatus}
-            >
-              <Text style={styles.primaryButtonText}>
-                {submitting || checkingStatus ? 'Проверяем...' : 'Я подтвердил номер в Telegram'}
-              </Text>
-            </TouchableOpacity>
-
             {botUrl ? (
               <TouchableOpacity
-                style={styles.secondaryButton}
+                style={styles.primaryButton}
                 onPress={() => Linking.openURL(botUrl).catch(() => null)}
               >
-                <Text style={styles.secondaryButtonText}>Открыть Telegram-бота</Text>
+                <Text style={styles.primaryButtonText}>Открыть Telegram</Text>
               </TouchableOpacity>
             ) : null}
 
-            <Pressable onPress={handleResend} disabled={resending}>
+            <View style={styles.waitingRow}>
+              <ActivityIndicator size="small" color="#71717A" />
+              <Text style={styles.waitingText}>
+                {submitting || checkingStatus
+                  ? 'Проверяем подтверждение...'
+                  : 'Ждём подтверждения из Telegram'}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleComplete}
+              disabled={submitting || checkingStatus}
+            >
+              <Text style={styles.secondaryButtonText}>Проверить сейчас</Text>
+            </TouchableOpacity>
+
+            <Pressable onPress={handleResend} disabled={resending || resendCooldown > 0}>
               <Text style={styles.linkText}>
-                {resending ? 'Отправляем запрос снова...' : 'Отправить запрос в Telegram еще раз'}
+                {resending
+                  ? 'Отправляем запрос...'
+                  : resendCooldown > 0
+                    ? `Отправить запрос ещё раз через ${resendCooldown} с`
+                    : 'Отправить запрос в Telegram ещё раз'}
               </Text>
             </Pressable>
           </View>
@@ -269,6 +298,24 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     fontSize: 15,
     lineHeight: 22,
+  },
+  phoneValue: {
+    color: '#F4F4F5',
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 12,
+  },
+  waitingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 16,
+  },
+  waitingText: {
+    color: '#71717A',
+    fontSize: 13,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#111113',

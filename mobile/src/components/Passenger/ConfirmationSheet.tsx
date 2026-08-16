@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,9 +16,14 @@ import BottomSheet, {
   BottomSheetTextInput,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
+import type { RideQuote } from '../../screens/Passenger/home/useRideQuote';
+
+/** Steps the passenger can nudge the price by, in tenge. */
+const PRICE_STEP = 100;
 
 interface Props {
   serviceType?: 'taxi' | 'courier';
+  rideQuote?: RideQuote | null;
   fromAddress: string;
   toAddress: string;
   fromLocationPrecision?: 'EXACT' | 'LANDMARK_TEXT';
@@ -45,6 +50,7 @@ interface Props {
 
 export const ConfirmationSheet: React.FC<Props> = ({
   serviceType = 'taxi',
+  rideQuote = null,
   fromAddress,
   toAddress,
   fromLocationPrecision = 'EXACT',
@@ -91,6 +97,24 @@ export const ConfirmationSheet: React.FC<Props> = ({
       hideSubscription.remove();
     };
   }, []);
+
+  // Prefill the suggested price once, and only while the passenger has not
+  // typed anything — retyping their number from under them would be worse than
+  // showing no suggestion at all.
+  const hasPrefilledRef = useRef(false);
+  useEffect(() => {
+    if (hasPrefilledRef.current || !rideQuote || price) {
+      return;
+    }
+    hasPrefilledRef.current = true;
+    setPrice(String(rideQuote.suggestedPrice));
+  }, [rideQuote, price, setPrice]);
+
+  const adjustPrice = (delta: number) => {
+    const current = parseInt(price, 10) || rideQuote?.suggestedPrice || 0;
+    const floor = rideQuote?.minPrice ?? PRICE_STEP;
+    setPrice(String(Math.max(floor, current + delta)));
+  };
 
   const handleSaveComment = () => {
     setComment(tempComment);
@@ -166,11 +190,18 @@ export const ConfirmationSheet: React.FC<Props> = ({
                   ) : null}
                   {serviceType === 'taxi' &&
                     stops.map((stop, index) => (
-                      <TouchableOpacity key={`${stop.address}-${index}`} onPress={() => handleStopPress(index, stop.address)}>
+                      <View key={`${stop.address}-${index}`} style={styles.stopRow}>
                         <Text style={styles.stopsText} numberOfLines={1}>
                           Заезд: {stop.address}
                         </Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.stopRemoveBtn}
+                          onPress={() => handleStopPress(index, stop.address)}
+                          hitSlop={10}
+                        >
+                          <Text style={styles.stopRemoveText}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
                     ))}
                 </TouchableOpacity>
 
@@ -223,9 +254,33 @@ export const ConfirmationSheet: React.FC<Props> = ({
                   placeholderTextColor="#71717A"
                   keyboardType="numeric"
                   value={price}
-                  onChangeText={setPrice}
+                  onChangeText={(text) => setPrice(text.replace(/\D/g, ''))}
                 />
+                {serviceType === 'taxi' ? (
+                  <View style={styles.stepperRow}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustPrice(-PRICE_STEP)}
+                    >
+                      <Text style={styles.stepperText}>−</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustPrice(PRICE_STEP)}
+                    >
+                      <Text style={styles.stepperText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </View>
+
+              {rideQuote ? (
+                <Text style={styles.priceHint}>
+                  {rideQuote.isRoughEstimate
+                    ? `Примерно ${rideQuote.suggestedPrice} ₸`
+                    : `Обычная цена ${rideQuote.suggestedPrice} ₸ · ${rideQuote.distanceKm} км`}
+                </Text>
+              ) : null}
             </View>
 
             <TouchableOpacity style={styles.finalBtn} onPress={onOrder} disabled={loading}>
@@ -323,10 +378,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   commentText: { color: '#71717A', fontSize: 11, marginTop: 3 },
-  stopsText: { color: '#71717A', fontSize: 11, marginTop: 3 },
+  stopRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  stopsText: { color: '#71717A', fontSize: 11, flex: 1 },
+  stopRemoveBtn: { paddingHorizontal: 6 },
+  stopRemoveText: { color: '#71717A', fontSize: 12, fontWeight: '800' },
   actionBtnDisabled: { opacity: 0.4 },
   sideActionBtn: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: '#27272A',
+    borderWidth: 1,
+    borderColor: '#3F3F46',
     minWidth: 72,
     height: 40,
     borderRadius: 14,
@@ -335,9 +395,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  sideActionText: { color: '#09090B', fontSize: 12, fontWeight: '800' },
+  sideActionText: { color: '#F4F4F5', fontSize: 12, fontWeight: '800' },
   plusBtn: { minWidth: 40, width: 40 },
-  plusText: { color: '#09090B', fontSize: 20, fontWeight: '700', marginTop: -1 },
+  plusText: { color: '#F4F4F5', fontSize: 20, fontWeight: '700', marginTop: -1 },
+  stepperRow: { flexDirection: 'row', gap: 8, marginLeft: 8 },
+  stepperBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#27272A',
+    borderWidth: 1,
+    borderColor: '#3F3F46',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperText: { color: '#F4F4F5', fontSize: 19, fontWeight: '800', marginTop: -2 },
+  priceHint: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+    marginBottom: 2,
+  },
   divider: { height: 1, backgroundColor: '#27272A', marginHorizontal: 10 },
   courierFields: { marginTop: 14, gap: 10 },
   courierRow: { flexDirection: 'row', gap: 10 },

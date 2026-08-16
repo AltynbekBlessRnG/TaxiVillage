@@ -4,11 +4,17 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 
 const { width } = Dimensions.get('window');
 
+/** How long to wait before offering to raise the price, in seconds. */
+const RAISE_PROMPT_AFTER = 40;
+const RAISE_STEP = 200;
+
 interface Props {
   onCancel: () => void;
   onShowDetails: () => void;
   title?: string;
   cancelLabel?: string;
+  currentPrice?: number | null;
+  onRaisePrice?: (nextPrice: number) => Promise<void> | void;
 }
 
 export const SearchingSheet: React.FC<Props> = ({
@@ -16,11 +22,19 @@ export const SearchingSheet: React.FC<Props> = ({
   onShowDetails,
   title = 'Ищем машину...',
   cancelLabel = 'Отменить\nпоездку',
+  currentPrice = null,
+  onRaisePrice,
 }) => {
   const [seconds, setSeconds] = useState(0);
+  const [raising, setRaising] = useState(false);
+  const [raiseError, setRaiseError] = useState<string | null>(null);
   const animValue = useRef(new Animated.Value(0)).current;
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['22%'], []);
+
+  const canRaisePrice =
+    Boolean(onRaisePrice) && typeof currentPrice === 'number' && currentPrice > 0;
+  const showRaise = canRaisePrice && seconds >= RAISE_PROMPT_AFTER;
+  const snapPoints = useMemo(() => (showRaise ? ['32%'] : ['22%']), [showRaise]);
 
   useEffect(() => {
     const interval = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -81,6 +95,40 @@ export const SearchingSheet: React.FC<Props> = ({
           <View style={styles.progressBarBg}>
             <Animated.View style={[styles.progressBarFill, { transform: [{ translateX }] }]} />
           </View>
+
+          {showRaise ? (
+            <View style={styles.raiseBlock}>
+              <Text style={styles.raiseHint}>
+                Пока никто не откликнулся на {currentPrice} ₸. Больше цена — быстрее найдётся
+                водитель.
+              </Text>
+              {raiseError ? <Text style={styles.raiseError}>{raiseError}</Text> : null}
+              <TouchableOpacity
+                style={styles.raiseBtn}
+                disabled={raising}
+                onPress={async () => {
+                  if (!onRaisePrice || typeof currentPrice !== 'number') {
+                    return;
+                  }
+                  setRaising(true);
+                  setRaiseError(null);
+                  try {
+                    await onRaisePrice(currentPrice + RAISE_STEP);
+                  } catch (e: any) {
+                    setRaiseError(e?.message || 'Не удалось поднять цену');
+                  } finally {
+                    setRaising(false);
+                  }
+                }}
+              >
+                <Text style={styles.raiseBtnText}>
+                  {raising
+                    ? 'Поднимаем...'
+                    : `Поднять до ${currentPrice + RAISE_STEP} ₸`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <View style={styles.buttonRow}>
             <TouchableOpacity style={styles.circleBtnContainer} onPress={onCancel}>
@@ -154,6 +202,32 @@ const styles = StyleSheet.create({
     width: '40%',
     position: 'absolute',
   },
+  raiseBlock: {
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  raiseHint: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  raiseError: {
+    color: '#F87171',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  raiseBtn: {
+    backgroundColor: '#F4F4F5',
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  raiseBtnText: { color: '#09090B', fontSize: 15, fontWeight: '900' },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'center',

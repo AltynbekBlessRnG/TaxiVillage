@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, {
   Marker,
   Polyline,
@@ -65,6 +66,8 @@ interface RideOffer {
 }
 
 export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, 12);
   type DriverModalState = {
     visible: boolean;
     title: string;
@@ -1114,7 +1117,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
       <ConnectionBanner visible={isOnline && socketState !== 'connected'} />
 
-      <TouchableOpacity style={styles.burgerBtn} onPress={() => setIsMenuOpen(true)}>
+      <TouchableOpacity
+        style={[styles.burgerBtn, { top: topInset + 8 }]}
+        onPress={() => setIsMenuOpen(true)}
+      >
         <Text style={styles.iconText}>☰</Text>
         {unreadNotificationsCount > 0 ? (
           <View style={styles.burgerBadge}>
@@ -1125,7 +1131,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         ) : null}
       </TouchableOpacity>
 
-      <View style={styles.toggleContainer}>
+      <View style={[styles.toggleContainer, { top: topInset + 8 }]}>
         <Text style={styles.toggleText}>{isOnline ? 'На линии' : 'Офлайн'}</Text>
         <Switch
           value={isOnline}
@@ -1271,7 +1277,6 @@ const styles = StyleSheet.create({
   },
   burgerBtn: {
     position: 'absolute',
-    top: 50,
     left: 20,
     width: 46,
     height: 46,
@@ -1299,7 +1304,6 @@ const styles = StyleSheet.create({
   burgerBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   toggleContainer: {
     position: 'absolute',
-    top: 50,
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',

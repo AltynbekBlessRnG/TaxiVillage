@@ -6,11 +6,14 @@ import { SearchingSheet } from '../../../components/Passenger/SearchingSheet';
 import { SearchingDetailsSheet } from '../../../components/Passenger/SearchingDetailsSheet';
 import { ActiveOrderSheet } from '../../../components/Passenger/ActiveOrderSheet';
 import type { PassengerCoordinates, PassengerScreenState, PassengerStop } from './usePassengerFlowStore';
+import type { RideQuote } from './useRideQuote';
 
 interface Props {
   screenState: PassengerScreenState;
   activeService: 'Такси' | 'Курьер' | 'Еда' | 'Межгород';
   loading: boolean;
+  rideQuote: RideQuote | null;
+  onRaiseRidePrice: (nextPrice: number) => Promise<void>;
   fromAddress: string;
   toAddress: string;
   fromCoord: PassengerCoordinates | null;
@@ -64,6 +67,8 @@ export const PassengerSheetHost: React.FC<Props> = ({
   screenState,
   activeService,
   loading,
+  rideQuote,
+  onRaiseRidePrice,
   fromAddress,
   toAddress,
   fromCoord: _fromCoord,
@@ -181,6 +186,7 @@ export const PassengerSheetHost: React.FC<Props> = ({
           toLocationPrecision={toLocationPrecision}
           price={offeredPrice}
           setPrice={setPrice}
+          rideQuote={rideQuote}
           onOrder={() => {
             void handleOrderPress();
           }}
@@ -216,6 +222,10 @@ export const PassengerSheetHost: React.FC<Props> = ({
                 onCancel={() => setCancelConfirmVisible(true)}
                 onShowDetails={onShowSearchingDetails}
                 title={activeService === 'Курьер' ? 'Ищем курьера...' : 'Ищем водителя'}
+                currentPrice={
+                  activeService === 'Курьер' ? null : Number(activeRide?.estimatedPrice) || null
+                }
+                onRaisePrice={activeService === 'Курьер' ? undefined : onRaiseRidePrice}
               />
               <SearchingDetailsSheet
                 visible={showSearchingDetails}

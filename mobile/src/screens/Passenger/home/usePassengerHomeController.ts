@@ -304,6 +304,23 @@ export const usePassengerHomeController = ({
     toLocationPrecision,
   ]);
 
+  const handleRaiseRidePrice = useCallback(
+    async (nextPrice: number) => {
+      const rideId = currentRideId ?? activeRideId;
+      if (!rideId) {
+        return;
+      }
+
+      try {
+        await apiClient.post(`/rides/${rideId}/price`, { estimatedPrice: nextPrice });
+        await refreshActiveRide();
+      } catch (e: any) {
+        throw new Error(extractResponseMessage(e, 'Не удалось поднять цену'));
+      }
+    },
+    [activeRideId, currentRideId, refreshActiveRide],
+  );
+
   const handleCancelSearchingRide = useCallback(async () => {
     if (activeService === 'Курьер' && activeCourierOrderId) {
       setLoading(true);
@@ -418,6 +435,7 @@ export const usePassengerHomeController = ({
     handleGeocodeAndProceed,
     handleCreateRide,
     handleCancelSearchingRide,
+    handleRaiseRidePrice,
     handleAddressSelect,
     handleCustomLandmarkSelect,
     openSearchSheet,
