@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SearchSheet } from '../../../components/Passenger/SearchSheet';
 import { ConfirmationSheet } from '../../../components/Passenger/ConfirmationSheet';
 import { SearchingSheet } from '../../../components/Passenger/SearchingSheet';
@@ -7,6 +7,7 @@ import { SearchingDetailsSheet } from '../../../components/Passenger/SearchingDe
 import { ActiveOrderSheet } from '../../../components/Passenger/ActiveOrderSheet';
 import type { PassengerCoordinates, PassengerScreenState, PassengerStop } from './usePassengerFlowStore';
 import type { RideQuote } from './useRideQuote';
+import { showAlert } from '../../../components/AppAlert';
 
 interface Props {
   screenState: PassengerScreenState;
@@ -198,7 +199,7 @@ export const PassengerSheetHost: React.FC<Props> = ({
           stops={stops}
           onAddStop={() => {
             if (!toAddress || !toCoord) {
-              Alert.alert('Сначала укажите адрес', 'Сначала выберите, куда едем, а потом добавляйте заезд.');
+              showAlert('Сначала укажите адрес', 'Сначала выберите, куда едем, а потом добавляйте заезд.');
               return;
             }
             onRequestAddStop();

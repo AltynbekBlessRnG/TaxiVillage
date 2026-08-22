@@ -1,23 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
+import { showAlert } from '../../components/AppAlert';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverDocuments'>;
 
@@ -95,7 +83,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
       setCarColor(nextProfile.car?.color || '');
       setCarPlate(nextProfile.car?.plateNumber || '');
     } catch {
-      Alert.alert('Ошибка', 'Не удалось загрузить документы водителя');
+      showAlert('Ошибка', 'Не удалось загрузить документы водителя');
     } finally {
       setLoading(false);
     }
@@ -110,7 +98,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
       try {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.status !== 'granted') {
-          Alert.alert('Ошибка', 'Нужен доступ к галерее для загрузки документов');
+          showAlert('Ошибка', 'Нужен доступ к галерее для загрузки документов');
           return;
         }
 
@@ -135,10 +123,10 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
           await loadProfile();
-          Alert.alert('Готово', 'Документ отправлен на проверку');
+          showAlert('Готово', 'Документ отправлен на проверку');
         }
       } catch (error: any) {
-        Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить документ');
+        showAlert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить документ');
       } finally {
         setUploadingDoc(null);
       }
@@ -148,7 +136,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
 
   const saveBasicProfile = useCallback(async () => {
     if (!fullName.trim()) {
-      Alert.alert('Ошибка', 'Укажи имя для профиля');
+      showAlert('Ошибка', 'Укажи имя для профиля');
       return;
     }
 
@@ -156,9 +144,9 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
       setSavingProfile(true);
       await apiClient.patch('/drivers/profile', { fullName: fullName.trim() });
       await loadProfile();
-      Alert.alert('Готово', 'Имя профиля обновлено');
+      showAlert('Готово', 'Имя профиля обновлено');
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось обновить имя');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось обновить имя');
     } finally {
       setSavingProfile(false);
     }
@@ -166,7 +154,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
 
   const saveCar = useCallback(async () => {
     if (!carMake.trim() || !carModel.trim() || !carColor.trim() || !carPlate.trim()) {
-      Alert.alert('Ошибка', 'Заполните все поля автомобиля');
+      showAlert('Ошибка', 'Заполните все поля автомобиля');
       return;
     }
 
@@ -179,9 +167,9 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
         plateNumber: carPlate.trim().toUpperCase(),
       });
       await loadProfile();
-      Alert.alert('Готово', 'Данные автомобиля обновлены');
+      showAlert('Готово', 'Данные автомобиля обновлены');
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось сохранить автомобиль');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось сохранить автомобиль');
     } finally {
       setSavingCar(false);
     }

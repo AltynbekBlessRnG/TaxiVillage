@@ -1,15 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -17,6 +7,7 @@ import { apiClient } from '../../api/client';
 import { createChatSocket, Message as ChatSocketMessage } from '../../api/chatSocket';
 import { loadAuth } from '../../storage/authStorage';
 import { showChatSafetyActions } from '../../utils/chatSafety';
+import { showAlert } from '../../components/AppAlert';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatScreen'>;
 
@@ -110,14 +101,14 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         });
 
         socket.onError((error: any) => {
-          Alert.alert('Ошибка', error.message || 'Произошла ошибка');
+          showAlert('Ошибка', error.message || 'Произошла ошибка');
         });
 
         await loadMessages();
         scrollToBottom(false);
         await markRead();
       } catch {
-        Alert.alert('Ошибка', 'Не удалось загрузить чат');
+        showAlert('Ошибка', 'Не удалось загрузить чат');
       }
     };
 
@@ -139,7 +130,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       await loadMessages(nextCursor);
     } catch {
-      Alert.alert('Ошибка', 'Не удалось загрузить предыдущие сообщения');
+      showAlert('Ошибка', 'Не удалось загрузить предыдущие сообщения');
     } finally {
       setLoadingMore(false);
     }
@@ -165,7 +156,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
       scrollToBottom();
       await markRead();
     } catch {
-      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+      showAlert('Ошибка', 'Не удалось отправить сообщение');
     } finally {
       setLoading(false);
     }

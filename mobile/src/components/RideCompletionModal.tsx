@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator
-} from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { apiClient } from '../api/client';
+import { showAlert } from '../components/AppAlert';
 
 interface RideCompletionModalProps {
   visible: boolean;
@@ -36,7 +29,7 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
 
   const submitRating = async () => {
     if (rating === 0) {
-      Alert.alert('Ошибка', 'Пожалуйста, поставьте оценку');
+      showAlert('Ошибка', 'Пожалуйста, поставьте оценку');
       return;
     }
 
@@ -46,7 +39,7 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
       onClose();
       onRatingSubmitted?.();
     } catch {
-      Alert.alert('Ошибка', 'Не удалось отправить оценку');
+      showAlert('Ошибка', 'Не удалось отправить оценку');
     } finally {
       setSubmitting(false);
     }

@@ -1,22 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import BottomSheet, {
   BottomSheetTextInput,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import type { RideQuote } from '../../screens/Passenger/home/useRideQuote';
+import { showAlert } from '../../components/AppAlert';
 
 /** Steps the passenger can nudge the price by, in tenge. */
 const PRICE_STEP = 100;
@@ -122,7 +111,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
   };
 
   const handleStopPress = (index: number, address: string) => {
-    Alert.alert('Удалить заезд?', address, [
+    showAlert('Удалить заезд?', address, [
       { text: 'Отмена', style: 'cancel' },
       { text: 'Удалить', style: 'destructive', onPress: () => onRemoveStop?.(index) },
     ]);

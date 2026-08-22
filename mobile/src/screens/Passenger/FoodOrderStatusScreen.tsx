@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import MapView, { Marker } from 'react-native-maps';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +15,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { showAlert } from '../../components/AppAlert';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodOrderStatus'>;
 
@@ -55,7 +56,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
   }, [route.params.orderId]);
 
   const cancelOrder = () => {
-    Alert.alert('Отменить заказ?', 'Отмена доступна до принятия заведением.', [
+    showAlert('Отменить заказ?', 'Отмена доступна до принятия заведением.', [
       { text: 'Оставить', style: 'cancel' },
       {
         text: 'Отменить',
@@ -68,7 +69,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
             })
             .then((response) => setOrder(response.data))
             .catch((error: any) =>
-              Alert.alert(
+              showAlert(
                 'Не удалось отменить',
                 error?.response?.data?.message || 'Попробуйте ещё раз.',
               ),
@@ -91,7 +92,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       navigation.replace('FoodOrderStatus', { orderId: response.data.id });
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось повторить заказ';
-      Alert.alert('Заказ не создан', Array.isArray(message) ? message.join(', ') : message);
+      showAlert('Заказ не создан', Array.isArray(message) ? message.join(', ') : message);
     } finally {
       setActionLoading(false);
     }

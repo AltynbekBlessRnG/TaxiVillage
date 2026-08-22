@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import BottomSheet, { BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
 import {
   formatGooglePredictionAddress,
@@ -18,6 +8,7 @@ import {
   searchGooglePlaces,
 } from '../../utils/googleMaps';
 import { loadRecentAddresses, saveRecentAddress, type RecentAddress } from '../../storage/recentAddresses';
+import { showAlert } from '../../components/AppAlert';
 
 interface GooglePlacePrediction {
   place_id: string;
@@ -285,7 +276,7 @@ export const SearchSheet: React.FC<Props> = ({
 
   const handleToSubmit = () => {
     if (isStopSelectionMode && stopAddress.trim()) {
-      Alert.alert('Выберите адрес', 'Выберите адрес из подсказок Google или укажите точку на карте.');
+      showAlert('Выберите адрес', 'Выберите адрес из подсказок Google или укажите точку на карте.');
       return;
     }
     onSubmit();

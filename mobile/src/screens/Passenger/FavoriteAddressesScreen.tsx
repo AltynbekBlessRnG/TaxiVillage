@@ -1,18 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -22,6 +9,7 @@ import {
   getGooglePlaceDetails,
   searchGooglePlaces,
 } from '../../utils/googleMaps';
+import { showAlert } from '../../components/AppAlert';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FavoriteAddresses'>;
 
@@ -107,12 +95,12 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleSave = async () => {
     if (!formData.name.trim() || !formData.address.trim()) {
-      Alert.alert('Ошибка', 'Заполните название и адрес');
+      showAlert('Ошибка', 'Заполните название и адрес');
       return;
     }
 
     if (!hasValidCoordinates(formData.lat, formData.lng)) {
-      Alert.alert('Нужна точка', 'Выберите адрес из подсказок Google. Сохранять адрес без координат нельзя.');
+      showAlert('Нужна точка', 'Выберите адрес из подсказок Google. Сохранять адрес без координат нельзя.');
       return;
     }
 
@@ -127,7 +115,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
       resetModal();
       await loadAddresses();
     } catch (error: any) {
-      Alert.alert('Ошибка', error.response?.data?.message || 'Не удалось сохранить адрес');
+      showAlert('Ошибка', error.response?.data?.message || 'Не удалось сохранить адрес');
     } finally {
       setLoading(false);
     }
@@ -145,7 +133,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleDelete = (address: FavoriteAddress) => {
-    Alert.alert('Удаление адреса', `Удалить адрес "${address.name}"?`, [
+    showAlert('Удаление адреса', `Удалить адрес "${address.name}"?`, [
       { text: 'Отмена', style: 'cancel' },
       {
         text: 'Удалить',
@@ -155,7 +143,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
             await apiClient.delete(`/favorite-addresses/${address.id}`);
             await loadAddresses();
           } catch {
-            Alert.alert('Ошибка', 'Не удалось удалить адрес');
+            showAlert('Ошибка', 'Не удалось удалить адрес');
           }
         },
       },
@@ -199,7 +187,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
       }));
       setSearchResults([]);
     } catch {
-      Alert.alert('Ошибка', 'Не удалось получить координаты адреса');
+      showAlert('Ошибка', 'Не удалось получить координаты адреса');
     } finally {
       setSearchLoading(false);
     }

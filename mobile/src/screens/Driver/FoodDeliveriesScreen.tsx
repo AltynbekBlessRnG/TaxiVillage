@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { Socket } from 'socket.io-client';
@@ -22,6 +14,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { showAlert } from '../../components/AppAlert';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodDeliveries'>;
 
@@ -48,7 +41,7 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
     } catch (error: any) {
       const message = error?.response?.data?.message;
       if (message) {
-        Alert.alert('Доставка недоступна', Array.isArray(message) ? message.join(', ') : message);
+        showAlert('Доставка недоступна', Array.isArray(message) ? message.join(', ') : message);
       }
     } finally {
       setLoading(false);
@@ -88,7 +81,7 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
     } catch (error: any) {
       const message =
         error?.response?.data?.message || 'Доставку уже принял другой водитель.';
-      Alert.alert('Не удалось принять', Array.isArray(message) ? message.join(', ') : message);
+      showAlert('Не удалось принять', Array.isArray(message) ? message.join(', ') : message);
       await load();
     } finally {
       setActionLoading(false);
@@ -106,7 +99,7 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
       await load();
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось обновить статус.';
-      Alert.alert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+      showAlert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
     } finally {
       setActionLoading(false);
     }

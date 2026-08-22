@@ -1,17 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +9,7 @@ import { apiClient, logout } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { LegalLinks } from '../../components/LegalLinks';
 import { resolveApiAssetUrl } from '../../utils/assets';
+import { showAlert } from '../../components/AppAlert';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverProfile'>;
 
@@ -290,7 +279,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       setProfile(data);
       setCourierTransportType(data.courierTransportType || 'FOOT');
     } catch {
-      Alert.alert('Ошибка', 'Не удалось загрузить профиль водителя');
+      showAlert('Ошибка', 'Не удалось загрузить профиль водителя');
     } finally {
       setLoading(false);
     }
@@ -396,7 +385,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       });
       await loadProfile();
     } catch (e: any) {
-      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось обновить межгород');
+      showAlert('Ошибка', e?.response?.data?.message || 'Не удалось обновить межгород');
     } finally {
       setUpdatingIntercity(false);
     }
@@ -411,7 +400,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       });
       await loadProfile();
     } catch (e: any) {
-      Alert.alert('Ошибка', e?.response?.data?.message || 'Не удалось обновить курьерский режим');
+      showAlert('Ошибка', e?.response?.data?.message || 'Не удалось обновить курьерский режим');
     } finally {
       setUpdatingCourier(false);
     }

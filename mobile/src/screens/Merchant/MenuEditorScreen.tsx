@@ -1,14 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,6 +14,7 @@ import {
   ServiceScreen,
 } from '../../components/ServiceScreen';
 import { resolveApiAssetUrl } from '../../utils/assets';
+import { showAlert } from '../../components/AppAlert';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MenuEditor'>;
 
@@ -77,7 +69,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
 
   const createCategory = async () => {
     if (!categoryName.trim()) {
-      Alert.alert('Нужна категория', 'Укажи название категории меню.');
+      showAlert('Нужна категория', 'Укажи название категории меню.');
       return;
     }
 
@@ -88,7 +80,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
       setSelectedCategoryId(response.data.id);
       await loadProfile();
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось создать категорию');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось создать категорию');
     } finally {
       setCreatingCategory(false);
     }
@@ -106,7 +98,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
 
   const saveCategory = async () => {
     if (!editingCategoryId || !editingCategoryName.trim()) {
-      Alert.alert('Нужна категория', 'Укажи новое название категории.');
+      showAlert('Нужна категория', 'Укажи новое название категории.');
       return;
     }
 
@@ -117,9 +109,9 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
       });
       cancelEditingCategory();
       await loadProfile();
-      Alert.alert('Готово', 'Категория обновлена');
+      showAlert('Готово', 'Категория обновлена');
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось обновить категорию');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось обновить категорию');
     } finally {
       setSavingCategoryId(null);
     }
@@ -136,9 +128,9 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
         setSelectedCategoryId(null);
       }
       await loadProfile();
-      Alert.alert('Готово', 'Категория удалена');
+      showAlert('Готово', 'Категория удалена');
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось удалить категорию');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось удалить категорию');
     } finally {
       setDeletingCategoryId(null);
     }
@@ -150,7 +142,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
       await apiClient.post(`/merchants/menu/categories/${categoryId}/reorder`, { direction });
       await loadProfile();
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось изменить порядок категории');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось изменить порядок категории');
     } finally {
       setReorderingCategoryId(null);
     }
@@ -160,7 +152,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permission.status !== 'granted') {
-        Alert.alert('Нужен доступ', 'Разреши доступ к галерее, чтобы загрузить фото блюда.');
+        showAlert('Нужен доступ', 'Разреши доступ к галерее, чтобы загрузить фото блюда.');
         return;
       }
 
@@ -189,7 +181,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
 
       setItemImageUrl(response.data.url);
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить фото блюда');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось загрузить фото блюда');
     } finally {
       setUploadingImage(false);
     }
@@ -197,12 +189,12 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
 
   const createItem = async () => {
     if (!selectedCategoryId) {
-      Alert.alert('Сначала категория', 'Выбери категорию, в которую нужно добавить блюдо.');
+      showAlert('Сначала категория', 'Выбери категорию, в которую нужно добавить блюдо.');
       return;
     }
 
     if (!itemName.trim() || !itemPrice.trim()) {
-      Alert.alert('Не хватает данных', 'Укажи название и цену блюда.');
+      showAlert('Не хватает данных', 'Укажи название и цену блюда.');
       return;
     }
 
@@ -231,9 +223,9 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
       setItemImageUrl('');
       setEditingItemId(null);
       await loadProfile();
-      Alert.alert('Готово', editingItemId ? 'Блюдо обновлено' : 'Блюдо добавлено в меню');
+      showAlert('Готово', editingItemId ? 'Блюдо обновлено' : 'Блюдо добавлено в меню');
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось сохранить блюдо');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось сохранить блюдо');
     } finally {
       setCreatingItem(false);
     }
@@ -264,9 +256,9 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
         resetItemForm();
       }
       await loadProfile();
-      Alert.alert('Готово', 'Блюдо удалено');
+      showAlert('Готово', 'Блюдо удалено');
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось удалить блюдо');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось удалить блюдо');
     } finally {
       setDeletingItemId(null);
     }
@@ -278,7 +270,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
       await apiClient.post(`/merchants/menu/items/${itemId}/reorder`, { direction });
       await loadProfile();
     } catch (error: any) {
-      Alert.alert('Ошибка', error?.response?.data?.message || 'Не удалось изменить порядок блюда');
+      showAlert('Ошибка', error?.response?.data?.message || 'Не удалось изменить порядок блюда');
     } finally {
       setReorderingItemId(null);
     }
@@ -369,7 +361,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                   style={[styles.categoryMiniAction, styles.categoryMiniDeleteAction]}
                   onPress={() =>
-                    Alert.alert('Удалить категорию?', `Удалить "${category.name}"?`, [
+                    showAlert('Удалить категорию?', `Удалить "${category.name}"?`, [
                       { text: 'Отмена', style: 'cancel' },
                       {
                         text: deletingCategoryId === category.id ? 'Удаляем...' : 'Удалить',
@@ -510,7 +502,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity
                     style={[styles.itemActionButton, styles.itemDeleteButton]}
                     onPress={() =>
-                      Alert.alert('Удалить блюдо?', `Удалить "${item.name}" из меню?`, [
+                      showAlert('Удалить блюдо?', `Удалить "${item.name}" из меню?`, [
                         { text: 'Отмена', style: 'cancel' },
                         {
                           text: deletingItemId === item.id ? 'Удаляем...' : 'Удалить',

@@ -3,6 +3,7 @@ import React from 'react';
 import { LinkingOptions, NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AlertHost } from './src/components/AppAlert';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { RootStackParamList } from './src/navigation/AppNavigator';
 import { navigationRef } from './src/navigation/rootNavigation';
@@ -32,6 +33,7 @@ export default function App() {
         <NavigationContainer ref={navigationRef} linking={linking}>
           <AppNavigator />
         </NavigationContainer>
+        <AlertHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
