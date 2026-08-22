@@ -81,10 +81,19 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-def envFile = new File(projectRoot, ".env")
+// Resolved at build time, not at prebuild time: `expo prebuild` regenerates this
+// folder and silently drops the manifest entry when the variable is unset, which
+// is exactly how the map lost its key and crashed the whole screen.
 def env = new Properties()
-if (envFile.exists()) {
-    envFile.withInputStream { stream -> env.load(stream) }
+[".env.local", ".env"].each { name ->
+    def f = new File(projectRoot, name)
+    if (f.exists()) {
+        f.withInputStream { stream ->
+            def p = new Properties()
+            p.load(stream)
+            p.each { k, v -> if (!env.containsKey(k)) env.put(k, v) }
+        }
+    }
 }
 
 def googleMapsApiKey = env.getProperty("GOOGLE_MAPS_API_KEY") ?: System.getenv("GOOGLE_MAPS_API_KEY")
