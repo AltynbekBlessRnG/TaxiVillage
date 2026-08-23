@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -61,6 +61,25 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   const insets = useSafeAreaInsets();
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isActiveExpanded, setIsActiveExpanded] = useState(false);
+  // The sheet used to render six blocks at once and ate two thirds of the map.
+  // Collapsed is the resting state: what a driver reads before a shift is the
+  // mode, the day's take and the button, and everything else is one drag away.
+  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+
+  const dragResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dy) > 8,
+        onPanResponderRelease: (_event, gesture) => {
+          if (gesture.dy < -20) {
+            setIsSheetExpanded(true);
+          } else if (gesture.dy > 20) {
+            setIsSheetExpanded(false);
+          }
+        },
+      }),
+    [],
+  );
   const maxEarnings = Math.max(
     ...(metrics?.dailyBuckets?.map((bucket) => bucket.earnings) ?? [0]),
     1,
@@ -301,6 +320,17 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
       onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
     >
       <View style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}>
+        <TouchableOpacity
+          style={styles.grabArea}
+          onPress={() => setIsSheetExpanded((prev) => !prev)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={isSheetExpanded ? 'Свернуть панель' : 'Развернуть панель'}
+          {...dragResponder.panHandlers}
+        >
+          <View style={styles.grabHandle} />
+        </TouchableOpacity>
+
         <View style={styles.modeTabs}>
           <TouchableOpacity
             style={[styles.modeTab, profile?.driverMode === 'TAXI' && styles.modeTabActive]}
@@ -358,7 +388,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
           ) : null}
         </View>
 
-        {profile?.supportsCourier ? (
+        {isSheetExpanded && profile?.supportsCourier ? (
           <TouchableOpacity style={styles.sectionLink} onPress={onOpenFoodDeliveries}>
             <Text style={styles.sectionLinkText}>Доставка еды</Text>
             <Text style={styles.sectionLinkChevron}>›</Text>
@@ -367,82 +397,104 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
 
         <View style={styles.onlineShell}>
           <View style={styles.waitingPanel}>
-            <View style={styles.infoCardCompact}>
-              <TouchableOpacity
-                style={styles.infoHeaderRow}
-                onPress={() => setIsStatsExpanded((prev) => !prev)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.infoHeader}>
-                  <Text style={styles.infoTitle}>7 дней</Text>
-                  {!isStatsExpanded ? (
-                    <Text style={styles.infoSummary}>
-                      Сегодня {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
-                    </Text>
-                  ) : null}
-                </View>
-                <Text style={styles.infoChevron}>{isStatsExpanded ? '⌃' : '⌄'}</Text>
-              </TouchableOpacity>
-              {isStatsExpanded ? (
-                <View style={styles.chartRow}>
-                  {(metrics?.dailyBuckets ?? []).map((bucket) => (
-                    <View key={bucket.date} style={styles.chartItem}>
-                      <View style={styles.chartTrack}>
-                        <View
-                          style={[
-                            styles.chartBar,
-                            {
-                              height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
-                              backgroundColor:
-                                profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
-                            },
-                          ]}
-                        />
+            {isSheetExpanded ? (
+              <>
+              <View style={styles.infoCardCompact}>
+                <TouchableOpacity
+                  style={styles.infoHeaderRow}
+                  onPress={() => setIsStatsExpanded((prev) => !prev)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.infoHeader}>
+                    <Text style={styles.infoTitle}>7 дней</Text>
+                    {!isStatsExpanded ? (
+                      <Text style={styles.infoSummary}>
+                        Сегодня {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.infoChevron}>{isStatsExpanded ? '⌃' : '⌄'}</Text>
+                </TouchableOpacity>
+                {isStatsExpanded ? (
+                  <View style={styles.chartRow}>
+                    {(metrics?.dailyBuckets ?? []).map((bucket) => (
+                      <View key={bucket.date} style={styles.chartItem}>
+                        <View style={styles.chartTrack}>
+                          <View
+                            style={[
+                              styles.chartBar,
+                              {
+                                height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
+                                backgroundColor:
+                                  profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.chartValue}>{Math.round(bucket.earnings)}</Text>
+                        <Text style={styles.chartLabel}>{bucket.label}</Text>
                       </View>
-                      <Text style={styles.chartValue}>{Math.round(bucket.earnings)}</Text>
-                      <Text style={styles.chartLabel}>{bucket.label}</Text>
-                    </View>
-                  ))}
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+
+              <TouchableOpacity style={styles.card} onPress={onOpenToday}>
+                <Text style={styles.cardTitle}>Сегодня</Text>
+                <View style={styles.cardRight}>
+                  <Text style={styles.cardValue}>
+                    {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
+                  </Text>
+                  <Text style={styles.chevron}>›</Text>
                 </View>
-              ) : null}
-            </View>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.card} onPress={onOpenToday}>
-              <Text style={styles.cardTitle}>Сегодня</Text>
-              <View style={styles.cardRight}>
-                <Text style={styles.cardValue}>
-                  {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
-                </Text>
-                <Text style={styles.chevron}>›</Text>
+              <View style={styles.metricsCard}>
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricLabel}>Баланс</Text>
+                  <Text style={styles.metricValueWhite}>
+                    {Math.round(Number(metrics?.balance ?? profile?.balance ?? 0))} ₸
+                  </Text>
+                </View>
+
+                <View style={styles.verticalDivider} />
+
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricLabel}>Завершено</Text>
+                  <Text style={styles.metricValueWhite}>
+                    {(metrics?.completedTaxiRides ?? 0) + (metrics?.completedCourierDeliveries ?? 0)}
+                  </Text>
+                </View>
+
+                <View style={styles.verticalDivider} />
+
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricLabel}>Рейтинг</Text>
+                  <Text style={styles.metricValueYellow}>
+                    {Number(metrics?.rating ?? profile?.rating ?? 5).toFixed(1)} ★
+                  </Text>
+                </View>
               </View>
-            </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.summaryRow}>
+                <TouchableOpacity style={styles.summaryCell} onPress={onOpenToday}>
+                  <Text style={styles.summaryLabel}>Сегодня</Text>
+                  <Text style={styles.summaryValue}>
+                    {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
+                  </Text>
+                </TouchableOpacity>
 
-            <View style={styles.metricsCard}>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Баланс</Text>
-                <Text style={styles.metricValueWhite}>
-                  {Math.round(Number(metrics?.balance ?? profile?.balance ?? 0))} ₸
-                </Text>
+                <View style={styles.summaryDividerVertical} />
+
+                <View style={styles.summaryCell}>
+                  <Text style={styles.summaryLabel}>Баланс</Text>
+                  <Text style={styles.summaryValue}>
+                    {Math.round(Number(metrics?.balance ?? profile?.balance ?? 0))} ₸
+                  </Text>
+                </View>
               </View>
-
-              <View style={styles.verticalDivider} />
-
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Завершено</Text>
-                <Text style={styles.metricValueWhite}>
-                  {(metrics?.completedTaxiRides ?? 0) + (metrics?.completedCourierDeliveries ?? 0)}
-                </Text>
-              </View>
-
-              <View style={styles.verticalDivider} />
-
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Рейтинг</Text>
-                <Text style={styles.metricValueYellow}>
-                  {Number(metrics?.rating ?? profile?.rating ?? 5).toFixed(1)} ★
-                </Text>
-              </View>
-            </View>
+            )}
 
             {isOnline && profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
               <View style={styles.offerBlockCompact}>
@@ -497,6 +549,38 @@ const styles = StyleSheet.create({
   onlineShell: {
     marginBottom: 0,
   },
+  grabArea: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingTop: 2,
+    paddingBottom: 12,
+    marginTop: -6,
+  },
+  grabHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#3A3A40',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    borderRadius: 16,
+    paddingVertical: 12,
+  },
+  summaryCell: { flex: 1, alignItems: 'center', gap: 4 },
+  summaryLabel: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  summaryValue: { color: '#F4F4F5', fontSize: 18, fontWeight: '900' },
+  summaryDividerVertical: { width: 1, alignSelf: 'stretch', backgroundColor: '#27272A' },
   modeTabs: {
     flexDirection: 'row',
     backgroundColor: '#18181B',

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 const { height } = Dimensions.get('window');
 
@@ -110,7 +111,8 @@ export const RideOfferSheet: React.FC<Props> = ({
 
         {offer.hasRoute === false && (
           <View style={styles.warningBox}>
-            <Text style={styles.warningText}>⚠️ Точки нет на карте. Ориентируйтесь по тексту.</Text>
+            <Ionicons name="warning" size={16} color="#F59E0B" />
+            <Text style={styles.warningText}>Точки нет на карте. Ориентируйтесь по тексту.</Text>
           </View>
         )}
 
@@ -155,7 +157,8 @@ export const RideOfferSheet: React.FC<Props> = ({
 
         {offer.comment ? (
           <View style={styles.commentBox}>
-            <Text style={styles.commentText}>💬 {offer.comment}</Text>
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color="#71717A" />
+            <Text style={styles.commentText}>{offer.comment}</Text>
           </View>
         ) : null}
 
@@ -239,6 +242,10 @@ const styles = StyleSheet.create({
   pickupLabel: { color: '#71717A', fontSize: 13, fontWeight: '700' },
   pickupValue: { color: '#F4F4F5', fontSize: 16, fontWeight: '900' },
   warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: '#1C1C1E',
     padding: 10,
     borderRadius: 12,
@@ -246,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: '#F59E0B',
     marginBottom: 12,
   },
-  warningText: { color: '#F59E0B', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  warningText: { color: '#F59E0B', fontSize: 13, fontWeight: '600', flexShrink: 1 },
   routeBox: {
     backgroundColor: '#18181B',
     padding: 14,
@@ -275,8 +282,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
   },
-  commentBox: { marginBottom: 14, paddingHorizontal: 2 },
-  commentText: { color: '#71717A', fontSize: 13, fontStyle: 'italic' },
+  commentBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, paddingHorizontal: 2 },
+  commentText: { color: '#71717A', fontSize: 13, fontStyle: 'italic', flexShrink: 1 },
   buttonsRow: { flexDirection: 'row', gap: 12 },
   rejectBtn: {
     flex: 1,

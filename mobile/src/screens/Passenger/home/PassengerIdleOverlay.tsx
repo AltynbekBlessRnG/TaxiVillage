@@ -1,11 +1,24 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+type Service = 'Такси' | 'Курьер' | 'Еда' | 'Межгород';
+
+const SERVICES: Service[] = ['Такси', 'Курьер', 'Еда', 'Межгород'];
+
+/** Emoji render at the vendor's whim and read as stickers next to the UI. */
+const SERVICE_ICONS: Record<Service, keyof typeof Ionicons.glyphMap> = {
+  'Такси': 'car',
+  'Курьер': 'cube',
+  'Еда': 'fast-food',
+  'Межгород': 'trail-sign',
+};
 
 interface Props {
   fromAddress: string;
   toAddress: string;
-  activeService: 'Такси' | 'Курьер' | 'Еда' | 'Межгород';
+  activeService: Service;
   activeRideId: string | null;
   activeRide: any;
   activeCourierOrderId: string | null;
@@ -14,7 +27,7 @@ interface Props {
   onRecenter: () => void;
   onOpenActiveRide: () => void;
   onOpenActiveCourier: () => void;
-  onSelectService: (service: 'Такси' | 'Курьер' | 'Еда' | 'Межгород') => void;
+  onSelectService: (service: Service) => void;
   unreadNotificationsCount: number;
 }
 
@@ -42,7 +55,7 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
   return (
     <View style={styles.uiOverlay} pointerEvents="box-none">
       <TouchableOpacity style={[styles.burgerBtn, { top: topInset + 8 }]} onPress={onOpenMenu}>
-        <Text style={styles.burgerIcon}>☰</Text>
+        <Ionicons name="menu" size={24} color="#F4F4F5" />
         {unreadNotificationsCount > 0 ? (
           <View style={styles.burgerBadge}>
             <Text style={styles.burgerBadgeText}>
@@ -109,11 +122,14 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
       ) : null}
 
       <View style={[styles.bottomAshenBar, { bottom: bottomInset + 12 }]}>
-        {(['Такси', 'Курьер', 'Еда', 'Межгород'] as const).map((service) => (
+        {SERVICES.map((service) => (
           <TouchableOpacity
             key={service}
             style={styles.servicePill}
             onPress={() => onSelectService(service)}
+            accessibilityRole="button"
+            accessibilityLabel={service}
+            accessibilityState={{ selected: activeService === service }}
           >
             <View
               style={[
@@ -121,15 +137,11 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
                 activeService === service && styles.serviceCircleActive,
               ]}
             >
-              <Text style={styles.serviceIcon}>
-                {service === 'Такси'
-                  ? '🚕'
-                  : service === 'Курьер'
-                    ? '📦'
-                    : service === 'Еда'
-                      ? '🍕'
-                      : '🛣️'}
-              </Text>
+              <Ionicons
+                name={SERVICE_ICONS[service]}
+                size={24}
+                color={activeService === service ? '#09090B' : '#E4E4E7'}
+              />
             </View>
             <Text
               style={[styles.serviceLabel, activeService === service && styles.serviceLabelActive]}
@@ -158,7 +170,6 @@ const styles = StyleSheet.create({
     borderColor: '#27272A',
     zIndex: 100,
   },
-  burgerIcon: { fontSize: 22, color: '#fff' },
   burgerBadge: {
     position: 'absolute',
     top: -4,
@@ -258,7 +269,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F4F5',
     borderColor: '#F4F4F5',
   },
-  serviceIcon: { fontSize: 23 },
   serviceLabel: {
     color: '#A1A1AA',
     fontSize: 12,

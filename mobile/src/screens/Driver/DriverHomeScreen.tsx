@@ -1025,6 +1025,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         customMapStyle={darkMinimalMapStyle}
         onUserLocationChange={handleUserLocationChange}
         showsUserLocation
+        // Google's own recenter button ships enabled alongside showsUserLocation
+        // and lands in the corner, duplicating the one that tracks the sheet.
+        showsMyLocationButton={false}
+        toolbarEnabled={false}
         followsUserLocation={false}
       >
         {renderedRouteCoordinates.length >= 2 && (

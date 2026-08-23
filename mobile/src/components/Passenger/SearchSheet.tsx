@@ -9,6 +9,7 @@ import {
 } from '../../utils/googleMaps';
 import { loadRecentAddresses, saveRecentAddress, type RecentAddress } from '../../storage/recentAddresses';
 import { showAlert } from '../../components/AppAlert';
+import { Ionicons } from '@expo/vector-icons';
 
 interface GooglePlacePrediction {
   place_id: string;
@@ -289,7 +290,10 @@ export const SearchSheet: React.FC<Props> = ({
 
     return (
       <TouchableOpacity style={styles.currentLocationButton} onPress={() => void handleUseCurrentLocation()}>
-        <Text style={styles.currentLocationTitle}>📍 Текущее местоположение</Text>
+        <View style={styles.currentLocationTitleRow}>
+          <Ionicons name="locate" size={16} color="#F4F4F5" />
+          <Text style={styles.currentLocationTitle}>Текущее местоположение</Text>
+        </View>
         <Text style={styles.currentLocationSubtitle}>Определить адрес по вашей геопозиции</Text>
       </TouchableOpacity>
     );
@@ -536,6 +540,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#27272A',
   },
+  currentLocationTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   currentLocationTitle: { color: '#F4F4F5', fontSize: 15, fontWeight: '700' },
   currentLocationSubtitle: { color: '#71717A', fontSize: 12, marginTop: 4 },
   suggestionText: { color: '#E4E4E7', fontSize: 15, fontWeight: '500' },

@@ -8,6 +8,14 @@ export default {
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#09090B",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "translucent": true
+    },
+    "androidNavigationBar": {
+      "barStyle": "light-content"
+    },
     "scheme": "taxivillage",
     "extra": {
       "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY,

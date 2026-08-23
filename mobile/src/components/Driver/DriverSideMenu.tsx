@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { showAlert } from '../AppAlert';
 import { resolveApiAssetUrl } from '../../utils/assets';
 
 const { width } = Dimensions.get('window');
@@ -37,6 +39,37 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
         .map((part) => part[0])
         .join('') || 'В').toUpperCase(),
     [profile?.fullName, profile?.phone],
+  );
+
+  const menuEntries = useMemo(
+    (): Array<{
+      label: string;
+      icon: keyof typeof Ionicons.glyphMap;
+      onPress: () => void;
+      badge?: number;
+    }> => [
+      {
+        label: 'Уведомления',
+        icon: 'notifications-outline',
+        onPress: () => onNavigate('Notifications'),
+        badge: unreadNotificationsCount,
+      },
+      {
+        label: 'Сообщения',
+        icon: 'chatbubble-ellipses-outline',
+        onPress: () => onNavigate('Messages'),
+        badge: unreadMessagesCount,
+      },
+      { label: 'Мой профиль', icon: 'person-outline', onPress: () => onNavigate('DriverProfile') },
+      { label: 'Баланс', icon: 'wallet-outline', onPress: () => onNavigate('DriverBalance') },
+      { label: 'История поездок', icon: 'time-outline', onPress: () => onNavigate('RideHistory') },
+      {
+        label: 'Настройки',
+        icon: 'settings-outline',
+        onPress: () => showAlert('Настройки', 'Раздел ещё в разработке.'),
+      },
+    ],
+    [onNavigate, unreadMessagesCount, unreadNotificationsCount],
   );
 
   useEffect(() => {
@@ -95,42 +128,25 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
         </View>
 
         <View style={styles.menuItems}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('Notifications')}>
-            <View style={styles.menuItemRow}>
-              <Text style={styles.menuItemText}>🔔 Уведомления</Text>
-              {unreadNotificationsCount > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('Messages')}>
-            <View style={styles.menuItemRow}>
-              <Text style={styles.menuItemText}>💬 Сообщения</Text>
-              {unreadMessagesCount > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('DriverProfile')}>
-            <Text style={styles.menuItemText}>👤 Мой профиль</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('DriverBalance')}>
-            <Text style={styles.menuItemText}>💸 Баланс</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => onNavigate('RideHistory')}>
-            <Text style={styles.menuItemText}>🕒 История поездок</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => alert('Настройки в разработке')}>
-            <Text style={styles.menuItemText}>⚙️ Настройки</Text>
-          </TouchableOpacity>
+          {menuEntries.map((entry) => (
+            <TouchableOpacity
+              key={entry.label}
+              style={styles.menuItem}
+              onPress={entry.onPress}
+              accessibilityRole="button"
+              accessibilityLabel={entry.label}
+            >
+              <View style={styles.menuItemRow}>
+                <Ionicons name={entry.icon} size={20} color="#A1A1AA" style={styles.menuItemIcon} />
+                <Text style={styles.menuItemText}>{entry.label}</Text>
+                {entry.badge ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{entry.badge > 99 ? '99+' : entry.badge}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
@@ -172,8 +188,9 @@ const styles = StyleSheet.create({
   statValueYellow: { color: '#F59E0B', fontSize: 18, fontWeight: '700' },
   menuItems: { padding: 20, flex: 1 },
   menuItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#18181B' },
-  menuItemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  menuItemText: { color: '#E2E8F0', fontSize: 16, fontWeight: '500' },
+  menuItemRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  menuItemIcon: { width: 22, textAlign: 'center' },
+  menuItemText: { color: '#E2E8F0', fontSize: 16, fontWeight: '500', flex: 1 },
   badge: {
     minWidth: 26,
     height: 26,

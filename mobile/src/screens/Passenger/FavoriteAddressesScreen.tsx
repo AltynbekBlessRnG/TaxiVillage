@@ -10,6 +10,7 @@ import {
   searchGooglePlaces,
 } from '../../utils/googleMaps';
 import { showAlert } from '../../components/AppAlert';
+import { Ionicons } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FavoriteAddresses'>;
 
@@ -219,11 +220,21 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.addressText}>{address.address}</Text>
               </TouchableOpacity>
               <View style={styles.addressActions}>
-                <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(address)}>
-                  <Text style={styles.iconButtonText}>✏️</Text>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => handleEdit(address)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Изменить адрес ${address.name}`}
+                >
+                  <Ionicons name="pencil" size={18} color="#E4E4E7" />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.iconButton, styles.deleteButton]} onPress={() => handleDelete(address)}>
-                  <Text style={styles.iconButtonText}>🗑️</Text>
+                <TouchableOpacity
+                  style={[styles.iconButton, styles.deleteButton]}
+                  onPress={() => handleDelete(address)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Удалить адрес ${address.name}`}
+                >
+                  <Ionicons name="trash" size={18} color="#FCA5A5" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -366,7 +377,6 @@ const styles = StyleSheet.create({
   addressActions: { flexDirection: 'row', gap: 8 },
   iconButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#27272A', justifyContent: 'center', alignItems: 'center' },
   deleteButton: { backgroundColor: '#3F1D1D' },
-  iconButtonText: { fontSize: 15 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalAvoiding: { width: '100%' },
   modalContent: {
