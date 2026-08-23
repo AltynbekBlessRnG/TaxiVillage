@@ -11,7 +11,7 @@ import { initializeNotifications } from './src/utils/notifications';
 import './src/location/backgroundTracking';
 
 const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: ['taxivillage://'],
+  prefixes: ['zhetysu://'],
   config: {
     screens: {
       FoodOrderStatus: 'food-order/:orderId',

@@ -50,7 +50,7 @@ export async function startDriverBackgroundTracking() {
     distanceInterval: 25,
     showsBackgroundLocationIndicator: true,
     foregroundService: {
-      notificationTitle: 'TaxiVillage',
+      notificationTitle: 'Zhetysu Go',
       notificationBody: 'Фоновое отслеживание местоположения включено',
     },
   });

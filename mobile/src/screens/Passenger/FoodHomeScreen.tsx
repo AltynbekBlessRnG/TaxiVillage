@@ -299,7 +299,7 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
             <View style={styles.restaurantMetaRow}>
               <View style={styles.restaurantWhatsappPill}>
-                <Text style={styles.restaurantWhatsappText}>Заказ внутри TaxiVillage</Text>
+                <Text style={styles.restaurantWhatsappText}>Заказ внутри Zhetysu Go</Text>
               </View>
               <View style={styles.restaurantPromoPill}>
                 <Text style={styles.restaurantPromoText}>{getPromoTag(restaurant)}</Text>

@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 export default {
   "expo": {
-    "name": "TaxiVillage",
+    "name": "Zhetysu Go",
     "slug": "taxivillage",
     "version": "1.0.0",
     "icon": "./assets/icon.png",
@@ -16,7 +16,7 @@ export default {
     "androidNavigationBar": {
       "barStyle": "light-content"
     },
-    "scheme": "taxivillage",
+    "scheme": "zhetysu",
     "extra": {
       "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY,
       "eas": {
@@ -24,15 +24,15 @@ export default {
 }
     },
     "ios": {
-      "bundleIdentifier": "com.taxivillage.app",
+      "bundleIdentifier": "com.zhetysu.go",
       "config": {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "TaxiVillage uses your location to show your position on the map, choose pickup and delivery addresses, and find nearby drivers.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "When you go online as a driver or courier, TaxiVillage uses your location to send nearby orders and update the customer with your position, including while the app is in the background.",
-        "NSLocationAlwaysUsageDescription": "When you go online as a driver or courier, TaxiVillage uses your location to send nearby orders and update the customer with your position, including while the app is in the background.",
-        "NSPhotoLibraryUsageDescription": "TaxiVillage lets you choose a profile photo or a driver document from your photo library."
+        "NSLocationWhenInUseUsageDescription": "Zhetysu Go uses your location to show your position on the map, choose pickup and delivery addresses, and find nearby drivers.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "When you go online as a driver or courier, Zhetysu Go uses your location to send nearby orders and update the customer with your position, including while the app is in the background.",
+        "NSLocationAlwaysUsageDescription": "When you go online as a driver or courier, Zhetysu Go uses your location to send nearby orders and update the customer with your position, including while the app is in the background.",
+        "NSPhotoLibraryUsageDescription": "Zhetysu Go lets you choose a profile photo or a driver document from your photo library."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -46,7 +46,7 @@ export default {
       }
     },
     "android": {
-      "package": "com.taxivillage.app",
+      "package": "com.zhetysu.go",
       "softwareKeyboardLayoutMode": "resize",
       "config": {
         "googleMaps": {
@@ -67,9 +67,9 @@ export default {
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow TaxiVillage to use your location while you are online as a driver or courier, including in the background.",
-          "locationAlwaysPermission": "Allow TaxiVillage to use your location while you are online as a driver or courier, including in the background.",
-          "locationWhenInUsePermission": "Allow TaxiVillage to use your location to show the map and choose pickup or delivery addresses.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Zhetysu Go to use your location while you are online as a driver or courier, including in the background.",
+          "locationAlwaysPermission": "Allow Zhetysu Go to use your location while you are online as a driver or courier, including in the background.",
+          "locationWhenInUsePermission": "Allow Zhetysu Go to use your location to show the map and choose pickup or delivery addresses.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
@@ -77,8 +77,8 @@ export default {
       [
         "expo-image-picker",
         {
-          "photosPermission": "TaxiVillage lets you choose a profile photo or a driver document from your photo library.",
-          "cameraPermission": "TaxiVillage lets you take a profile photo or a driver document photo.",
+          "photosPermission": "Zhetysu Go lets you choose a profile photo or a driver document from your photo library.",
+          "cameraPermission": "Zhetysu Go lets you take a profile photo or a driver document photo.",
           "microphonePermission": false
         }
       ],

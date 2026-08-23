@@ -26,7 +26,7 @@ export function buildWhatsAppOrderMessage({
   const lines = items.map(
     (item, index) => `${index + 1}. ${item.name} x${item.qty} — ${Math.round(Number(item.price) * item.qty)} тг`,
   );
-  const orderLink = orderId ? `taxivillage://merchant-orders/${orderId}` : null;
+  const orderLink = orderId ? `zhetysu://merchant-orders/${orderId}` : null;
 
   return [
     `Здравствуйте! ${hasItems ? `Хочу сделать заказ в ${restaurantName}.` : `Хочу уточнить меню и оформить заказ в ${restaurantName}.`}`,

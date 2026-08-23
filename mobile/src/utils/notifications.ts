@@ -35,7 +35,7 @@ async function persistNotificationEvent(
   source: 'push' | 'local',
 ) {
   const id = notification.request.identifier;
-  const title = notification.request.content.title || 'TaxiVillage';
+  const title = notification.request.content.title || 'Zhetysu Go';
   const body = notification.request.content.body || '';
   const data = (notification.request.content.data || {}) as Record<string, unknown>;
 
@@ -118,7 +118,7 @@ async function ensureAndroidChannel() {
   }
 
   await Notifications.setNotificationChannelAsync(DEFAULT_CHANNEL_ID, {
-    name: 'TaxiVillage',
+    name: 'Zhetysu Go',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#38BDF8',
@@ -185,7 +185,7 @@ export async function initializeNotifications(): Promise<void> {
 }
 
 export async function sendLocalNotification(
-  title = 'TaxiVillage',
+  title = 'Zhetysu Go',
   body = '',
   data: Record<string, unknown> = {},
 ): Promise<void> {

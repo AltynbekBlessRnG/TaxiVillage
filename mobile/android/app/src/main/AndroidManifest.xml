@@ -31,8 +31,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="taxivillage"/>
-        <data android:scheme="exp+taxivillage"/>
+        <data android:scheme="zhetysu"/>
+        <data android:scheme="exp+zhetysu"/>
       </intent-filter>
     </activity>
   </application>

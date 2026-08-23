@@ -1,4 +1,4 @@
-package com.taxivillage.app
+package com.zhetysu.go
 
 import android.app.Application
 import android.content.res.Configuration

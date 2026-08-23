@@ -104,9 +104,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.taxivillage.app'
+    namespace 'com.zhetysu.go'
     defaultConfig {
-        applicationId 'com.taxivillage.app'
+        applicationId 'com.zhetysu.go'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

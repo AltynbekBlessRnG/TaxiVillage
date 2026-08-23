@@ -163,7 +163,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
       accentColor="#FB923C"
       eyebrow="Доставка еды"
       title={restaurantName}
-      subtitle="Заказ будет принят заведением внутри TaxiVillage."
+      subtitle="Заказ будет принят заведением внутри Zhetysu Go."
       backLabel="К корзине"
       onBack={() => navigation.goBack()}
     >
@@ -238,7 +238,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
           ))}
         </View>
         <Text style={styles.paymentHint}>
-          Оплата передаётся заведению или водителю. TaxiVillage пока не списывает
+          Оплата передаётся заведению или водителю. Zhetysu Go пока не списывает
           деньги с карты.
         </Text>
       </ServiceCard>

@@ -512,7 +512,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.whatsappPanel}>
             <Text style={styles.whatsappPanelLabel}>Заказы приходят</Text>
             <Text style={styles.whatsappPanelValue}>
-              В раздел «Заказы» и push-уведомления TaxiVillage
+              В раздел «Заказы» и push-уведомления Zhetysu Go
             </Text>
           </View>
         </View>
