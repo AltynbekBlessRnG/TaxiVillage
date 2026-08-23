@@ -439,16 +439,6 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                 ) : null}
               </View>
 
-              <TouchableOpacity style={styles.card} onPress={onOpenToday}>
-                <Text style={styles.cardTitle}>Сегодня</Text>
-                <View style={styles.cardRight}>
-                  <Text style={styles.cardValue}>
-                    {Math.round(Number(metrics?.todayEarnings ?? 0))} ₸
-                  </Text>
-                  <Text style={styles.chevron}>›</Text>
-                </View>
-              </TouchableOpacity>
-
               <View style={styles.metricsCard}>
                 <View style={styles.metricBox}>
                   <Text style={styles.metricLabel}>Баланс</Text>
