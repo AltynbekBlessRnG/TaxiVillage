@@ -92,6 +92,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [incomingOffer, setIncomingOffer] = useState<RideOffer | null>(null);
   const [socketState, setSocketState] = useState<SocketState>('disconnected');
   const [currentIntercityTrip, setCurrentIntercityTrip] = useState<any>(null);
+  const switchingModeRef = useRef(false);
   const [currentCourierOrder, setCurrentCourierOrder] = useState<any>(null);
   const [availableCourierOrders, setAvailableCourierOrders] = useState<any[]>([]);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -148,39 +149,56 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       setIsOnline(Boolean(nextProfile?.isOnline));
       setMetrics(metricsRes.data);
 
-      if (nextProfile?.driverMode === 'TAXI' || nextProfile?.supportsTaxi) {
-        const currentRideRes = await apiClient.get('/drivers/current-ride').catch(() => ({ data: null }));
-        if (currentRideRes.data?.id) {
-          const rideRes = await apiClient.get(`/rides/${currentRideRes.data.id}`).catch(() => ({ data: null }));
-          setCurrentRideId(currentRideRes.data.id);
-          setCurrentRide(rideRes.data ?? null);
-        } else {
+      // Taxi, intercity and courier state do not depend on one another, but
+      // they used to be awaited in a row, so opening the screen cost four
+      // sequential round trips — and a mode switch reloads the shell, which is
+      // what made the tabs feel stuck. Only /rides/:id genuinely waits on
+      // something, so it stays nested.
+      const loadTaxiState = async () => {
+        if (!(nextProfile?.driverMode === 'TAXI' || nextProfile?.supportsTaxi)) {
           setCurrentRideId(null);
           setCurrentRide(null);
+          return;
         }
-      } else {
-        setCurrentRideId(null);
-        setCurrentRide(null);
-      }
 
-      if (nextProfile?.supportsIntercity) {
+        const currentRideRes = await apiClient.get('/drivers/current-ride').catch(() => ({ data: null }));
+        if (!currentRideRes.data?.id) {
+          setCurrentRideId(null);
+          setCurrentRide(null);
+          return;
+        }
+
+        const rideRes = await apiClient.get(`/rides/${currentRideRes.data.id}`).catch(() => ({ data: null }));
+        setCurrentRideId(currentRideRes.data.id);
+        setCurrentRide(rideRes.data ?? null);
+      };
+
+      const loadIntercityState = async () => {
+        if (!nextProfile?.supportsIntercity) {
+          setCurrentIntercityTrip(null);
+          return;
+        }
+
         const currentTripRes = await apiClient.get('/intercity-trips/current').catch(() => ({ data: null }));
         setCurrentIntercityTrip(currentTripRes.data);
-      } else {
-        setCurrentIntercityTrip(null);
-      }
+      };
 
-      if (nextProfile?.supportsCourier) {
+      const loadCourierState = async () => {
+        if (!nextProfile?.supportsCourier) {
+          setCurrentCourierOrder(null);
+          setAvailableCourierOrders([]);
+          return;
+        }
+
         const [currentCourierRes, availableCourierRes] = await Promise.all([
           apiClient.get('/couriers/current-order').catch(() => ({ data: null })),
           apiClient.get('/courier-orders/available').catch(() => ({ data: [] })),
         ]);
         setCurrentCourierOrder(currentCourierRes.data);
         setAvailableCourierOrders(Array.isArray(availableCourierRes.data) ? availableCourierRes.data : []);
-      } else {
-        setCurrentCourierOrder(null);
-        setAvailableCourierOrders([]);
-      }
+      };
+
+      await Promise.all([loadTaxiState(), loadIntercityState(), loadCourierState()]);
     })();
 
     try {
@@ -418,17 +436,24 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const switchDriverMode = useCallback(
     async (driverMode: 'TAXI' | 'COURIER' | 'INTERCITY') => {
-        try {
-          if (currentRideId || currentCourierOrder || currentIntercityTrip) {
-            openDriverModal({
-              title: 'Активный заказ',
-              message: 'Сначала завершите текущий активный заказ или рейс.',
-              primaryLabel: 'Понятно',
-            });
-            return;
-          }
-        const response = await apiClient.post('/drivers/mode', { driverMode });
-        setProfile(response.data);
+      try {
+        if (currentRideId || currentCourierOrder || currentIntercityTrip) {
+          openDriverModal({
+            title: 'Активный заказ',
+            message: 'Сначала завершите текущий активный заказ или рейс.',
+            primaryLabel: 'Понятно',
+          });
+          return;
+        }
+        // Two round trips stood between the tap and the tab moving, so the
+        // panel looked frozen on a slow connection. Move it now, and put it
+        // back only if the server refuses.
+        if (switchingModeRef.current) {
+          return;
+        }
+        switchingModeRef.current = true;
+        const previousMode = profile?.driverMode;
+        setProfile((prev: any) => (prev ? { ...prev, driverMode } : prev));
         if (driverMode === 'INTERCITY') {
           setIncomingOffer(null);
           setCurrentRideId(null);
@@ -437,7 +462,16 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           setCurrentCourierOrder(null);
           setAvailableCourierOrders([]);
         }
-        await loadDriverShell(true);
+        try {
+          const response = await apiClient.post('/drivers/mode', { driverMode });
+          setProfile(response.data);
+          await loadDriverShell(true);
+        } catch (error) {
+          setProfile((prev: any) => (prev ? { ...prev, driverMode: previousMode } : prev));
+          throw error;
+        } finally {
+          switchingModeRef.current = false;
+        }
       } catch (error: any) {
         const message = error?.response?.data?.message || 'Не удалось переключить режим';
         openDriverModal({
@@ -447,7 +481,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         });
       }
     },
-    [currentCourierOrder, currentIntercityTrip, currentRideId, loadDriverShell, openDriverModal],
+    [
+      currentCourierOrder,
+      currentIntercityTrip,
+      currentRideId,
+      loadDriverShell,
+      openDriverModal,
+      profile?.driverMode,
+    ],
   );
 
   const openIntercityHub = useCallback(async () => {
