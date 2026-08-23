@@ -1,5 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  PanResponder,
+  Pressable,
+  Animated,
+  LayoutChangeEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -75,42 +84,82 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   const progressValue = useRef(0);
   const dragOrigin = useRef(0);
 
-  useEffect(() => {
-    const id = progress.addListener(({ value }) => {
-      progressValue.current = value;
-    });
-    return () => progress.removeListener(id);
-  }, [progress]);
-
-  const settle = useMemo(
-    () => (expand: boolean) => {
-      setIsSheetExpanded(expand);
-      Animated.spring(progress, {
-        toValue: expand ? 1 : 0,
-        useNativeDriver: false,
-        friction: 9,
-        tension: 60,
-      }).start();
-    },
-    [progress],
-  );
+  // The parent turns the reported height into state that repositions the map
+  // controls, so forwarding it from onLayout re-rendered the whole map screen
+  // once per animated frame. Latch it instead and report only at rest.
+  const measuredHeight = useRef(0);
+  const settling = useRef(false);
 
   const travel = Math.max(1, expandedHeight - collapsedHeight);
+
+  const reportHeight = useCallback(
+    (expand: boolean) => {
+      // Transforms do not touch layout, so the measured box is always the
+      // expanded one; what actually covers the map is that minus the slide.
+      const visible = measuredHeight.current - (expand ? 0 : travel);
+      if (visible > 0) {
+        onHeightChange?.(visible);
+      }
+    },
+    [onHeightChange, travel],
+  );
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      measuredHeight.current = event.nativeEvent.layout.height;
+      if (!settling.current) {
+        reportHeight(isSheetExpanded);
+      }
+    },
+    [isSheetExpanded, reportHeight],
+  );
+
+  useEffect(() => {
+    if (!settling.current) {
+      reportHeight(isSheetExpanded);
+    }
+  }, [isSheetExpanded, reportHeight]);
+
+  const settle = useCallback(
+    (expand: boolean) => {
+      setIsSheetExpanded(expand);
+      settling.current = true;
+      progressValue.current = expand ? 1 : 0;
+      Animated.spring(progress, {
+        toValue: expand ? 1 : 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 60,
+      }).start(({ finished }) => {
+        // An interrupted spring means a new gesture already owns the sheet;
+        // that gesture clears the flag when its own spring lands.
+        if (!finished) return;
+        settling.current = false;
+        reportHeight(expand);
+      });
+    },
+    [progress, reportHeight],
+  );
 
   const dragResponder = useMemo(
     () =>
       PanResponder.create({
-        // Claim the touch only once it has clearly gone vertical, so buttons
-        // inside the panel keep their taps.
-        onMoveShouldSetPanResponder: (_event, gesture) =>
+        // Capture phase, not the bubbling one: every card and tab in the sheet
+        // is a Touchable and wins the touch first, so a bubbling check only got
+        // the drag once they let go — which is why it took several tries. A tap
+        // has no vertical travel, so their presses still get through.
+        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
           Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
+          settling.current = true;
           progress.stopAnimation();
           dragOrigin.current = progressValue.current;
         },
         onPanResponderMove: (_event, gesture) => {
-          const next = dragOrigin.current - gesture.dy / travel;
-          progress.setValue(Math.min(1, Math.max(0, next)));
+          const next = Math.min(1, Math.max(0, dragOrigin.current - gesture.dy / travel));
+          progressValue.current = next;
+          progress.setValue(next);
         },
         onPanResponderRelease: (_event, gesture) => {
           // A flick decides on its own; a slow drag goes wherever it ended up.
@@ -127,9 +176,18 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   );
 
   const measured = collapsedHeight > 0 && expandedHeight > 0;
-  const animatedHeight = progress.interpolate({
+  // Collapsing slides the whole sheet down by the height the extra content
+  // takes and slides the footer back up by the same amount, so the footer holds
+  // still while the gap above it closes. Animating height instead meant a
+  // layout pass every frame on the JS driver; these are transforms, so the
+  // native driver runs the whole gesture without waking JavaScript.
+  const sheetShift = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [collapsedHeight, Math.max(expandedHeight, collapsedHeight)],
+    outputRange: [travel, 0],
+  });
+  const footerShift = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-travel, 0],
   });
   const collapsedOpacity = progress.interpolate({
     inputRange: [0, 0.45],
@@ -177,12 +235,9 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
     return (
       <View
         style={styles.container}
-        onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
+        onLayout={handleLayout}
       >
-        <View
-        style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}
-        {...dragResponder.panHandlers}
-      >
+        <View style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}>
           <View style={[styles.activeCard, currentCourierOrder && styles.activeCardCourier]}>
             <View style={styles.handleLineActive} />
             <TouchableOpacity
@@ -379,11 +434,14 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   }
 
   return (
-    <View
-      style={styles.container}
-      onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
+    <Animated.View
+      style={[styles.container, measured ? { transform: [{ translateY: sheetShift }] } : null]}
+      onLayout={handleLayout}
     >
-      <View style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}>
+      <View
+        style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}
+        {...dragResponder.panHandlers}
+      >
         <View
           style={styles.grabArea}
           accessible
@@ -397,11 +455,14 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
         </View>
 
         <View style={styles.modeTabs}>
-          <TouchableOpacity
-            style={[styles.modeTab, profile?.driverMode === 'TAXI' && styles.modeTabActive]}
+          <Pressable
+            style={({ pressed }) => [
+              styles.modeTab,
+              profile?.driverMode === 'TAXI' && styles.modeTabActive,
+              pressed && styles.modeTabPressed,
+            ]}
             onPress={() => onSwitchMode('TAXI')}
             disabled={profile?.driverMode === 'TAXI'}
-            activeOpacity={profile?.driverMode === 'TAXI' ? 1 : 0.85}
           >
             <Text
               style={[
@@ -411,16 +472,16 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
             >
               Такси
             </Text>
-          </TouchableOpacity>
+          </Pressable>
           {profile?.supportsCourier ? (
-            <TouchableOpacity
-              style={[
+            <Pressable
+              style={({ pressed }) => [
                 styles.modeTab,
                 profile?.driverMode === 'COURIER' && styles.modeTabActiveCourier,
+                pressed && styles.modeTabPressed,
               ]}
               onPress={() => onSwitchMode('COURIER')}
               disabled={profile?.driverMode === 'COURIER'}
-              activeOpacity={profile?.driverMode === 'COURIER' ? 1 : 0.85}
             >
               <Text
                 style={[
@@ -430,16 +491,16 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
               >
                 Курьер
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : null}
           {profile?.supportsIntercity ? (
-            <TouchableOpacity
-              style={[
+            <Pressable
+              style={({ pressed }) => [
                 styles.modeTab,
                 profile?.driverMode === 'INTERCITY' && styles.modeTabActiveIntercity,
+                pressed && styles.modeTabPressed,
               ]}
               onPress={onOpenIntercity}
-              activeOpacity={0.85}
             >
               <Text
                 style={[
@@ -449,13 +510,11 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
               >
                 Межгород
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : null}
         </View>
 
-        <Animated.View
-          style={[styles.expandArea, measured ? { height: animatedHeight } : null]}
-        >
+        <View style={[styles.expandArea, measured ? { height: expandedHeight } : null]}>
           <Animated.View
             style={[styles.expandLayer, { opacity: expandedOpacity }]}
             pointerEvents={isSheetExpanded ? 'auto' : 'none'}
@@ -556,8 +615,11 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                 </View>
               </View>
           </Animated.View>
-        </Animated.View>
+        </View>
 
+        <Animated.View
+          style={measured ? { transform: [{ translateY: footerShift }] } : null}
+        >
           {isOnline && profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
             <View style={styles.offerBlockCompact}>
               {availableCourierOrders.slice(0, 2).map((order) => (
@@ -575,17 +637,18 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
             </View>
           ) : null}
 
-        <TouchableOpacity
-          style={[styles.goButton, isOnline ? styles.goButtonOnline : styles.goButtonOffline]}
-          onPress={() => onToggleOnline?.(!isOnline)}
-          activeOpacity={0.9}
-        >
-          <Text style={[styles.goButtonText, isOnline && styles.goButtonTextOnline]}>
-            {isOnline ? 'Завершить смену' : 'Выйти на линию'}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.goButton, isOnline ? styles.goButtonOnline : styles.goButtonOffline]}
+            onPress={() => onToggleOnline?.(!isOnline)}
+            activeOpacity={0.9}
+          >
+            <Text style={[styles.goButtonText, isOnline && styles.goButtonTextOnline]}>
+              {isOnline ? 'Завершить смену' : 'Выйти на линию'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -659,6 +722,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     paddingVertical: 12,
+  },
+  // The tabs had only an activeOpacity dip, which reads as nothing on a dark
+  // panel; a lifted background makes the press land.
+  modeTabPressed: {
+    backgroundColor: '#3F3F46',
   },
   modeTabActive: {
     backgroundColor: '#082F49',
