@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, PanResponder } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -65,21 +65,82 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   // Collapsed is the resting state: what a driver reads before a shift is the
   // mode, the day's take and the button, and everything else is one drag away.
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [collapsedHeight, setCollapsedHeight] = useState(0);
+  const [expandedHeight, setExpandedHeight] = useState(0);
+
+  // 0 collapsed, 1 expanded. Driven straight from the finger while dragging so
+  // the panel tracks the hand instead of jumping between two states, then
+  // sprung to whichever end it was released nearest.
+  const progress = useRef(new Animated.Value(0)).current;
+  const progressValue = useRef(0);
+  const dragOrigin = useRef(0);
+
+  useEffect(() => {
+    const id = progress.addListener(({ value }) => {
+      progressValue.current = value;
+    });
+    return () => progress.removeListener(id);
+  }, [progress]);
+
+  const settle = useMemo(
+    () => (expand: boolean) => {
+      setIsSheetExpanded(expand);
+      Animated.spring(progress, {
+        toValue: expand ? 1 : 0,
+        useNativeDriver: false,
+        friction: 9,
+        tension: 60,
+      }).start();
+    },
+    [progress],
+  );
+
+  const travel = Math.max(1, expandedHeight - collapsedHeight);
 
   const dragResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dy) > 8,
+        // Claim the touch only once it has clearly gone vertical, so buttons
+        // inside the panel keep their taps.
+        onMoveShouldSetPanResponder: (_event, gesture) =>
+          Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderGrant: () => {
+          progress.stopAnimation();
+          dragOrigin.current = progressValue.current;
+        },
+        onPanResponderMove: (_event, gesture) => {
+          const next = dragOrigin.current - gesture.dy / travel;
+          progress.setValue(Math.min(1, Math.max(0, next)));
+        },
         onPanResponderRelease: (_event, gesture) => {
-          if (gesture.dy < -20) {
-            setIsSheetExpanded(true);
-          } else if (gesture.dy > 20) {
-            setIsSheetExpanded(false);
+          // A flick decides on its own; a slow drag goes wherever it ended up.
+          if (gesture.vy < -0.4) {
+            settle(true);
+          } else if (gesture.vy > 0.4) {
+            settle(false);
+          } else {
+            settle(progressValue.current > 0.5);
           }
         },
       }),
-    [],
+    [progress, settle, travel],
   );
+
+  const measured = collapsedHeight > 0 && expandedHeight > 0;
+  const animatedHeight = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [collapsedHeight, Math.max(expandedHeight, collapsedHeight)],
+  });
+  const collapsedOpacity = progress.interpolate({
+    inputRange: [0, 0.45],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const expandedOpacity = progress.interpolate({
+    inputRange: [0.55, 1],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
   const maxEarnings = Math.max(
     ...(metrics?.dailyBuckets?.map((bucket) => bucket.earnings) ?? [0]),
     1,
@@ -118,7 +179,10 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
         style={styles.container}
         onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
       >
-        <View style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}>
+        <View
+        style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}
+        {...dragResponder.panHandlers}
+      >
           <View style={[styles.activeCard, currentCourierOrder && styles.activeCardCourier]}>
             <View style={styles.handleLineActive} />
             <TouchableOpacity
@@ -320,16 +384,17 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
       onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
     >
       <View style={[styles.workspace, { paddingBottom: insets.bottom + 20 }]}>
-        <TouchableOpacity
+        <View
           style={styles.grabArea}
-          onPress={() => setIsSheetExpanded((prev) => !prev)}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={isSheetExpanded ? 'Свернуть панель' : 'Развернуть панель'}
-          {...dragResponder.panHandlers}
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel="Панель водителя"
+          accessibilityHint="Проведите вверх, чтобы развернуть, вниз — чтобы свернуть"
+          accessibilityValue={{ text: isSheetExpanded ? 'Развёрнута' : 'Свёрнута' }}
+          onAccessibilityAction={(event) => settle(event.nativeEvent.actionName === 'increment')}
         >
           <View style={styles.grabHandle} />
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.modeTabs}>
           <TouchableOpacity
@@ -388,17 +453,18 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
           ) : null}
         </View>
 
-        {isSheetExpanded && profile?.supportsCourier ? (
-          <TouchableOpacity style={styles.sectionLink} onPress={onOpenFoodDeliveries}>
-            <Text style={styles.sectionLinkText}>Доставка еды</Text>
-            <Text style={styles.sectionLinkChevron}>›</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        <View style={styles.onlineShell}>
-          <View style={styles.waitingPanel}>
-            {isSheetExpanded ? (
-              <>
+        <Animated.View
+          style={[styles.expandArea, measured ? { height: animatedHeight } : null]}
+        >
+          <Animated.View
+            style={[styles.expandLayer, { opacity: expandedOpacity }]}
+            pointerEvents={isSheetExpanded ? 'auto' : 'none'}
+            onLayout={(event) => setExpandedHeight(event.nativeEvent.layout.height)}
+          >
+            <TouchableOpacity style={styles.sectionLink} onPress={onOpenFoodDeliveries}>
+              <Text style={styles.sectionLinkText}>Доставка еды</Text>
+              <Text style={styles.sectionLinkChevron}>›</Text>
+            </TouchableOpacity>
               <View style={styles.infoCardCompact}>
                 <TouchableOpacity
                   style={styles.infoHeaderRow}
@@ -465,8 +531,13 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                   </Text>
                 </View>
               </View>
-              </>
-            ) : (
+          </Animated.View>
+
+          <Animated.View
+            style={{ opacity: collapsedOpacity }}
+            pointerEvents={isSheetExpanded ? 'none' : 'auto'}
+            onLayout={(event) => setCollapsedHeight(event.nativeEvent.layout.height)}
+          >
               <View style={styles.summaryRow}>
                 <TouchableOpacity style={styles.summaryCell} onPress={onOpenToday}>
                   <Text style={styles.summaryLabel}>Сегодня</Text>
@@ -484,26 +555,25 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                   </Text>
                 </View>
               </View>
-            )}
+          </Animated.View>
+        </Animated.View>
 
-            {isOnline && profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
-              <View style={styles.offerBlockCompact}>
-                {availableCourierOrders.slice(0, 2).map((order) => (
-                  <TouchableOpacity
-                    key={order.id}
-                    style={styles.offerCard}
-                    onPress={() => onAcceptCourierOrder?.(order.id)}
-                  >
-                    <Text style={styles.offerRoute}>{order.pickupAddress}</Text>
-                    <Text style={styles.offerMeta}>
-                      {order.dropoffAddress} • {Math.round(Number(order.estimatedPrice || 0))} ₸
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        </View>
+          {isOnline && profile?.driverMode === 'COURIER' && availableCourierOrders.length > 0 ? (
+            <View style={styles.offerBlockCompact}>
+              {availableCourierOrders.slice(0, 2).map((order) => (
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.offerCard}
+                  onPress={() => onAcceptCourierOrder?.(order.id)}
+                >
+                  <Text style={styles.offerRoute}>{order.pickupAddress}</Text>
+                  <Text style={styles.offerMeta}>
+                    {order.dropoffAddress} • {Math.round(Number(order.estimatedPrice || 0))} ₸
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
 
         <TouchableOpacity
           style={[styles.goButton, isOnline ? styles.goButtonOnline : styles.goButtonOffline]}
@@ -536,6 +606,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -6 },
     elevation: 18,
   },
+  expandArea: { overflow: 'hidden' },
+  expandLayer: { position: 'absolute', top: 0, left: 0, right: 0 },
   onlineShell: {
     marginBottom: 0,
   },
