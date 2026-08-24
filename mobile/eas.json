@@ -15,10 +15,15 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true 
+      "autoIncrement": true
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6804519048",
+        "appleTeamId": "7Q2R8NCHSQ"
+      }
+    }
   }
 }
