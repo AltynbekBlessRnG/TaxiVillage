@@ -40,8 +40,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Show toolchain
+      - name: Select the newest Xcode
         run: |
+          ls -d /Applications/Xcode*.app
+          # The image defaults to an older Xcode than Expo SDK 55 needs: its
+          # Swift uses isolated conformances, so anything before Xcode 26 dies
+          # with "unknown attribute 'MainActor'" across expo-modules-core.
+          newest=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$newest/Contents/Developer"
           xcodebuild -version
           xcrun simctl list runtimes | grep -i ios || true
 
@@ -82,7 +88,10 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           # Release so the JS bundle is embedded; a Debug build would sit on a
           # red screen waiting for a Metro server that is not running here.
-          npx expo run:ios --configuration Release --device "$UDID" --no-bundler
+          mkdir -p ../shots
+          set -o pipefail
+          npx expo run:ios --configuration Release --device "$UDID" --no-bundler \
+            2>&1 | tee ../shots/build.log
 
       - name: Shoot
         env:
