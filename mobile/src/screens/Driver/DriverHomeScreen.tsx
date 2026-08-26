@@ -1062,6 +1062,9 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         style={StyleSheet.absoluteFillObject}
         initialRegion={mapRegion}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        // customMapStyle lives only in the Google map view, so on iOS the dark
+        // palette never lands and Apple Maps renders light inside a black app.
+        userInterfaceStyle="dark"
         mapType="standard"
         customMapStyle={darkMinimalMapStyle}
         onUserLocationChange={handleUserLocationChange}

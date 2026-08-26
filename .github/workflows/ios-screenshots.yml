@@ -1,0 +1,128 @@
+# The project has no Mac and no iPhone, so this is the only way to see the app
+# running on iOS at all. macOS runners are free for public repositories, which
+# this one is. Manual trigger only — a macOS run is slow and nothing here needs
+# to happen on every push.
+name: iOS simulator screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: Simulator model to shoot on
+        default: iPhone 16 Pro Max
+      seconds:
+        description: How long to sit on the launched app, shooting once a second
+        default: "45"
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_PUBLIC_API_URL: https://taxivillage-backend-14gq.onrender.com/api
+      EXPO_PUBLIC_LEGAL_BASE_URL: https://taxivillage-docs-xp2f.onrender.com
+      EXPO_PUBLIC_EAS_PROJECT_ID: e0a60c8b-e165-49d7-9b26-4c97c40f3644
+      EXPO_PUBLIC_APP_REVIEW_PHONES: "+77000000001,+77000000002,+77000000003"
+      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes | grep -i ios || true
+
+      - name: Pick a simulator
+        id: sim
+        env:
+          WANT: ${{ inputs.device }}
+        run: |
+          xcrun simctl list devices available --json > /tmp/devices.json
+          udid=$(python3 - <<'PY'
+          import json, os, sys
+          want = os.environ['WANT']
+          data = json.load(open('/tmp/devices.json'))['devices']
+          rows = [d for rt, ds in data.items() if 'iOS' in rt for d in ds]
+          # Runner images rotate device names, so fall back rather than fail: a
+          # frame from the wrong iPhone still proves the app runs.
+          pick = ([d for d in rows if d['name'] == want]
+                  or [d for d in rows if 'iPhone' in d['name'] and 'Max' in d['name']]
+                  or [d for d in rows if 'iPhone' in d['name']])
+          if not pick:
+              sys.exit('no iPhone simulator on this runner')
+          print(pick[-1]['udid'], file=sys.stderr)
+          print(pick[-1]['name'], file=sys.stderr)
+          print(pick[-1]['udid'])
+          PY
+          )
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices | grep "$udid" || true
+
+      - name: Generate the iOS project
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Build and launch on the simulator
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          # Release so the JS bundle is embedded; a Debug build would sit on a
+          # red screen waiting for a Metro server that is not running here.
+          npx expo run:ios --configuration Release --device "$UDID" --no-bundler
+
+      - name: Shoot
+        env:
+          SECONDS_TO_SHOOT: ${{ inputs.seconds }}
+        run: |
+          mkdir -p ../shots
+          xcrun simctl spawn booted log stream --style compact \
+            --predicate 'processImagePath CONTAINS "ZhetysuGo"' > ../shots/app.log 2>&1 &
+          logpid=$!
+          for i in $(seq -w 1 "$SECONDS_TO_SHOOT"); do
+            xcrun simctl io booted screenshot "../shots/$i.png" >/dev/null 2>&1 || true
+            sleep 1
+          done
+          # A live child process would hold the step open past its work.
+          kill "$logpid" 2>/dev/null || true
+          python3 - <<'PY'
+          import hashlib, pathlib
+          # Identical frames are the same idle screen; keep one of each.
+          seen, kept = set(), 0
+          for p in sorted(pathlib.Path('../shots').glob('*.png')):
+              h = hashlib.sha256(p.read_bytes()).hexdigest()
+              if h in seen:
+                  p.unlink()
+              else:
+                  seen.add(h)
+                  kept += 1
+          print(f'{kept} distinct frames')
+          PY
+          ls -la ../shots
+
+      - name: Collect crash reports
+        if: always()
+        run: |
+          mkdir -p ../shots/diagnostics
+          cp -R ~/Library/Logs/DiagnosticReports/. ../shots/diagnostics/ 2>/dev/null || true
+          ls -la ../shots/diagnostics || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-screenshots
+          path: shots
+          retention-days: 14

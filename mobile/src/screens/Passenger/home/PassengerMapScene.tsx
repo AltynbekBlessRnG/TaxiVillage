@@ -106,6 +106,9 @@ export const PassengerMapScene: React.FC<Props> = React.memo(({
       style={StyleSheet.absoluteFillObject}
       initialRegion={initialRegion}
       provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+      // customMapStyle lives only in the Google map view, so on iOS the dark
+      // palette never lands and Apple Maps renders light inside a black app.
+      userInterfaceStyle="dark"
       mapType="standard"
       customMapStyle={darkMinimalMapStyle}
       showsUserLocation={false}
