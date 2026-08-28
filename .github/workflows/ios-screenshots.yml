@@ -85,7 +85,7 @@ jobs:
       # and flow changes do not.
       - name: Restore the built app
         id: appcache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: mobile/prebuilt
           key: ios-app-${{ hashFiles('mobile/package-lock.json', 'mobile/app.config.js', 'mobile/App.tsx', 'mobile/src/**', 'mobile/assets/**') }}
@@ -95,6 +95,7 @@ jobs:
         run: npx expo prebuild --platform ios --clean
 
       - name: Build
+        id: build
         if: steps.appcache.outputs.cache-hit != 'true'
         env:
           UDID: ${{ steps.sim.outputs.udid }}
@@ -123,6 +124,16 @@ jobs:
           mkdir -p prebuilt
           rm -rf prebuilt/*
           cp -R "$built" prebuilt/
+
+      # A failing job skips the cache action's own post step, so a broken flow
+      # would cost another full compile. Save as soon as there is something to
+      # save instead.
+      - name: Save the built app
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: mobile/prebuilt
+          key: ios-app-${{ hashFiles('mobile/package-lock.json', 'mobile/app.config.js', 'mobile/App.tsx', 'mobile/src/**', 'mobile/assets/**') }}
 
       - name: Install the app
         env:
@@ -157,11 +168,17 @@ jobs:
             --predicate 'processImagePath CONTAINS "ZhetysuGo"' > shots/app.log 2>&1 &
           echo $! > /tmp/logpid
           status=0
-          for flow in .maestro/*.yaml; do
-            echo "=== $flow ==="
-            maestro --device "$UDID" test "$flow" \
+          run_flow() {
+            # Typed character by character the number comes out as
+            # +7 777 000 00 01: the field reformats on every keystroke and a
+            # fast typist beats the state update. Pasting is one change.
+            printf '%s' "$1" | xcrun simctl pbcopy "$UDID"
+            echo "=== $2 ==="
+            maestro --device "$UDID" test "$2" \
               -e REVIEW_PASSWORD="$REVIEW_PASSWORD" || status=1
-          done
+          }
+          run_flow '+77000000001' .maestro/passenger.yaml
+          run_flow '+77000000002' .maestro/driver.yaml
           kill "$(cat /tmp/logpid)" 2>/dev/null || true
           exit $status
 

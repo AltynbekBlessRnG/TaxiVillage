@@ -1,15 +1,13 @@
 # Drives the app the way a person would, so the App Store screenshots show real
-# screens instead of the login form. The phone is typed as ten national digits
-# because the field re-formats on every keystroke and re-absorbs a leading +7.
+# screens instead of the login form.
 appId: com.zhetysu.go
-env:
-  PHONE: "7000000001"
 ---
 - launchApp:
     clearState: true
 - tapOn:
     id: "login-phone"
-- inputText: ${PHONE}
+# The number is put on the clipboard by the workflow, one flow at a time.
+- pasteText
 - tapOn:
     id: "login-password"
 - inputText: ${REVIEW_PASSWORD}
