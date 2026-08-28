@@ -106,8 +106,12 @@ jobs:
           # red screen waiting for a Metro server that is not running here.
           mkdir -p shots
           set -o pipefail
+          # The command ends by opening a dev-client URL on the simulator, which
+          # times out on the runner often enough to matter and has nothing to do
+          # with the compile. The bundle existing is what success means here; the
+          # check below is the one that decides.
           npx expo run:ios --configuration Release --device "$UDID" --no-bundler \
-            2>&1 | tee shots/build.log
+            2>&1 | tee shots/build.log || true
           # Expo builds into the shared DerivedData, not into ios/build, and the
           # directory name carries a random suffix — so take the path from the
           # line the build itself prints rather than guessing at it.

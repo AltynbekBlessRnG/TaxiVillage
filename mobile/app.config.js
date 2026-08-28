@@ -29,10 +29,10 @@ export default {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Zhetysu Go uses your location to show your position on the map, choose pickup and delivery addresses, and find nearby drivers.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "When you go online as a driver or courier, Zhetysu Go uses your location to send nearby orders and update the customer with your position, including while the app is in the background.",
-        "NSLocationAlwaysUsageDescription": "When you go online as a driver or courier, Zhetysu Go uses your location to send nearby orders and update the customer with your position, including while the app is in the background.",
-        "NSPhotoLibraryUsageDescription": "Zhetysu Go lets you choose a profile photo or a driver document from your photo library."
+        "NSLocationWhenInUseUsageDescription": "Zhetysu Go использует геопозицию, чтобы показать вас на карте, подставить адрес подачи и доставки и найти ближайших водителей.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Когда вы на смене как водитель или курьер, Zhetysu Go использует геопозицию, чтобы присылать заказы рядом и показывать клиенту, где вы едете, — в том числе когда приложение свёрнуто.",
+        "NSLocationAlwaysUsageDescription": "Когда вы на смене как водитель или курьер, Zhetysu Go использует геопозицию, чтобы присылать заказы рядом и показывать клиенту, где вы едете, — в том числе когда приложение свёрнуто.",
+        "NSPhotoLibraryUsageDescription": "Zhetysu Go открывает галерею, чтобы вы выбрали фото профиля или снимок документа водителя."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -67,9 +67,9 @@ export default {
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Zhetysu Go to use your location while you are online as a driver or courier, including in the background.",
-          "locationAlwaysPermission": "Allow Zhetysu Go to use your location while you are online as a driver or courier, including in the background.",
-          "locationWhenInUsePermission": "Allow Zhetysu Go to use your location to show the map and choose pickup or delivery addresses.",
+          "locationAlwaysAndWhenInUsePermission": "Разрешите Zhetysu Go доступ к геопозиции, пока вы на смене как водитель или курьер, — в том числе когда приложение свёрнуто.",
+          "locationAlwaysPermission": "Разрешите Zhetysu Go доступ к геопозиции, пока вы на смене как водитель или курьер, — в том числе когда приложение свёрнуто.",
+          "locationWhenInUsePermission": "Разрешите Zhetysu Go доступ к геопозиции, чтобы показать карту и подставить адрес подачи или доставки.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
@@ -77,8 +77,8 @@ export default {
       [
         "expo-image-picker",
         {
-          "photosPermission": "Zhetysu Go lets you choose a profile photo or a driver document from your photo library.",
-          "cameraPermission": "Zhetysu Go lets you take a profile photo or a driver document photo.",
+          "photosPermission": "Zhetysu Go открывает галерею, чтобы вы выбрали фото профиля или снимок документа водителя.",
+          "cameraPermission": "Zhetysu Go включает камеру, чтобы вы сняли фото профиля или документ водителя.",
           "microphonePermission": false
         }
       ],
