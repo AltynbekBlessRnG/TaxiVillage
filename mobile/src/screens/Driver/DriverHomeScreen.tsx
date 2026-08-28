@@ -40,6 +40,7 @@ import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { getGoogleDirections } from '../../utils/googleMaps';
+import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
 import { resolveRideRoute } from '../../utils/rideRoute';
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
 import { useMessagesSummary } from '../../hooks/useMessagesSummary';
@@ -931,8 +932,8 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     ];
 
     return buildRegion(points, {
-      latitude: activeLocation?.lat ?? 43.2389,
-      longitude: activeLocation?.lng ?? 76.8897,
+      latitude: activeLocation?.lat ?? DEFAULT_LOCATION.lat,
+      longitude: activeLocation?.lng ?? DEFAULT_LOCATION.lng,
     });
   }, [activeLocation, renderedRouteCoordinates]);
 

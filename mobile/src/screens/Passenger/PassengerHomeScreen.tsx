@@ -21,6 +21,7 @@ import { apiClient, logout } from '../../api/client';
 import { initializeNotifications } from '../../utils/notifications';
 import { buildRegion, buildRouteCoordinates, toMapPoint } from '../../utils/map';
 import { reverseGeocodeWithGoogle } from '../../utils/googleMaps';
+import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { resolveRideRoute } from '../../utils/rideRoute';
 import { saveRecentAddress } from '../../storage/recentAddresses';
@@ -504,8 +505,8 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const initialRegion = buildRegion(
     mapPoints,
     toMapPoint(userLocation?.lat, userLocation?.lng) ?? {
-      latitude: 43.2389,
-      longitude: 76.8897,
+      latitude: DEFAULT_LOCATION.lat,
+      longitude: DEFAULT_LOCATION.lng,
     },
   );
 

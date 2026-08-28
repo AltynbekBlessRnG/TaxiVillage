@@ -1,9 +1,5 @@
 import Constants from 'expo-constants';
-
-const ALMATY_FALLBACK = {
-  lat: 43.238949,
-  lng: 76.889709,
-};
+import { DEFAULT_LOCATION } from './defaultRegion';
 
 interface GoogleAutocompletePrediction {
   description: string;
@@ -149,7 +145,7 @@ export async function searchGooglePlaces(
   userLocation?: { lat: number; lng: number } | null,
 ) {
   const apiKey = getGoogleMapsApiKey();
-  const anchor = userLocation ?? ALMATY_FALLBACK;
+  const anchor = userLocation ?? DEFAULT_LOCATION;
   const url =
     `https://maps.googleapis.com/maps/api/place/autocomplete/json?` +
     `input=${encodeURIComponent(query)}` +
@@ -220,7 +216,7 @@ export async function geocodeAddressWithGoogle(
   userLocation?: { lat: number; lng: number } | null,
 ) {
   const apiKey = getGoogleMapsApiKey();
-  const anchor = userLocation ?? ALMATY_FALLBACK;
+  const anchor = userLocation ?? DEFAULT_LOCATION;
   const url =
     `https://maps.googleapis.com/maps/api/geocode/json?` +
     `address=${encodeURIComponent(address)}` +

@@ -34,7 +34,12 @@ appId: com.zhetysu.go
 - extendedWaitUntil:
     notVisible: "Вход в аккаунт"
     timeout: 60000
-# Permission sheets are the one thing a screenshot must never catch.
+# System sheets are the one thing a screenshot must never catch. iOS offers to
+# save the password right after a successful login, square in the middle of the
+# screen being photographed.
+- tapOn:
+    text: "Not Now|Не сейчас"
+    optional: true
 - tapOn:
     text: "Allow.*|Разрешить.*|OK"
     optional: true

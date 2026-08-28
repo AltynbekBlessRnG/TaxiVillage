@@ -16,6 +16,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
+import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideDetails'>;
 
@@ -89,8 +90,8 @@ export const RideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const initialRegion = useMemo(
     () =>
       buildRegion(routeCoordinates, {
-        latitude: ride?.fromLat ?? 43.2389,
-        longitude: ride?.fromLng ?? 76.8897,
+        latitude: ride?.fromLat ?? DEFAULT_LOCATION.lat,
+        longitude: ride?.fromLng ?? DEFAULT_LOCATION.lng,
       }),
     [ride?.fromLat, ride?.fromLng, routeCoordinates],
   );
