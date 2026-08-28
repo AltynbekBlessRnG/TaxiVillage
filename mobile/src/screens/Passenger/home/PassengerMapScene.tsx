@@ -112,6 +112,10 @@ export const PassengerMapScene: React.FC<Props> = React.memo(({
       mapType="standard"
       customMapStyle={darkMinimalMapStyle}
       showsUserLocation={false}
+      // Apple puts its attribution and Legal link in the bottom-left corner,
+      // which is exactly where the service tabs sit; Apple requires that label
+      // to stay visible, so lift it clear of them.
+      legalLabelInsets={Platform.OS === 'ios' ? { top: 0, left: 0, right: 0, bottom: 110 } : undefined}
       onRegionChangeComplete={onRegionChangeComplete}
     >
       {userLocation ? (

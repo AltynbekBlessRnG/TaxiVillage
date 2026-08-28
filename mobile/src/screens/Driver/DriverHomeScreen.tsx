@@ -1073,6 +1073,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         // Google's own recenter button ships enabled alongside showsUserLocation
         // and lands in the corner, duplicating the one that tracks the sheet.
         showsMyLocationButton={false}
+        // The status sheet covers the corner Apple reserves for its attribution
+        // and Legal link, which has to stay visible; ride it above the sheet.
+        legalLabelInsets={
+          Platform.OS === 'ios'
+            ? { top: 0, left: 0, right: 0, bottom: (statusSheetHeight || 260) + 12 }
+            : undefined
+        }
         toolbarEnabled={false}
         followsUserLocation={false}
       >
