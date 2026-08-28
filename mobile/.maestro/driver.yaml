@@ -6,10 +6,21 @@ appId: com.zhetysu.go
     clearState: true
 - tapOn:
     id: "login-phone"
-- inputText: "7000000002"
-# The field reformats on every keystroke. A doubled one used to leave a phantom
-# digit, and the login then failed for a reason no screenshot could show — so
-# check the number before spending forty seconds waiting on the wrong one.
+# One digit per command. Sent as a single burst the field lost characters — it
+# reformats on every keystroke, and the state update cannot keep up. A command
+# each puts a round trip between them, which is enough.
+- inputText: "7"
+- inputText: "0"
+- inputText: "0"
+- inputText: "0"
+- inputText: "0"
+- inputText: "0"
+- inputText: "0"
+- inputText: "0"
+- inputText: "0"
+- inputText: "2"
+# Cheap insurance: a wrong number fails here, with the number on screen, instead
+# of a minute later on a login that could not have worked.
 - assertVisible: "+7 700 000 00 02"
 - tapOn:
     id: "login-password"
@@ -17,11 +28,9 @@ appId: com.zhetysu.go
 - hideKeyboard
 - tapOn:
     id: "login-submit"
-# Wait on the heading, not the button: while the request is in flight the
-# button is disabled, and a disabled element already reads as not visible — so
-# waiting on it returned the moment the tap landed, mid-login. The heading goes
-# only when navigation actually leaves the screen. Sixty seconds because the
-# backend sleeps between requests and the first one wakes it.
+# The heading goes only when navigation actually leaves the screen. The button is
+# no use to wait on: it disables itself while the request is in flight, and a
+# disabled element already reads as not visible.
 - extendedWaitUntil:
     notVisible: "Вход в аккаунт"
     timeout: 60000
