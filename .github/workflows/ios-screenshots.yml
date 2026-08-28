@@ -11,8 +11,8 @@ on:
         description: Simulator model to shoot on
         default: iPhone 16 Pro Max
       seconds:
-        description: How long to sit on the launched app, shooting once a second
-        default: "45"
+        description: Fallback idle capture, in seconds, if the driven flows fail
+        default: "10"
 
 jobs:
   screenshots:
@@ -27,6 +27,9 @@ jobs:
       EXPO_PUBLIC_EAS_PROJECT_ID: e0a60c8b-e165-49d7-9b26-4c97c40f3644
       EXPO_PUBLIC_APP_REVIEW_PHONES: "+77000000001,+77000000002,+77000000003"
       EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      BUNDLE_ID: com.zhetysu.go
+      # Usharal, so the map opens on the village the app actually serves.
+      SIM_LOCATION: "46.1725,80.9333"
 
     steps:
       - uses: actions/checkout@v4
@@ -77,10 +80,22 @@ jobs:
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
           xcrun simctl list devices | grep "$udid" || true
 
+      # A compile is forty minutes; iterating on the flows below should not be.
+      # The key covers everything baked into the binary, so app changes rebuild
+      # and flow changes do not.
+      - name: Restore the built app
+        id: appcache
+        uses: actions/cache@v4
+        with:
+          path: mobile/prebuilt
+          key: ios-app-${{ hashFiles('mobile/package-lock.json', 'mobile/app.config.js', 'mobile/App.tsx', 'mobile/src/**', 'mobile/assets/**') }}
+
       - name: Generate the iOS project
+        if: steps.appcache.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform ios --clean
 
-      - name: Build and launch on the simulator
+      - name: Build
+        if: steps.appcache.outputs.cache-hit != 'true'
         env:
           UDID: ${{ steps.sim.outputs.udid }}
         run: |
@@ -88,30 +103,79 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           # Release so the JS bundle is embedded; a Debug build would sit on a
           # red screen waiting for a Metro server that is not running here.
-          mkdir -p ../shots
+          mkdir -p shots
           set -o pipefail
           npx expo run:ios --configuration Release --device "$UDID" --no-bundler \
-            2>&1 | tee ../shots/build.log
+            2>&1 | tee shots/build.log
+          built=$(find ios/build -maxdepth 6 -name '*.app' -type d | head -1)
+          echo "built: $built"
+          mkdir -p prebuilt
+          rm -rf prebuilt/*
+          cp -R "$built" prebuilt/
 
-      - name: Shoot
+      - name: Install the app
         env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          mkdir -p shots
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          app=$(find prebuilt -maxdepth 2 -name '*.app' -type d | head -1)
+          xcrun simctl install "$UDID" "$app"
+          # Granted up front so no permission sheet lands in a screenshot.
+          xcrun simctl privacy "$UDID" grant location-always "$BUNDLE_ID" || true
+          xcrun simctl location "$UDID" set "$SIM_LOCATION" || true
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Drive the app
+        id: flows
+        continue-on-error: true
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+          REVIEW_PASSWORD: ${{ secrets.APP_REVIEW_PASSWORD }}
+        run: |
+          if [ -z "$REVIEW_PASSWORD" ]; then
+            echo "APP_REVIEW_PASSWORD secret is not set — cannot log in"
+            exit 1
+          fi
+          xcrun simctl spawn "$UDID" log stream --style compact \
+            --predicate 'processImagePath CONTAINS "ZhetysuGo"' > shots/app.log 2>&1 &
+          echo $! > /tmp/logpid
+          status=0
+          for flow in .maestro/*.yaml; do
+            echo "=== $flow ==="
+            maestro --device "$UDID" test "$flow" \
+              -e REVIEW_PASSWORD="$REVIEW_PASSWORD" || status=1
+          done
+          kill "$(cat /tmp/logpid)" 2>/dev/null || true
+          exit $status
+
+      - name: Fallback capture
+        if: steps.flows.outcome != 'success'
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
           SECONDS_TO_SHOOT: ${{ inputs.seconds }}
         run: |
-          mkdir -p ../shots
-          xcrun simctl spawn booted log stream --style compact \
-            --predicate 'processImagePath CONTAINS "ZhetysuGo"' > ../shots/app.log 2>&1 &
-          logpid=$!
+          # The flows failed, so shoot whatever is on screen: the frame usually
+          # says why far faster than the log does.
+          xcrun simctl launch "$UDID" "$BUNDLE_ID" || true
           for i in $(seq -w 1 "$SECONDS_TO_SHOOT"); do
-            xcrun simctl io booted screenshot "../shots/$i.png" >/dev/null 2>&1 || true
+            xcrun simctl io "$UDID" screenshot "shots/fallback-$i.png" >/dev/null 2>&1 || true
             sleep 1
           done
-          # A live child process would hold the step open past its work.
-          kill "$logpid" 2>/dev/null || true
+
+      - name: Tidy the frames
+        if: always()
+        run: |
           python3 - <<'PY'
           import hashlib, pathlib
           # Identical frames are the same idle screen; keep one of each.
           seen, kept = set(), 0
-          for p in sorted(pathlib.Path('../shots').glob('*.png')):
+          for p in sorted(pathlib.Path('shots').glob('*.png')):
               h = hashlib.sha256(p.read_bytes()).hexdigest()
               if h in seen:
                   p.unlink()
@@ -120,18 +184,18 @@ jobs:
                   kept += 1
           print(f'{kept} distinct frames')
           PY
-          ls -la ../shots
-
-      - name: Collect crash reports
-        if: always()
-        run: |
-          mkdir -p ../shots/diagnostics
-          cp -R ~/Library/Logs/DiagnosticReports/. ../shots/diagnostics/ 2>/dev/null || true
-          ls -la ../shots/diagnostics || true
+          cp -R ~/.maestro/tests shots/maestro-logs 2>/dev/null || true
+          mkdir -p shots/diagnostics
+          cp -R ~/Library/Logs/DiagnosticReports/. shots/diagnostics/ 2>/dev/null || true
+          find shots -maxdepth 2 -type f | head -50
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ios-screenshots
-          path: shots
+          path: mobile/shots
           retention-days: 14
+
+      - name: Fail if the flows failed
+        if: steps.flows.outcome != 'success'
+        run: exit 1

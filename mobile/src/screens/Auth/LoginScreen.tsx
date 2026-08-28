@@ -105,6 +105,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.formCard}>
         <TextInput
+          // Named so the screenshot workflow can drive this form on a simulator.
+          testID="login-phone"
           style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
           placeholder="+7 700 000 00 00"
           placeholderTextColor="#71717A"
@@ -128,6 +130,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         >
           <TextInput
             ref={passwordInputRef}
+            testID="login-password"
             style={styles.passwordInput}
             placeholder="Пароль"
             placeholderTextColor="#71717A"
@@ -153,6 +156,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TouchableOpacity
+          testID="login-submit"
           style={[styles.button, (!canSubmit || loading) && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={loading || !canSubmit}

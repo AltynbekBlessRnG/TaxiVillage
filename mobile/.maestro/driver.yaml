@@ -1,0 +1,27 @@
+# Same login, driver account: this is the screen with the status sheet over the
+# map, which is the one worth showing in the store listing.
+appId: com.zhetysu.go
+env:
+  PHONE: "7000000002"
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "login-phone"
+- inputText: ${PHONE}
+- tapOn:
+    id: "login-password"
+- inputText: ${REVIEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    notVisible:
+      id: "login-submit"
+    timeout: 40000
+- tapOn:
+    text: "Allow.*|Разрешить.*|OK"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: shots/20-driver-home
