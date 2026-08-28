@@ -12,8 +12,17 @@ const NATIONAL_LENGTH = 10;
 export function extractNationalDigits(input: string): string {
   let digits = input.replace(/\D/g, '');
 
-  // `8` and `7` are both used as the trunk/country prefix in everyday writing.
-  if (digits.startsWith('8')) {
+  // A leading `+` means the country code is written out, so its 7 is never part
+  // of the national number. This case matters most while typing: the field
+  // shows `+7 …` from the first keystroke on, and counting that 7 as the user's
+  // own turned `705…` into `+7 770 5…` — right by the tenth digit, wrong in
+  // front of the person entering it.
+  if (input.trim().startsWith('+')) {
+    if (digits.startsWith('7')) {
+      digits = digits.slice(1);
+    }
+  } else if (digits.startsWith('8')) {
+    // `8` and `7` are both used as the trunk/country prefix in everyday writing.
     digits = digits.slice(1);
   } else if (digits.startsWith('7') && digits.length > NATIONAL_LENGTH) {
     digits = digits.slice(1);
