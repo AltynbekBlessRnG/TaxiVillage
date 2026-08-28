@@ -1,20 +1,23 @@
 # Drives the app the way a person would, so the App Store screenshots show real
-# screens instead of the login form.
+# screens instead of the login form. Role: пассажир.
 appId: com.zhetysu.go
 ---
 - launchApp:
     clearState: true
 - tapOn:
     id: "login-phone"
-# The number is put on the clipboard by the workflow, one flow at a time.
-- pasteText
+- inputText: "7000000001"
+# The field reformats on every keystroke. A doubled one used to leave a phantom
+# digit, and the login then failed for a reason no screenshot could show — so
+# check the number before spending forty seconds waiting on the wrong one.
+- assertVisible: "+7 700 000 00 01"
 - tapOn:
     id: "login-password"
 - inputText: ${REVIEW_PASSWORD}
 - hideKeyboard
 - tapOn:
     id: "login-submit"
-# The form is gone once the reset navigation lands on the passenger stack.
+# The form is gone once the reset navigation lands on the next stack.
 - extendedWaitUntil:
     notVisible:
       id: "login-submit"

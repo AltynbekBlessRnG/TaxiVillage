@@ -172,17 +172,11 @@ jobs:
             --predicate 'processImagePath CONTAINS "ZhetysuGo"' > shots/app.log 2>&1 &
           echo $! > /tmp/logpid
           status=0
-          run_flow() {
-            # Typed character by character the number comes out as
-            # +7 777 000 00 01: the field reformats on every keystroke and a
-            # fast typist beats the state update. Pasting is one change.
-            printf '%s' "$1" | xcrun simctl pbcopy "$UDID"
-            echo "=== $2 ==="
-            maestro --device "$UDID" test "$2" \
+          for flow in .maestro/*.yaml; do
+            echo "=== $flow ==="
+            maestro --device "$UDID" test "$flow" \
               -e REVIEW_PASSWORD="$REVIEW_PASSWORD" || status=1
-          }
-          run_flow '+77000000001' .maestro/passenger.yaml
-          run_flow '+77000000002' .maestro/driver.yaml
+          done
           kill "$(cat /tmp/logpid)" 2>/dev/null || true
           exit $status
 
