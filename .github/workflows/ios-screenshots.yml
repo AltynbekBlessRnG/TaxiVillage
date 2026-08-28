@@ -211,6 +211,10 @@ jobs:
           print(f'{kept} distinct frames')
           PY
           cp -R ~/.maestro/tests shots/maestro-logs 2>/dev/null || true
+          # Maestro writes takeScreenshot under its own run directory, not the
+          # working one, so lift the frames out to where the artifact expects.
+          find ~/.maestro/tests -path '*takeScreenshot*' -name '*.png' \
+            -exec cp {} shots/ \; 2>/dev/null || true
           mkdir -p shots/diagnostics
           cp -R ~/Library/Logs/DiagnosticReports/. shots/diagnostics/ 2>/dev/null || true
           find shots -maxdepth 2 -type f | head -50

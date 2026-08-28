@@ -17,11 +17,14 @@ appId: com.zhetysu.go
 - hideKeyboard
 - tapOn:
     id: "login-submit"
-# The form is gone once the reset navigation lands on the next stack.
+# Wait on the heading, not the button: while the request is in flight the
+# button is disabled, and a disabled element already reads as not visible — so
+# waiting on it returned the moment the tap landed, mid-login. The heading goes
+# only when navigation actually leaves the screen. Sixty seconds because the
+# backend sleeps between requests and the first one wakes it.
 - extendedWaitUntil:
-    notVisible:
-      id: "login-submit"
-    timeout: 40000
+    notVisible: "Вход в аккаунт"
+    timeout: 60000
 # Permission sheets are the one thing a screenshot must never catch.
 - tapOn:
     text: "Allow.*|Разрешить.*|OK"
