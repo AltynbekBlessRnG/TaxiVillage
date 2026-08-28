@@ -71,7 +71,9 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
       role: user.role,
       userId: user.id,
     });
-    await registerPushToken().catch(() => null);
+    // Not awaited, for the same reason as on the login screen: the
+    // permission dialog and Expo's token service must not hold up entry.
+    void registerPushToken().catch(() => null);
 
     const nextRoute = routeAfterAuth(user.role);
     if (nextRoute === 'PassengerHome') {

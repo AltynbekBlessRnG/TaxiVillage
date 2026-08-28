@@ -55,7 +55,12 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           role: user.role,
           userId: user.id,
         });
-        await registerPushToken().catch(() => null);
+        // Not awaited: this asks for the notification permission and then
+        // talks to Expo's token service, so awaiting it left the button on
+        // "Вход..." until the person answered a dialog they had not asked
+        // for — and forever if the service was slow. The navigator registers
+        // the token on its own once the session exists.
+        void registerPushToken().catch(() => null);
 
         const routeName = ['DRIVER', 'DRIVER_TAXI', 'COURIER', 'DRIVER_INTERCITY'].includes(
           user.role,
