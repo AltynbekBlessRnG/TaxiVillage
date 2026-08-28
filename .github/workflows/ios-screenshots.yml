@@ -107,8 +107,19 @@ jobs:
           set -o pipefail
           npx expo run:ios --configuration Release --device "$UDID" --no-bundler \
             2>&1 | tee shots/build.log
-          built=$(find ios/build -maxdepth 6 -name '*.app' -type d | head -1)
+          # Expo builds into the shared DerivedData, not into ios/build, and the
+          # directory name carries a random suffix — so take the path from the
+          # line the build itself prints rather than guessing at it.
+          built=$(grep -oE '/Users/[^ ]*Release-iphonesimulator/[^ ]*\.app' shots/build.log | head -1)
+          if [ -z "$built" ]; then
+            built=$(find ~/Library/Developer/Xcode/DerivedData -maxdepth 5 \
+              -path '*Release-iphonesimulator*' -name '*.app' -type d | head -1)
+          fi
           echo "built: $built"
+          if [ -z "$built" ]; then
+            echo 'built app not found'
+            exit 1
+          fi
           mkdir -p prebuilt
           rm -rf prebuilt/*
           cp -R "$built" prebuilt/
