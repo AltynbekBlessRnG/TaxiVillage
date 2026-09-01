@@ -2,11 +2,28 @@ const {
   PrismaClient,
   UserRole,
   DriverStatus,
+  DocumentType,
+  CourierTransportType,
   MerchantVerificationStatus,
 } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
+
+// A driver cannot go on shift without a car and approved documents, so an
+// account provisioned without them lets the reviewer sign in and then stops
+// them at "Загрузите права". These stand in for the photos a real driver
+// uploads; the image says plainly that it is not a real document.
+const REVIEW_DOCUMENT_URL = `${
+  process.env.APP_REVIEW_DOCUMENT_URL?.trim() || 'https://taxivillage-docs-xp2f.onrender.com'
+}/review-document.png`;
+
+const REVIEW_CAR = {
+  make: 'Toyota',
+  model: 'Camry',
+  color: 'Белый',
+  plateNumber: '001 ARV 05',
+};
 
 function required(name) {
   const value = process.env[name]?.trim();
@@ -44,23 +61,43 @@ async function upsertUser({ phone, passwordHash, role, fullName }) {
   }
 
   if (role === UserRole.DRIVER) {
-    await prisma.driverProfile.upsert({
+    const driverFields = {
+      fullName,
+      status: DriverStatus.APPROVED,
+      supportsTaxi: true,
+      supportsCourier: true,
+      supportsIntercity: true,
+      // On foot a courier needs no licence or registration, which would leave
+      // two of the three services unreachable; by car all three open up.
+      courierTransportType: CourierTransportType.CAR,
+    };
+    const driver = await prisma.driverProfile.upsert({
       where: { userId: user.id },
-      update: {
-        fullName,
-        status: DriverStatus.APPROVED,
-        supportsTaxi: true,
-        supportsCourier: true,
-        supportsIntercity: true,
-      },
-      create: {
-        userId: user.id,
-        fullName,
-        status: DriverStatus.APPROVED,
-        supportsTaxi: true,
-        supportsCourier: true,
-        supportsIntercity: true,
-      },
+      update: driverFields,
+      create: { userId: user.id, ...driverFields },
+    });
+
+    await prisma.car.upsert({
+      where: { driverId: driver.id },
+      update: REVIEW_CAR,
+      create: { driverId: driver.id, ...REVIEW_CAR },
+    });
+
+    // DriverDocument has no unique key on (driverId, type), so replace rather
+    // than upsert - re-running this must not pile up duplicates.
+    await prisma.driverDocument.deleteMany({ where: { driverId: driver.id } });
+    await prisma.driverDocument.createMany({
+      data: [
+        DocumentType.DRIVER_LICENSE,
+        DocumentType.CAR_REGISTRATION,
+        DocumentType.TAXI_LICENSE,
+        DocumentType.COURIER_ID,
+      ].map((type) => ({
+        driverId: driver.id,
+        type,
+        url: REVIEW_DOCUMENT_URL,
+        approved: true,
+      })),
     });
   }
 
