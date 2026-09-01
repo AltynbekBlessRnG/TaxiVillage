@@ -49,10 +49,20 @@ services:
         value: "10"
       - key: OTP_RESEND_SECONDS
         value: "45"
+      # App Review sign-in, for the demo accounts Apple's reviewer is given.
+      # Pinned to a literal here, so every deploy rewrites whatever the
+      # dashboard holds: left at "false" it turned each redeploy into a silent
+      # lockout, and `reviewLogin` answers a disabled flag with the same
+      # "Invalid credentials" as a wrong password, so nothing said why.
       - key: APP_REVIEW_LOGIN_ENABLED
-        value: "false"
+        value: "true"
+      # Not a secret: the same three numbers ship inside the app as
+      # EXPO_PUBLIC_APP_REVIEW_PHONES, which is what routes them to
+      # /auth/review-login. Kept here rather than sync:false so the two lists
+      # cannot drift apart, and so a blank dashboard field can't disable
+      # sign-in on its own.
       - key: APP_REVIEW_PHONES
-        sync: false
+        value: "+77000000001,+77000000002,+77000000003"
       - key: APP_REVIEW_PASSWORD
         sync: false
       - key: APP_REVIEW_PASSENGER_PHONE
