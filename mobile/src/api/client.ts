@@ -6,6 +6,7 @@ import {
 } from '../storage/authStorage';
 import { resetNotificationsInbox } from '../storage/notificationsInbox';
 import { stopDriverBackgroundTracking } from '../location/backgroundTracking';
+import { resetRoot } from '../navigation/rootNavigation';
 import { apiClient, BASE_URL } from './instance';
 
 export { apiClient };
@@ -49,8 +50,13 @@ apiClient.interceptors.response.use(
 
     const nextAccessToken = await refreshAccessToken();
     if (!nextAccessToken) {
-      await clearAuth();
-      delete apiClient.defaults.headers.common.Authorization;
+      // The session is gone for good. Clearing it silently left the person on
+      // whatever screen they were on with every button answering "не удалось
+      // …" — a driver on shift saw only that the ride would not accept, with
+      // no hint that they had been signed out. Send them to the login screen,
+      // and stop the background tracking a signed-out driver must not run.
+      await resetAuthSession();
+      resetRoot('Login', undefined);
       return Promise.reject(error);
     }
 
