@@ -201,7 +201,18 @@ export class UsersService {
     });
   }
 
-  updatePushToken(userId: string, pushToken: string | null) {
+  async updatePushToken(userId: string, pushToken: string | null) {
+    // A push token addresses a device, not an account. Signing a second
+    // account in on the same phone used to leave the token on both rows, so
+    // every push meant for the first one kept arriving on this device - and
+    // the phone that account was actually being used on received nothing.
+    if (pushToken) {
+      await (this.prisma.user as any).updateMany({
+        where: { pushToken, NOT: { id: userId } },
+        data: { pushToken: null },
+      });
+    }
+
     return (this.prisma.user as any).update({
       where: { id: userId },
       data: { pushToken },

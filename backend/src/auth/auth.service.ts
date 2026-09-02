@@ -489,6 +489,9 @@ export class AuthService {
 
   async revokeRefreshToken(userId: string) {
     await this.usersService.updateRefreshTokenHash(userId, null);
+    // Signing out gives up the device as well, so the account stops receiving
+    // pushes on a phone whoever signs in next is now holding.
+    await this.usersService.updatePushToken(userId, null);
   }
 
   private async createOtpSession(params: {
