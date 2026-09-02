@@ -204,11 +204,17 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
     1,
   );
 
+  // Fold the card away when a new order lands, not on every update of the one
+  // already in hand: `currentRide` is a fresh object after each socket
+  // refresh, so keying the effect on it collapsed the card on every status
+  // change and the driver had to reopen it to reach the next button.
+  const activeOrderId = currentRide?.id ?? currentCourierOrder?.id ?? null;
+
   useEffect(() => {
-    if (currentRide || currentCourierOrder) {
+    if (activeOrderId) {
       setIsActiveExpanded(false);
     }
-  }, [currentRide, currentCourierOrder]);
+  }, [activeOrderId]);
 
   if (currentRide || currentCourierOrder) {
     const rideStatus = currentRide?.status;
