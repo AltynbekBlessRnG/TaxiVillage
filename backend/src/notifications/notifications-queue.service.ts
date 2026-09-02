@@ -138,6 +138,20 @@ export class NotificationsQueueService implements OnModuleInit, OnModuleDestroy 
       if (!response.ok) {
         const text = await response.text();
         this.logger.warn(`Expo push failed: ${response.status} ${text}`);
+        return;
+      }
+
+      // Expo answers 200 even when it refuses the message, and puts the reason
+      // in the ticket - a missing APNs key reads as InvalidCredentials here and
+      // nowhere else. Left unread, every push to iOS failed in silence.
+      const result = (await response.json().catch(() => null)) as {
+        data?: { status?: string; message?: string; details?: { error?: string } };
+      } | null;
+      const ticket = result?.data;
+      if (ticket?.status === 'error') {
+        this.logger.warn(
+          `Expo push rejected (${ticket.details?.error ?? 'unknown'}): ${ticket.message ?? ''}`,
+        );
       }
     } catch (error) {
       this.logger.error('Expo push request failed', error as any);
