@@ -43,6 +43,7 @@ import { getGoogleDirections } from '../../utils/googleMaps';
 import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
 import { resolveRideRoute } from '../../utils/rideRoute';
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
+import { sendLocalNotification } from '../../utils/notifications';
 import { useMessagesSummary } from '../../hooks/useMessagesSummary';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
@@ -111,9 +112,25 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const { unreadCount: unreadMessagesCount, refresh: refreshMessagesSummary } = useMessagesSummary({ autoRefresh: false });
 
   const mapRef = useRef<MapView>(null);
+  const currentRideIdRef = useRef<string | null>(null);
+  const ridesSocketRef = useRef<ReturnType<typeof createRidesSocket> | null>(null);
   const didBootstrapRef = useRef(false);
   const shellLoadPromiseRef = useRef<Promise<void> | null>(null);
   const lastShellLoadAtRef = useRef(0);
+
+  // `message:sent` only reaches sockets that joined the ride's chat room, and
+  // the chat screen was the only thing that ever joined it - a driver with the
+  // map open never learned that the passenger had written.
+  const joinRideChatRoom = useCallback((rideId: string | null) => {
+    if (rideId) {
+      ridesSocketRef.current?.emit('join:ride', { rideId });
+    }
+  }, []);
+
+  useEffect(() => {
+    currentRideIdRef.current = currentRideId;
+    joinRideChatRoom(currentRideId);
+  }, [currentRideId, joinRideChatRoom]);
 
   const loadDriverShell = useCallback(async (force = false) => {
     const now = Date.now();
@@ -705,7 +722,16 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         }
 
         socket = createRidesSocket(auth.accessToken);
-        const handleConnect = () => mounted && setSocketState('connected');
+        ridesSocketRef.current = socket;
+        // Rooms live on the connection, so a reconnect drops the chat room and
+        // it has to be claimed again.
+        const handleConnect = () => {
+          if (!mounted) {
+            return;
+          }
+          setSocketState('connected');
+          joinRideChatRoom(currentRideIdRef.current);
+        };
         const handleDisconnect = () => mounted && setSocketState('disconnected');
         const handleConnectError = () => mounted && setSocketState('reconnecting');
         const handleReconnectAttempt = () => mounted && setSocketState('reconnecting');
@@ -731,6 +757,31 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             setCurrentRideId(ride.id);
           }
         });
+
+        socket.on(
+          'message:sent',
+          (message: { id: string; rideId?: string; senderType?: string; content?: string }) => {
+            if (!mounted || message.senderType !== 'PASSENGER') {
+              return;
+            }
+
+            const text = message.content?.trim();
+            if (!text || message.rideId !== currentRideIdRef.current) {
+              return;
+            }
+
+            // No point buzzing over a message that is already on screen.
+            const routes = navigation.getState()?.routes ?? [];
+            if (routes[routes.length - 1]?.name === 'ChatScreen') {
+              return;
+            }
+
+            void sendLocalNotification('Сообщение от пассажира', text, {
+              type: 'CHAT_MESSAGE',
+              rideId: message.rideId,
+            });
+          },
+        );
 
         socket.on('ride:updated', (ride: { id: string; status: string }) => {
           if (!mounted) {
@@ -785,9 +836,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     return () => {
       mounted = false;
       cleanupListeners?.();
+      ridesSocketRef.current = null;
       socket?.disconnect();
     };
-  }, [incomingOffer?.id, isOnline, openDriverModal, profile?.driverMode]);
+  }, [incomingOffer?.id, isOnline, joinRideChatRoom, navigation, openDriverModal, profile?.driverMode]);
 
   useEffect(() => {
     let socket: ReturnType<typeof createCourierOrdersSocket> | null = null;

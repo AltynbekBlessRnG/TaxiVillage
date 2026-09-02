@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import { apiClient } from '../../../api/client';
 import { loadAuth } from '../../../storage/authStorage';
 import { createRidesSocket } from '../../../api/socket';
@@ -13,6 +14,19 @@ const ACTIVE_RIDE_STATUSES = [
   'DRIVER_ARRIVED',
   'IN_PROGRESS',
 ] as const;
+
+// The driver can change the price when finishing, so the copy of the ride we
+// are holding still carries the estimate. Read it back before the state is
+// cleared, and fall back to no figure at all rather than showing a stale one.
+async function loadFinalRidePrice(rideId: string): Promise<number | null> {
+  try {
+    const res = await apiClient.get(`/rides/${rideId}`);
+    const price = Number(res.data?.finalPrice ?? res.data?.estimatedPrice ?? 0);
+    return Number.isFinite(price) && price > 0 ? Math.round(price) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function usePassengerRideState(params: {
   onBecameActive?: () => void;
@@ -31,6 +45,16 @@ export function usePassengerRideState(params: {
   const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
   const [socketState, setSocketState] = useState<'connected' | 'reconnecting' | 'disconnected'>('disconnected');
   const [incomingChatToast, setIncomingChatToast] = useState<{ id: string; text: string } | null>(null);
+  const socketRef = useRef<ReturnType<typeof createRidesSocket> | null>(null);
+
+  // `message:sent` only reaches sockets that joined the ride's chat room, and
+  // the chat screen was the only thing that ever joined it - a passenger
+  // watching the map never learned that the driver had written.
+  const joinRideChatRoom = useCallback((rideId: string | null | undefined) => {
+    if (rideId) {
+      socketRef.current?.emit('join:ride', { rideId });
+    }
+  }, []);
 
   const clearRideState = useCallback(() => {
     setCurrentRideId(null);
@@ -66,6 +90,7 @@ export function usePassengerRideState(params: {
 
       if (active?.id) {
         setActiveRide(active);
+        joinRideChatRoom(active.id);
         if (active?.driver?.lat && active?.driver?.lng) {
           setDriverLocation({ lat: active.driver.lat, lng: active.driver.lng });
         }
@@ -78,7 +103,7 @@ export function usePassengerRideState(params: {
       clearRideState();
       return null;
     }
-  }, [clearRideState]);
+  }, [clearRideState, joinRideChatRoom]);
 
   useEffect(() => {
     let socket: ReturnType<typeof createRidesSocket> | null = null;
@@ -91,10 +116,20 @@ export function usePassengerRideState(params: {
       }
 
       socket = createRidesSocket(auth.accessToken);
-      socket.on('connect', () => mounted && setSocketState('connected'));
+      socketRef.current = socket;
+      // Rooms live on the connection, so a reconnect drops the chat room and
+      // it has to be claimed again.
+      const handleConnected = () => {
+        if (!mounted) {
+          return;
+        }
+        setSocketState('connected');
+        joinRideChatRoom(activeRideIdRef.current ?? currentRideIdRef.current);
+      };
+      socket.on('connect', handleConnected);
       socket.on('disconnect', () => mounted && setSocketState('disconnected'));
       socket.io.on('reconnect_attempt', () => mounted && setSocketState('reconnecting'));
-      socket.io.on('reconnect', () => mounted && setSocketState('connected'));
+      socket.io.on('reconnect', handleConnected);
       socket.on('connect_error', () => mounted && setSocketState('reconnecting'));
 
       socket.on('ride:updated', async (updatedRide: { id: string; status: string }) => {
@@ -107,6 +142,10 @@ export function usePassengerRideState(params: {
             setCurrentRideId(updatedRide.id);
             setActiveRideId(updatedRide.id);
             await refreshActiveRide();
+            await sendLocalNotification('Водитель принял заказ', 'Водитель уже едет к точке подачи', {
+              type: NOTIFICATION_TYPES.DRIVER_ASSIGNED,
+              rideId: updatedRide.id,
+            });
             onBecameActiveRef.current?.();
             return;
           }
@@ -121,6 +160,15 @@ export function usePassengerRideState(params: {
             return;
           }
 
+          if (updatedRide.status === 'IN_PROGRESS') {
+            await refreshActiveRide();
+            await sendLocalNotification('Поездка началась', 'Водитель начал поездку. Хорошей дороги!', {
+              type: NOTIFICATION_TYPES.RIDE_STARTED,
+              rideId: updatedRide.id,
+            });
+            return;
+          }
+
           if (updatedRide.status === 'CANCELED') {
             await sendLocalNotification('Поездка отменена', 'Водитель не найден, попробуйте еще раз', {
               type: 'RIDE_CANCELED',
@@ -132,8 +180,17 @@ export function usePassengerRideState(params: {
           }
 
           if (updatedRide.status === 'COMPLETED') {
+            // The sheet used to disappear without a word, so from the
+            // passenger's side the ride simply stopped existing mid-screen.
+            const finalPrice = await loadFinalRidePrice(updatedRide.id);
+            const priceLine = finalPrice ? ` Стоимость: ${finalPrice} ₸.` : '';
+            await sendLocalNotification('Поездка завершена', `Спасибо за поездку!${priceLine}`, {
+              type: NOTIFICATION_TYPES.RIDE_COMPLETED,
+              rideId: updatedRide.id,
+            });
             clearRideState();
             onReturnedToIdleRef.current?.();
+            Alert.alert('Поездка завершена', `Спасибо, что выбрали Zhetysu Go!${priceLine}`);
             return;
           }
 
@@ -170,9 +227,10 @@ export function usePassengerRideState(params: {
     connectSocket().catch(() => {});
     return () => {
       mounted = false;
+      socketRef.current = null;
       socket?.disconnect();
     };
-  }, [clearRideState, refreshActiveRide]);
+  }, [clearRideState, joinRideChatRoom, refreshActiveRide]);
 
   useEffect(() => {
     if (!activeRide) {

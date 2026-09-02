@@ -1096,8 +1096,8 @@ export class RidesService implements OnModuleDestroy {
       ride.status === RideStatus.ON_THE_WAY
     ) {
       await this.notificationsService.sendPush(pushToken, {
-        title: 'Водитель выехал к вам',
-        body: 'Водитель принял заказ и уже едет к точке подачи.',
+        title: 'Водитель принял заказ',
+        body: 'Водитель уже едет к точке подачи.',
         data: { rideId: ride.id, status: ride.status },
       });
     }
@@ -1106,6 +1106,22 @@ export class RidesService implements OnModuleDestroy {
       await this.notificationsService.sendPush(pushToken, {
         title: 'Водитель приехал',
         body: 'Водитель ожидает вас в точке подачи.',
+        data: { rideId: ride.id, status: ride.status },
+      });
+    }
+
+    if (ride.status === RideStatus.IN_PROGRESS) {
+      await this.notificationsService.sendPush(pushToken, {
+        title: 'Поездка началась',
+        body: 'Водитель начал поездку. Хорошей дороги!',
+        data: { rideId: ride.id, status: ride.status },
+      });
+    }
+
+    if (ride.status === RideStatus.COMPLETED) {
+      await this.notificationsService.sendPush(pushToken, {
+        title: 'Поездка завершена',
+        body: 'Спасибо за поездку! Ждем вас снова.',
         data: { rideId: ride.id, status: ride.status },
       });
     }
