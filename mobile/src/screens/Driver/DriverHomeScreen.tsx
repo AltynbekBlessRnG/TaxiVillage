@@ -1007,7 +1007,15 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleUserLocationChange = useCallback((event: UserLocationChangeEvent) => {
     const coordinate = event.nativeEvent.coordinate;
-    if (!coordinate) {
+    // Before the location permission is granted the map still reports a
+    // position, and it reports it as 0, 0 - a point in the Atlantic. Taken at
+    // face value it moved the driver's marker and the recenter button there.
+    if (
+      !coordinate ||
+      !Number.isFinite(coordinate.latitude) ||
+      !Number.isFinite(coordinate.longitude) ||
+      (coordinate.latitude === 0 && coordinate.longitude === 0)
+    ) {
       return;
     }
 
