@@ -96,6 +96,55 @@ const CUISINE_THEMES: Array<Theme & { keywords: string[] }> = [
     blob: '#FBBF24',
     glow: '#FDE68A',
   },
+  {
+    keywords: ['фри', 'наггет', 'картоф', 'снек', 'закус'],
+    emoji: '🍟',
+    base: '#854D0E',
+    blob: '#FACC15',
+    glow: '#FEF08A',
+  },
+  {
+    keywords: ['кур', 'крыл', 'chicken', 'цыпл'],
+    emoji: '🍗',
+    base: '#7C2D12',
+    blob: '#FB923C',
+    glow: '#FED7AA',
+  },
+  {
+    keywords: ['хот-дог', 'хотдог', 'сосис', 'hot dog'],
+    emoji: '🌭',
+    base: '#9F1239',
+    blob: '#FB7185',
+    glow: '#FECDD3',
+  },
+  {
+    keywords: ['суп', 'сорпа', 'борщ', 'шурпа', 'бульон'],
+    emoji: '🍲',
+    base: '#1D4E4B',
+    blob: '#5EEAD4',
+    glow: '#CCFBF1',
+  },
+  {
+    keywords: ['паста', 'спагет', 'макарон', 'pasta'],
+    emoji: '🍝',
+    base: '#7F1D1D',
+    blob: '#F87171',
+    glow: '#FECACA',
+  },
+  {
+    keywords: ['морожен', 'ice cream', 'шейк', 'милкшейк'],
+    emoji: '🍨',
+    base: '#5B21B6',
+    blob: '#C4B5FD',
+    glow: '#EDE9FE',
+  },
+  {
+    keywords: ['сок', 'напит', 'кола', 'лимонад', 'вода', 'морс', 'компот'],
+    emoji: '🥤',
+    base: '#1E3A8A',
+    blob: '#60A5FA',
+    glow: '#BFDBFE',
+  },
 ];
 
 /** Used when the cuisine says nothing, so two neighbours still differ. */
@@ -133,6 +182,8 @@ type Props = {
   seed: string;
   hints?: Array<string | null | undefined>;
   emojiSize?: number;
+  /** A small square - one shape, and the dish sits in the middle of it. */
+  centered?: boolean;
   style?: StyleProp<ViewStyle>;
   imageStyle?: StyleProp<ImageStyle>;
   children?: React.ReactNode;
@@ -143,6 +194,7 @@ export const FoodCoverArt: React.FC<Props> = ({
   seed,
   hints = [],
   emojiSize = 116,
+  centered = false,
   style,
   imageStyle,
   children,
@@ -158,17 +210,31 @@ export const FoodCoverArt: React.FC<Props> = ({
   }
 
   return (
-    <View style={[style, { backgroundColor: theme.base }]}>
+    <View
+      style={[
+        style,
+        centered && styles.tileBox,
+        { backgroundColor: theme.base },
+      ]}
+    >
       <View
         pointerEvents="none"
-        style={[styles.blobTop, { backgroundColor: theme.blob }]}
+        style={[
+          centered ? styles.blobTile : styles.blobTop,
+          { backgroundColor: theme.blob },
+        ]}
       />
-      <View
-        pointerEvents="none"
-        style={[styles.blobBottom, { backgroundColor: theme.glow }]}
-      />
+      {centered ? null : (
+        <View
+          pointerEvents="none"
+          style={[styles.blobBottom, { backgroundColor: theme.glow }]}
+        />
+      )}
       <Text
-        style={[styles.emoji, { fontSize: emojiSize, lineHeight: emojiSize * 1.16 }]}
+        style={[
+          centered ? styles.emojiCentered : styles.emoji,
+          { fontSize: emojiSize, lineHeight: emojiSize * 1.16 },
+        ]}
       >
         {theme.emoji}
       </Text>
@@ -178,6 +244,11 @@ export const FoodCoverArt: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
+  tileBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   blobTop: {
     position: 'absolute',
     top: '-42%',
@@ -195,6 +266,19 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 999,
     opacity: 0.14,
+  },
+  blobTile: {
+    position: 'absolute',
+    top: '-34%',
+    right: '-30%',
+    width: '96%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    opacity: 0.32,
+  },
+  emojiCentered: {
+    textAlign: 'center',
+    opacity: 0.92,
   },
   emoji: {
     position: 'absolute',

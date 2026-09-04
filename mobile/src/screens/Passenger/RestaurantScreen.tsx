@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -344,15 +343,15 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
               const qty = getItemQty(item.id);
               return (
                 <View key={item.id} style={styles.menuRow}>
-                  {item.imageUrl ? (
-                    <Image source={{ uri: resolveApiAssetUrl(item.imageUrl) }} style={styles.menuImage} resizeMode="cover" />
-                  ) : (
-                    <View style={styles.menuImageFallback}>
-                      <Text style={styles.menuImageFallbackText}>
-                        {item.name.slice(0, 1).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
+                  <FoodCoverArt
+                    imageUrl={resolveApiAssetUrl(item.imageUrl)}
+                    seed={item.id}
+                    hints={[item.name, item.description, merchant?.cuisine]}
+                    emojiSize={38}
+                    centered
+                    style={styles.menuImage}
+                    imageStyle={styles.menuImageInner}
+                  />
 
                   <View style={styles.menuBody}>
                     <Text style={styles.menuName}>{item.name}</Text>
@@ -617,19 +616,10 @@ const styles = StyleSheet.create({
     width: 82,
     height: 82,
     borderRadius: 20,
+    overflow: 'hidden',
   },
-  menuImageFallback: {
-    width: 82,
-    height: 82,
+  menuImageInner: {
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2D160B',
-  },
-  menuImageFallbackText: {
-    color: '#FED7AA',
-    fontSize: 28,
-    fontWeight: '900',
   },
   menuBody: {
     flex: 1,
