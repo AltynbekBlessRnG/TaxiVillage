@@ -296,26 +296,43 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 
     const foreground = await Location.requestForegroundPermissionsAsync();
     if (foreground.status !== 'granted') {
+      // Once the permission has been refused the system stops offering the
+      // dialog, so telling the driver to allow it leads nowhere: the only way
+      // back is the app's own page in Settings.
       openDriverModal({
         title: 'Доступ к геолокации',
-        message: 'Разрешите доступ к геолокации, чтобы выйти на линию.',
-        primaryLabel: 'Понятно',
+        message:
+          'Разрешите доступ к геолокации, чтобы выйти на линию.\n\nНастройки → Zhetysu Go → Геопозиция → «При использовании» или «Всегда».',
+        primaryLabel: 'Открыть настройки',
+        secondaryLabel: 'Позже',
+        onPrimary: () => {
+          closeDriverModal();
+          Linking.openSettings().catch(() => {});
+        },
       });
       return false;
     }
 
     const background = await Location.requestBackgroundPermissionsAsync();
     if (background.status !== 'granted') {
+      // iOS never shows a second dialog for «Всегда» - it is only granted from
+      // Settings - so this screen has to hand the driver the way there.
       openDriverModal({
         title: 'Фоновая геолокация',
-        message: 'Для работы водителя нужно разрешение Always Allow / фоновая геолокация.',
-        primaryLabel: 'Понятно',
+        message:
+          'Чтобы заказы приходили, пока приложение свёрнуто, нужно разрешение «Всегда».\n\nНастройки → Zhetysu Go → Геопозиция → «Всегда».',
+        primaryLabel: 'Открыть настройки',
+        secondaryLabel: 'Позже',
+        onPrimary: () => {
+          closeDriverModal();
+          Linking.openSettings().catch(() => {});
+        },
       });
       return false;
     }
 
     return true;
-  }, [confirmLocationDisclosure, openDriverModal]);
+  }, [closeDriverModal, confirmLocationDisclosure, openDriverModal]);
 
   const openProfileActionModal = useCallback(
     (title: string, message: string) => {
