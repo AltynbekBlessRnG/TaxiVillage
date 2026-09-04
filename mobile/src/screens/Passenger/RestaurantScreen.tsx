@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
-  ImageBackground,
   Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -20,6 +19,7 @@ import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { PrimaryButton, ServiceScreen } from '../../components/ServiceScreen';
 import { openWhatsAppOrder } from '../../utils/foodWhatsapp';
 import { resolveApiAssetUrl } from '../../utils/assets';
+import { FoodCoverArt } from '../../components/Food/FoodCoverArt';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Restaurant'>;
 
@@ -205,9 +205,12 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <ImageBackground
-          source={resolveApiAssetUrl(merchant?.coverImageUrl) ? { uri: resolveApiAssetUrl(merchant?.coverImageUrl) } : undefined}
-          style={[styles.hero, { backgroundColor: merchant?.tone || '#7C2D12' }]}
+        <FoodCoverArt
+          imageUrl={resolveApiAssetUrl(merchant?.coverImageUrl)}
+          seed={merchant?.id || restaurantId}
+          hints={[merchant?.cuisine, merchant?.description, merchant?.name || restaurantName]}
+          emojiSize={132}
+          style={styles.hero}
           imageStyle={styles.heroImage}
         >
           <View style={styles.heroOverlay} />
@@ -225,7 +228,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
               {merchant?.cuisine || 'Кухня'} • от {Math.round(Number(merchant?.minOrder || 0))} тг
             </Text>
           </View>
-        </ImageBackground>
+        </FoodCoverArt>
 
         <View style={styles.quickFactsRow}>
           <View style={styles.quickFactCard}>

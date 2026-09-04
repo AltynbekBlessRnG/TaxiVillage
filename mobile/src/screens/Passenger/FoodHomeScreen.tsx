@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { ServiceScreen } from '../../components/ServiceScreen';
 import { resolveApiAssetUrl } from '../../utils/assets';
+import { FoodCoverArt } from '../../components/Food/FoodCoverArt';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodHome'>;
 
@@ -189,9 +189,11 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
             })
           }
         >
-          <ImageBackground
-            source={resolveApiAssetUrl(featuredRestaurant.coverImageUrl) ? { uri: resolveApiAssetUrl(featuredRestaurant.coverImageUrl) } : undefined}
-            style={[styles.featuredImage, { backgroundColor: featuredRestaurant.tone || '#7C2D12' }]}
+          <FoodCoverArt
+            imageUrl={resolveApiAssetUrl(featuredRestaurant.coverImageUrl)}
+            seed={featuredRestaurant.id}
+            hints={[featuredRestaurant.cuisine, featuredRestaurant.description, featuredRestaurant.name]}
+            style={styles.featuredImage}
             imageStyle={styles.featuredImageInner}
           >
             <View style={styles.featuredOverlay} />
@@ -208,7 +210,7 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </View>
             </View>
-          </ImageBackground>
+          </FoodCoverArt>
         </TouchableOpacity>
       ) : null}
 
@@ -278,16 +280,18 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
             })
           }
         >
-          <ImageBackground
-            source={resolveApiAssetUrl(restaurant.coverImageUrl) ? { uri: resolveApiAssetUrl(restaurant.coverImageUrl) } : undefined}
-            style={[styles.restaurantImage, { backgroundColor: restaurant.tone || '#18181B' }]}
+          <FoodCoverArt
+            imageUrl={resolveApiAssetUrl(restaurant.coverImageUrl)}
+            seed={restaurant.id}
+            hints={[restaurant.cuisine, restaurant.description, restaurant.name]}
+            style={styles.restaurantImage}
             imageStyle={styles.restaurantImageInner}
           >
             <View style={styles.restaurantImageOverlay} />
             <View style={styles.ratingBadge}>
               <Text style={styles.ratingBadgeText}>★ {Number(restaurant.rating || 5).toFixed(1)}</Text>
             </View>
-          </ImageBackground>
+          </FoodCoverArt>
 
           <View style={styles.restaurantBody}>
             <View style={styles.restaurantTitleRow}>
