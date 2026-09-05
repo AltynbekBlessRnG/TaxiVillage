@@ -3,7 +3,6 @@ import { Alert } from 'react-native';
 import { apiClient } from '../../../api/client';
 import { loadAuth } from '../../../storage/authStorage';
 import { createRidesSocket } from '../../../api/socket';
-import { NOTIFICATION_TYPES, sendLocalNotification } from '../../../utils/notifications';
 import { buildRouteCoordinates } from '../../../utils/map';
 import { resolveRideRoute } from '../../../utils/rideRoute';
 
@@ -142,52 +141,32 @@ export function usePassengerRideState(params: {
             setCurrentRideId(updatedRide.id);
             setActiveRideId(updatedRide.id);
             await refreshActiveRide();
-            await sendLocalNotification('Водитель принял заказ', 'Водитель уже едет к точке подачи', {
-              type: NOTIFICATION_TYPES.DRIVER_ASSIGNED,
-              rideId: updatedRide.id,
-            });
             onBecameActiveRef.current?.();
             return;
           }
 
           if (updatedRide.status === 'DRIVER_ARRIVED') {
             await refreshActiveRide();
-            await sendLocalNotification('Водитель приехал', 'Водитель ожидает вас у точки подачи', {
-              type: NOTIFICATION_TYPES.DRIVER_ARRIVED,
-              rideId: updatedRide.id,
-            });
             onBecameActiveRef.current?.();
             return;
           }
 
           if (updatedRide.status === 'IN_PROGRESS') {
             await refreshActiveRide();
-            await sendLocalNotification('Поездка началась', 'Водитель начал поездку. Хорошей дороги!', {
-              type: NOTIFICATION_TYPES.RIDE_STARTED,
-              rideId: updatedRide.id,
-            });
             return;
           }
 
           if (updatedRide.status === 'CANCELED') {
-            await sendLocalNotification('Поездка отменена', 'Водитель не найден, попробуйте еще раз', {
-              type: 'RIDE_CANCELED',
-              rideId: updatedRide.id,
-            });
             clearRideState();
             onReturnedToIdleRef.current?.();
             return;
           }
 
           if (updatedRide.status === 'COMPLETED') {
-            // The sheet used to disappear without a word, so from the
-            // passenger's side the ride simply stopped existing mid-screen.
+            // The banner comes from the server; this is the in-app word, so
+            // the sheet does not just vanish mid-screen with the ride over.
             const finalPrice = await loadFinalRidePrice(updatedRide.id);
             const priceLine = finalPrice ? ` Стоимость: ${finalPrice} ₸.` : '';
-            await sendLocalNotification('Поездка завершена', `Спасибо за поездку!${priceLine}`, {
-              type: NOTIFICATION_TYPES.RIDE_COMPLETED,
-              rideId: updatedRide.id,
-            });
             clearRideState();
             onReturnedToIdleRef.current?.();
             Alert.alert('Поездка завершена', `Спасибо, что выбрали Zhetysu Go!${priceLine}`);
