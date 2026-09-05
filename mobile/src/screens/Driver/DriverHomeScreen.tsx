@@ -43,7 +43,6 @@ import { getGoogleDirections } from '../../utils/googleMaps';
 import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
 import { resolveRideRoute } from '../../utils/rideRoute';
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
-import { sendLocalNotification } from '../../utils/notifications';
 import { useMessagesSummary } from '../../hooks/useMessagesSummary';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
@@ -269,10 +268,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     () =>
       new Promise<boolean>((resolve) => {
         openDriverModal({
-          title: 'Геолокация во время работы',
+          title: 'Заказы со свёрнутым приложением',
           message:
-            'Когда вы нажимаете «На линии», Zhetysu Go передаёт вашу геопозицию клиенту и серверу, чтобы показывать ближайшие заказы и движение к адресу. Отслеживание продолжается в фоне только пока вы на линии. После перехода офлайн оно останавливается.',
-          primaryLabel: 'Продолжить',
+            'Чтобы заказы приходили, когда приложение свёрнуто, Zhetysu Go нужен доступ к геопозиции «Всегда». Сейчас iOS спросит об этом. Отслеживание идёт только пока вы на линии — после перехода офлайн оно останавливается.\n\nМожно отказаться: вы останетесь на линии, но заказы будут приходить только с открытым приложением.',
+          primaryLabel: 'Разрешить',
           secondaryLabel: 'Не сейчас',
           onPrimary: () => {
             closeDriverModal();
@@ -287,22 +286,23 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     [closeDriverModal, openDriverModal],
   );
 
-  const ensureBackgroundPermissions = useCallback(async () => {
-    const currentBackground = await Location.getBackgroundPermissionsAsync();
-    if (currentBackground.status !== 'granted') {
-      const accepted = await confirmLocationDisclosure();
-      if (!accepted) return false;
-    }
+  const ensureLocationPermissions = useCallback(async () => {
+    // The system dialog is the only thing that can actually grant location, and
+    // iOS shows it once. Nothing of ours goes in front of it: the driver taps
+    // "На линии" and answers Apple's own question with its own Allow button.
+    const currentForeground = await Location.getForegroundPermissionsAsync();
+    const foreground =
+      currentForeground.status === 'granted' || !currentForeground.canAskAgain
+        ? currentForeground
+        : await Location.requestForegroundPermissionsAsync();
 
-    const foreground = await Location.requestForegroundPermissionsAsync();
     if (foreground.status !== 'granted') {
-      // Once the permission has been refused the system stops offering the
-      // dialog, so telling the driver to allow it leads nowhere: the only way
-      // back is the app's own page in Settings.
+      // Refused before, so the system will not offer the dialog again and
+      // Settings is the only way back.
       openDriverModal({
         title: 'Доступ к геолокации',
         message:
-          'Разрешите доступ к геолокации, чтобы выйти на линию.\n\nНастройки → Zhetysu Go → Геопозиция → «При использовании» или «Всегда».',
+          'Разрешите доступ к геолокации, чтобы выйти на линию.\n\nНастройки → Zhetysu Go → Геопозиция → «При использовании».',
         primaryLabel: 'Открыть настройки',
         secondaryLabel: 'Позже',
         onPrimary: () => {
@@ -313,22 +313,15 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       return false;
     }
 
-    const background = await Location.requestBackgroundPermissionsAsync();
-    if (background.status !== 'granted') {
-      // iOS never shows a second dialog for «Всегда» - it is only granted from
-      // Settings - so this screen has to hand the driver the way there.
-      openDriverModal({
-        title: 'Фоновая геолокация',
-        message:
-          'Чтобы заказы приходили, пока приложение свёрнуто, нужно разрешение «Всегда».\n\nНастройки → Zhetysu Go → Геопозиция → «Всегда».',
-        primaryLabel: 'Открыть настройки',
-        secondaryLabel: 'Позже',
-        onPrimary: () => {
-          closeDriverModal();
-          Linking.openSettings().catch(() => {});
-        },
-      });
-      return false;
+    // "Всегда" only buys orders while the app is closed, and iOS will not grant
+    // it from a button - so it is asked for after the driver is already on the
+    // line, and a refusal changes nothing about being on it.
+    const currentBackground = await Location.getBackgroundPermissionsAsync();
+    if (currentBackground.status !== 'granted' && currentBackground.canAskAgain) {
+      const accepted = await confirmLocationDisclosure();
+      if (accepted) {
+        await Location.requestBackgroundPermissionsAsync().catch(() => {});
+      }
     }
 
     return true;
@@ -350,7 +343,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const toggleOnline = useCallback(
     async (value: boolean) => {
       if (value) {
-        const hasPermissions = await ensureBackgroundPermissions();
+        const hasPermissions = await ensureLocationPermissions();
         if (!hasPermissions) {
           setIsOnline(false);
           return;
@@ -362,7 +355,11 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             setAuthToken(auth.accessToken);
           }
           await apiClient.post('/drivers/status', { isOnline: true });
-          if (profile?.driverMode !== 'COURIER') {
+          // Without "Всегда" the background task cannot start, and trying would
+          // throw and take the driver off the line over something optional.
+          const backgroundGranted =
+            (await Location.getBackgroundPermissionsAsync()).status === 'granted';
+          if (profile?.driverMode !== 'COURIER' && backgroundGranted) {
             await startDriverBackgroundTracking();
           }
           const [profileRes, currentPosition] = await Promise.all([
@@ -445,7 +442,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       }
     },
     [
-      ensureBackgroundPermissions,
+      ensureLocationPermissions,
       navigation,
       openDriverModal,
       openProfileActionModal,
@@ -774,31 +771,6 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             setCurrentRideId(ride.id);
           }
         });
-
-        socket.on(
-          'message:sent',
-          (message: { id: string; rideId?: string; senderType?: string; content?: string }) => {
-            if (!mounted || message.senderType !== 'PASSENGER') {
-              return;
-            }
-
-            const text = message.content?.trim();
-            if (!text || message.rideId !== currentRideIdRef.current) {
-              return;
-            }
-
-            // No point buzzing over a message that is already on screen.
-            const routes = navigation.getState()?.routes ?? [];
-            if (routes[routes.length - 1]?.name === 'ChatScreen') {
-              return;
-            }
-
-            void sendLocalNotification('Сообщение от пассажира', text, {
-              type: 'CHAT_MESSAGE',
-              rideId: message.rideId,
-            });
-          },
-        );
 
         socket.on('ride:updated', (ride: { id: string; status: string }) => {
           if (!mounted) {
