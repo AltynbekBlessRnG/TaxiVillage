@@ -32,6 +32,15 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
   ) {}
 
+  /**
+   * Пока водителей в Ушарале знают в лицо, скан прав и СТС — лишний барьер:
+   * админ и так одобряет каждого вручную. Флаг снимает только проверку
+   * документов, одобрение водителя админом остаётся.
+   */
+  private documentsRequired(): boolean {
+    return this.configService.get<string>('DRIVER_DOCUMENTS_REQUIRED') !== 'false';
+  }
+
   private locationCache = new Map<string, { lat: number; lng: number; lastUpdate: Date }>();
   private activeRideCache = new Map<string, { rideId: string | null; checkedAt: number }>();
   private readonly BATCH_INTERVAL = 30000; // 30 seconds
@@ -200,6 +209,13 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (driver.driverMode === DriverMode.COURIER) {
+        if (!this.documentsRequired()) {
+          return this.prisma.driverProfile.update({
+            where: { userId },
+            data: { isOnline },
+          });
+        }
+
         const approvedDocuments = driver.documents.filter((doc) => doc.approved);
         const hasCourierId = approvedDocuments.some((doc) => doc.type === DocumentType.COURIER_ID);
         const requiresVehicleDocs =
@@ -241,15 +257,17 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       }
 
       // Check approved documents
-      const approvedDocuments = driver.documents.filter((doc) => doc.approved);
-      const hasDriverLicense = approvedDocuments.some((doc) => doc.type === DocumentType.DRIVER_LICENSE);
-      const hasCarRegistration = approvedDocuments.some((doc) => doc.type === DocumentType.CAR_REGISTRATION);
+      if (this.documentsRequired()) {
+        const approvedDocuments = driver.documents.filter((doc) => doc.approved);
+        const hasDriverLicense = approvedDocuments.some((doc) => doc.type === DocumentType.DRIVER_LICENSE);
+        const hasCarRegistration = approvedDocuments.some((doc) => doc.type === DocumentType.CAR_REGISTRATION);
 
-      if (!hasDriverLicense) {
-        throw new BadRequestException('Необходимо загрузить и получить одобрение водительского удостоверения');
-      }
-      if (!hasCarRegistration) {
-        throw new BadRequestException('Необходимо загрузить и получить одобрение СТС (свидетельство о регистрации ТС)');
+        if (!hasDriverLicense) {
+          throw new BadRequestException('Необходимо загрузить и получить одобрение водительского удостоверения');
+        }
+        if (!hasCarRegistration) {
+          throw new BadRequestException('Необходимо загрузить и получить одобрение СТС (свидетельство о регистрации ТС)');
+        }
       }
     }
 

@@ -49,6 +49,11 @@ services:
         value: "10"
       - key: OTP_RESEND_SECONDS
         value: "45"
+      # Пока село маленькое и каждого водителя одобряют вручную, скан прав и
+      # СТС не требуем. Поставить "true", когда водителей станет больше, чем
+      # можно узнать в лицо.
+      - key: DRIVER_DOCUMENTS_REQUIRED
+        value: "false"
       # App Review sign-in, for the demo accounts Apple's reviewer is given.
       # Pinned to a literal here, so every deploy rewrites whatever the
       # dashboard holds: left at "false" it turned each redeploy into a silent
