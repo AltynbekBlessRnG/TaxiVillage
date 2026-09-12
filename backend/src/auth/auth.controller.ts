@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import {
   IsEmail,
@@ -38,6 +38,19 @@ class RegisterDto {
   @IsOptional()
   @IsString()
   fullName?: string;
+}
+
+class BecomeDriverDto {
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+}
+
+class SwitchRoleDto {
+  @IsIn([UserRole.PASSENGER, UserRole.DRIVER, UserRole.MERCHANT], {
+    message: 'Выберите роль',
+  })
+  role!: PublicRegisterRole;
 }
 
 class LoginDto {
@@ -196,5 +209,23 @@ export class AuthController {
   async logout(@Req() req: any) {
     await this.authService.revokeRefreshToken(req.user.userId);
     return { success: true };
+  }
+
+  @Get('roles')
+  @UseGuards(AuthGuard('jwt'))
+  getRoles(@Req() req: any) {
+    return this.authService.getRoles(req.user.userId);
+  }
+
+  @Post('roles/driver')
+  @UseGuards(AuthGuard('jwt'))
+  becomeDriver(@Req() req: any, @Body() dto: BecomeDriverDto) {
+    return this.authService.becomeDriver(req.user.userId, dto.fullName);
+  }
+
+  @Post('roles/switch')
+  @UseGuards(AuthGuard('jwt'))
+  switchRole(@Req() req: any, @Body() dto: SwitchRoleDto) {
+    return this.authService.switchRole(req.user.userId, dto.role as UserRole);
   }
 }

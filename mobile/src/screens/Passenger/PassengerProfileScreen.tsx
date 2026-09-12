@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, logout } from '../../api/client';
+import { becomeDriver, fetchRoles, switchRole, type RolesInfo } from '../../api/roles';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { LegalLinks } from '../../components/LegalLinks';
 import { resolveApiAssetUrl } from '../../utils/assets';
@@ -41,6 +42,16 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
     phone: '',
     avatarUrl: null,
   });
+  const [roles, setRoles] = useState<RolesInfo | null>(null);
+  const [switchingRole, setSwitchingRole] = useState(false);
+
+  useEffect(() => {
+    // The role list is a separate call so a failure here only costs the role
+    // card, not the whole profile screen.
+    fetchRoles()
+      .then(setRoles)
+      .catch(() => setRoles(null));
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -116,6 +127,34 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setUploadingAvatar(false);
     }
+  };
+
+  const runRoleChange = async (action: () => Promise<unknown>) => {
+    try {
+      setSwitchingRole(true);
+      await action();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось сменить роль';
+      setModal({
+        visible: true,
+        title: 'Ошибка',
+        message: Array.isArray(message) ? message.join(', ') : message,
+      });
+    } finally {
+      setSwitchingRole(false);
+    }
+  };
+
+  const confirmBecomeDriver = () => {
+    setModal({
+      visible: true,
+      title: 'Стать водителем?',
+      message:
+        'Профиль пассажира сохранится — переключаться между режимами можно в любой момент. Перед выходом на линию нужно будет заполнить данные об автомобиле.',
+      primaryLabel: 'Стать водителем',
+      secondaryLabel: 'Отмена',
+      onPrimary: () => runRoleChange(() => becomeDriver(profile.fullName)),
+    });
   };
 
   const confirmDeleteAccount = () => {
@@ -228,6 +267,59 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
           </View>
+
+          {roles ? (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionEyebrow}>Роль</Text>
+              {roles.availableRoles.includes('DRIVER') ? (
+                <>
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIcon}>
+                      <Ionicons name="car-outline" size={18} color="#F4F4F5" />
+                    </View>
+                    <View style={styles.infoBody}>
+                      <Text style={styles.infoLabel}>Сейчас вы пассажир</Text>
+                      <Text style={styles.infoHint}>У аккаунта есть и профиль водителя.</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.roleButton}
+                    onPress={() => runRoleChange(() => switchRole('DRIVER'))}
+                    disabled={switchingRole}
+                    activeOpacity={0.88}
+                  >
+                    <Text style={styles.roleButtonText}>
+                      {switchingRole ? 'Переключаем...' : 'Перейти в режим водителя'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIcon}>
+                      <Ionicons name="car-outline" size={18} color="#F4F4F5" />
+                    </View>
+                    <View style={styles.infoBody}>
+                      <Text style={styles.infoLabel}>Хотите возить пассажиров?</Text>
+                      <Text style={styles.infoHint}>
+                        Заводить второй номер не нужно — профиль пассажира сохранится.
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.roleButton}
+                    onPress={confirmBecomeDriver}
+                    disabled={switchingRole}
+                    activeOpacity={0.88}
+                  >
+                    <Text style={styles.roleButtonText}>
+                      {switchingRole ? 'Подключаем...' : 'Стать водителем'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          ) : null}
 
           <LegalLinks />
 
@@ -445,6 +537,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginTop: 6,
+  },
+  roleButton: {
+    marginTop: 14,
+    backgroundColor: '#22D3EE',
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  roleButtonText: {
+    color: '#04131A',
+    fontSize: 15,
+    fontWeight: '900',
   },
   deleteButton: {
     marginTop: 4,

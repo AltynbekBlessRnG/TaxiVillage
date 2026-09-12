@@ -20,6 +20,8 @@
     "taxi-dispatch-soak": "node scripts/with-env.js node scripts/taxi-dispatch-soak.js",
     "app-review:provision": "node scripts/with-env.js node scripts/provision-app-review-users.js",
     "admin:create": "node scripts/with-env.js node scripts/create-admin.js",
+    "drivers:approve": "node scripts/with-env.js node scripts/approve-drivers.js",
+    "places:seed": "node scripts/with-env.js node scripts/seed-places.js",
     "prisma:migrate:deploy": "node scripts/with-env.js npx prisma migrate deploy",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",

@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif; }
+    a { color: #38BDF8; } a:hover { color: #7DD3FC; }
+  </style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #09090B; box-sizing: border-box; padding: 28px 20px 0 20px; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="display: flex; align-items: center; gap: 8px; align-self: flex-start; background: #18181B; border: 1px solid #27272A; border-radius: 999px; padding: 11px 16px; margin-bottom: 18px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F4F4F5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+    <span style="color: #F4F4F5; font-size: 15px; font-weight: 700;">Назад</span>
+  </div>
+
+  <div style="color: #F4F4F5; font-size: 32px; line-height: 38px; font-weight: 900; margin-bottom: 6px;">Межгород</div>
+  <div style="color: #A1A1AA; font-size: 16px; line-height: 22px; margin-bottom: 22px;">Найдём машину</div>
+
+  <div style="color: #71717A; font-size: 12px; font-weight: 800; letter-spacing: 0.6px; margin-bottom: 8px;">ОТКУДА</div>
+  <div style="display: flex; align-items: center; justify-content: space-between; background: #0B0B0E; border: 1px solid #27272A; border-radius: 22px; padding: 15px 18px; margin-bottom: 20px;">
+    <span style="color: #F4F4F5; font-size: 20px; font-weight: 800;">Ушарал</span>
+    <span style="color: #DBF0FF; font-size: 15px; font-weight: 700; background: #0F172A; border: 1px solid #1E293B; border-radius: 999px; padding: 9px 16px;">Изменить</span>
+  </div>
+
+  <div style="color: #71717A; font-size: 12px; font-weight: 800; letter-spacing: 0.6px; margin-bottom: 8px;">КУДА</div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px;">
+    <div style="background: #0F172A; border: 1px solid #38BDF8; border-radius: 20px; padding: 18px 14px; text-align: center;">
+      <div style="color: #DBF0FF; font-size: 19px; font-weight: 800;">Алматы</div>
+      <div style="color: #7DD3FC; font-size: 13px; font-weight: 600; margin-top: 4px;">6 часов</div>
+    </div>
+    <div style="background: #0B0B0E; border: 1px solid #27272A; border-radius: 20px; padding: 18px 14px; text-align: center;">
+      <div style="color: #F4F4F5; font-size: 19px; font-weight: 800;">Талдыкорган</div>
+      <div style="color: #71717A; font-size: 13px; font-weight: 600; margin-top: 4px;">3 часа</div>
+    </div>
+    <div style="background: #0B0B0E; border: 1px solid #27272A; border-radius: 20px; padding: 18px 14px; text-align: center;">
+      <div style="color: #F4F4F5; font-size: 19px; font-weight: 800;">Алаколь</div>
+      <div style="color: #71717A; font-size: 13px; font-weight: 600; margin-top: 4px;">1 час</div>
+    </div>
+    <div style="background: #0B0B0E; border: 1px solid #27272A; border-radius: 20px; padding: 18px 14px; text-align: center;">
+      <div style="color: #F4F4F5; font-size: 19px; font-weight: 800;">Другой город</div>
+      <div style="color: #71717A; font-size: 13px; font-weight: 600; margin-top: 4px;">из списка</div>
+    </div>
+  </div>
+
+  <div style="color: #71717A; font-size: 12px; font-weight: 800; letter-spacing: 0.6px; margin-bottom: 8px;">КОГДА</div>
+  <div style="display: flex; gap: 10px; margin-bottom: 22px;">
+    <div style="flex-grow: 1; background: #0F172A; border: 1px solid #38BDF8; border-radius: 18px; padding: 15px 10px; text-align: center;">
+      <span style="color: #DBF0FF; font-size: 16px; font-weight: 800;">Сегодня</span>
+    </div>
+    <div style="flex-grow: 1; background: #0B0B0E; border: 1px solid #27272A; border-radius: 18px; padding: 15px 10px; text-align: center;">
+      <span style="color: #D4D4D8; font-size: 16px; font-weight: 700;">Завтра</span>
+    </div>
+    <div style="flex-grow: 1; background: #0B0B0E; border: 1px solid #27272A; border-radius: 18px; padding: 15px 10px; text-align: center;">
+      <span style="color: #D4D4D8; font-size: 16px; font-weight: 700;">Дата</span>
+    </div>
+  </div>
+
+  <div style="color: #71717A; font-size: 12px; font-weight: 800; letter-spacing: 0.6px; margin-bottom: 8px;">СКОЛЬКО ЧЕЛОВЕК</div>
+  <div style="display: flex; align-items: center; justify-content: space-between; background: #0B0B0E; border: 1px solid #27272A; border-radius: 22px; padding: 10px 12px; margin-bottom: 24px;">
+    <div style="width: 52px; height: 52px; border-radius: 26px; background: #18181B; border: 1px solid #27272A; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+    </div>
+    <span style="color: #F4F4F5; font-size: 26px; font-weight: 900;">1</span>
+    <div style="width: 52px; height: 52px; border-radius: 26px; background: #0F172A; border: 1px solid #1E293B; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7DD3FC" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+    </div>
+  </div>
+
+  <div style="background: #38BDF8; border-radius: 18px; min-height: 64px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#04131A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3v-5l2-5h11l3 5h2v5h-2"></path><circle cx="7.5" cy="17" r="2"></circle><circle cx="17.5" cy="17" r="2"></circle></svg>
+    <span style="color: #04131A; font-size: 18px; font-weight: 900;">Найти машину</span>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

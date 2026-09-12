@@ -103,6 +103,23 @@ function shortenAddress(value?: string) {
   return `${firstPart}, ${secondPart}`;
 }
 
+/**
+ * A Plus Code is what Google answers with when it knows nothing about a point,
+ * and around Usharal that is most of them. "7PF8+4CDJ" tells a driver nothing,
+ * so it must never reach the screen - better to say "Точка на карте" and let
+ * the pin speak.
+ *
+ * Both shapes appear: the bare code, and a compound one where the code is
+ * glued to a locality ("9G8F+5W Ушарал, Казахстан").
+ */
+export function isPlusCode(address: string | undefined | null): boolean {
+  if (!address) {
+    return false;
+  }
+  const firstToken = address.trim().split(/[\s,]+/)[0] ?? '';
+  return /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i.test(firstToken);
+}
+
 export function formatGooglePredictionAddress(prediction: GoogleAutocompletePrediction) {
   return shortenAddress(prediction.structured_formatting?.main_text || prediction.description);
 }
@@ -203,12 +220,19 @@ export async function reverseGeocodeWithGoogle(lat: number, lng: number) {
     data.results.find(
       (result) =>
         result.formatted_address &&
-        !result.formatted_address.includes('+') &&
+        !isPlusCode(result.formatted_address) &&
         !result.types?.includes('plus_code'),
     ) ??
-    data.results[0];
+    null;
 
-  return shortenAddress(preferredResult.formatted_address) || 'Точка на карте';
+  // Deliberately no `?? data.results[0]` fallback: when every result Google
+  // has is a Plus Code, that last line is what put "7PF8+4CDJ" on screen as
+  // the pickup address.
+  const address = preferredResult
+    ? shortenAddress(preferredResult.formatted_address)
+    : '';
+
+  return isPlusCode(address) || !address ? '' : address;
 }
 
 export async function geocodeAddressWithGoogle(

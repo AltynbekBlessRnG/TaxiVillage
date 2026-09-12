@@ -799,3 +799,52 @@ model IntercityTripStatusHistory {
   status            IntercityTripStatus
   createdAt         DateTime             @default(now())
 }
+
+/// Что такое ориентир и как о нём говорить.
+enum PlaceKind {
+  /// Магазин, кафе, школа, аптека — «возле Алатау»
+  POI
+  /// Улица — «улица Абылай Хана»
+  STREET
+  /// Село, микрорайон, местность
+  AREA
+}
+
+enum PlaceSource {
+  /// Засеяно из OpenStreetMap
+  OSM
+  /// Добавлено администратором вручную
+  MANUAL
+  /// Выучено из адресов реальных поездок
+  RIDE
+}
+
+/// Справочник мест села.
+///
+/// Коммерческие карты про Ушарал почти ничего не знают: обратный геокодинг
+/// отвечает Plus Code вроде «7PF8+4CDJ», а поиск не находит ни магазина, ни
+/// бани. Поэтому свой справочник — не оптимизация, а единственный способ
+/// показать человеку название вместо координат.
+model Place {
+  id         String      @id @default(cuid())
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  name       String
+  /// Как это место называют ещё: «Алатау», «магазин Алатау», «алатау».
+  aliases    String[]    @default([])
+  kind       PlaceKind
+  /// Исходная категория: shop, pharmacy, school и т.п.
+  category   String?
+
+  lat        Float
+  lng        Float
+
+  source     PlaceSource @default(MANUAL)
+  /// Ключ в источнике, чтобы повторный сид не плодил дубли: «node/243235602».
+  externalId String?     @unique
+  isActive   Boolean     @default(true)
+
+  @@index([lat, lng])
+  @@index([kind, isActive])
+}

@@ -487,11 +487,50 @@ export class AuthService {
     }
   }
 
+  /** What this account can be, and what it is right now. */
+  async getRoles(userId: string) {
+    const user = await this.usersService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('Пользователь не найден');
+    }
+
+    return {
+      activeRole: user.role,
+      availableRoles: await this.usersService.getAvailableRoles(userId),
+    };
+  }
+
+  /**
+   * Signs an existing account up to drive. Their old profile is left alone -
+   * a driver who also orders taxis is the normal case in a village, not an
+   * edge case, and making them register a second phone number to do it was
+   * the reason nobody could.
+   */
+  async becomeDriver(userId: string, fullName?: string) {
+    await this.usersService.addDriverProfile(userId, fullName);
+    return this.switchRole(userId, UserRole.DRIVER);
+  }
+
+  async switchRole(userId: string, role: UserRole) {
+    const availableRoles = await this.usersService.getAvailableRoles(userId);
+    if (!availableRoles.includes(role)) {
+      throw new BadRequestException('У аккаунта нет такой роли');
+    }
+
+    await this.usersService.setActiveRole(userId, role);
+
+    // The role travels inside the JWT and every guard reads it from there, so
+    // the switch only takes effect once the app is holding new tokens.
+    const tokens = await this.issueTokens(userId, role);
+    return { ...tokens, role, availableRoles };
+  }
+
   async revokeRefreshToken(userId: string) {
     await this.usersService.updateRefreshTokenHash(userId, null);
-    // Signing out gives up the device as well, so the account stops receiving
-    // pushes on a phone whoever signs in next is now holding.
-    await this.usersService.updatePushToken(userId, null);
+    // The push token is deliberately left in place. updatePushToken() already
+    // takes the device away from whoever held it before, so clearing it here
+    // bought nothing - and it silently killed notifications for every person
+    // the refresh path signed out by mistake, until they logged in again.
   }
 
   private async createOtpSession(params: {
