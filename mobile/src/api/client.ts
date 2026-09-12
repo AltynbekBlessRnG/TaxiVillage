@@ -11,7 +11,16 @@ import { apiClient, BASE_URL } from './instance';
 
 export { apiClient };
 
-let refreshPromise: Promise<string | null> | null = null;
+/**
+ * A refresh either produces a token, or fails in one of two very different
+ * ways: the server rejected the token (the session is over), or we never got
+ * an answer (it almost certainly is not).
+ */
+export type RefreshResult =
+  | { accessToken: string; sessionExpired?: false }
+  | { accessToken: null; sessionExpired: boolean };
+
+let refreshPromise: Promise<RefreshResult> | null = null;
 
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -48,8 +57,15 @@ apiClient.interceptors.response.use(
 
     originalRequest._retry = true;
 
-    const nextAccessToken = await refreshAccessToken();
-    if (!nextAccessToken) {
+    const result = await refreshAccessToken();
+    if (!result.accessToken) {
+      if (!result.sessionExpired) {
+        // The refresh never reached the server - no signal, or the backend is
+        // still coming back up from a deploy. Hand the caller its original
+        // failure and keep the session: it is almost certainly still valid.
+        return Promise.reject(error);
+      }
+
       // The session is gone for good. Clearing it silently left the person on
       // whatever screen they were on with every button answering "не удалось
       // …" — a driver on shift saw only that the ride would not accept, with
@@ -60,7 +76,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
+    originalRequest.headers.Authorization = `Bearer ${result.accessToken}`;
     return apiClient(originalRequest);
   },
 );
@@ -90,12 +106,12 @@ export async function resetAuthSession(): Promise<void> {
   setAuthToken(null);
 }
 
-export async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<RefreshResult> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       const auth = await loadAuth();
       if (!auth?.refreshToken) {
-        return null;
+        return { accessToken: null, sessionExpired: true };
       }
 
       try {
@@ -108,9 +124,19 @@ export async function refreshAccessToken(): Promise<string | null> {
         };
         await updateAuthTokens({ accessToken, refreshToken });
         setAuthToken(accessToken);
-        return accessToken;
-      } catch {
-        return null;
+        return { accessToken };
+      } catch (error) {
+        // Only the server refusing the refresh token means the session is
+        // really over. Treating every failure as a dead session signed people
+        // out on a moment of bad signal and on every backend redeploy, and
+        // each of those cost them a Telegram code to get back in.
+        const status = axios.isAxiosError(error)
+          ? error.response?.status
+          : undefined;
+        return {
+          accessToken: null,
+          sessionExpired: status === 401 || status === 403,
+        };
       } finally {
         refreshPromise = null;
       }

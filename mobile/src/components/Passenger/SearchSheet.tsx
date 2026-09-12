@@ -4,9 +4,9 @@ import BottomSheet, { BottomSheetTextInput, BottomSheetView } from '@gorhom/bott
 import {
   formatGooglePredictionAddress,
   getGooglePlaceDetails,
-  reverseGeocodeWithGoogle,
   searchGooglePlaces,
 } from '../../utils/googleMaps';
+import { resolveAddressForPoint, searchPlaces } from '../../api/places';
 import { loadRecentAddresses, saveRecentAddress, type RecentAddress } from '../../storage/recentAddresses';
 import { showAlert } from '../../components/AppAlert';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,19 @@ interface GooglePlacePrediction {
     main_text?: string;
     secondary_text?: string;
   };
+  /**
+   * Set on results from our own village directory. Those already carry
+   * coordinates, so selecting one must not go asking Google for details of a
+   * place id Google has never heard of.
+   */
+  localPlace?: { lat: number; lng: number };
 }
+
+const PLACE_KIND_LABELS: Record<string, string> = {
+  POI: 'Место в Ушарале',
+  STREET: 'Улица',
+  AREA: 'Местность',
+};
 
 interface Props {
   visible: boolean;
@@ -146,8 +158,25 @@ export const SearchSheet: React.FC<Props> = ({
     }
     setLoading(true);
     try {
-      const data = await searchGooglePlaces(query, userLocation);
-      setSearchResults(data);
+      // Our own directory first, and it is asked in parallel so it costs no
+      // extra wait. Google knows almost nothing about Usharal, so what the
+      // village itself recorded is the better answer whenever it has one.
+      const [localPlaces, googlePlaces] = await Promise.all([
+        searchPlaces(query),
+        searchGooglePlaces(query, userLocation).catch(() => [] as GooglePlacePrediction[]),
+      ]);
+
+      const localResults: GooglePlacePrediction[] = localPlaces.map((place) => ({
+        place_id: `local:${place.id}`,
+        description: place.name,
+        structured_formatting: {
+          main_text: place.name,
+          secondary_text: PLACE_KIND_LABELS[place.kind] ?? 'Место в Ушарале',
+        },
+        localPlace: { lat: place.lat, lng: place.lng },
+      }));
+
+      setSearchResults([...localResults, ...googlePlaces]);
     } catch {
       setSearchResults([]);
     } finally {
@@ -203,6 +232,16 @@ export const SearchSheet: React.FC<Props> = ({
   const handleAddressSelect = async (feature: GooglePlacePrediction, field: 'from' | 'to') => {
     setLoading(true);
     try {
+      if (feature.localPlace) {
+        await completeAddressSelection(
+          field,
+          feature.description,
+          feature.localPlace.lat,
+          feature.localPlace.lng,
+        );
+        return;
+      }
+
       const location = await getGooglePlaceDetails(feature.place_id);
       const shortAddress = formatGooglePredictionAddress(feature);
       await completeAddressSelection(field, shortAddress, location.lat, location.lng);
@@ -226,7 +265,7 @@ export const SearchSheet: React.FC<Props> = ({
 
     setLoading(true);
     try {
-      const address = await reverseGeocodeWithGoogle(userLocation.lat, userLocation.lng);
+      const address = await resolveAddressForPoint(userLocation.lat, userLocation.lng);
       await completeAddressSelection(activeField, address, userLocation.lat, userLocation.lng);
     } finally {
       setLoading(false);

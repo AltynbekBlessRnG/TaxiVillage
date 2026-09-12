@@ -30,12 +30,19 @@ async function handleAuthFailure() {
   }
 
   authRecoveryPromise = (async () => {
-    const nextAccessToken = await refreshAccessToken();
-    if (nextAccessToken && sharedSocket) {
-      activeToken = nextAccessToken;
-      sharedSocket.auth = { token: nextAccessToken };
+    const result = await refreshAccessToken();
+    if (result.accessToken && sharedSocket) {
+      activeToken = result.accessToken;
+      sharedSocket.auth = { token: result.accessToken };
       sharedSocket.connect();
       return true;
+    }
+
+    if (!result.sessionExpired) {
+      // We could not reach the server to ask. Leave the session alone and let
+      // socket.io keep retrying - once the connection is back, the next
+      // rejection runs this again and the refresh succeeds.
+      return false;
     }
 
     await resetAuthSession();

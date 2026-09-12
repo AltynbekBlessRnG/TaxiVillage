@@ -47,6 +47,13 @@ export default {
     },
     "android": {
       "package": "com.zhetysu.go",
+      // Без adaptiveIcon Android 8+ не собирает иконку и показывает стандартную
+      // зелёную. Логотип в foreground уже уменьшен в безопасную зону 66%,
+      // иначе маска срезает верх и низ метки.
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B0F15"
+      },
       "softwareKeyboardLayoutMode": "resize",
       "config": {
         "googleMaps": {

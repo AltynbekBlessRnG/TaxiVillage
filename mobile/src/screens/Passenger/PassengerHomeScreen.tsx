@@ -20,7 +20,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, logout } from '../../api/client';
 import { initializeNotifications } from '../../utils/notifications';
 import { buildRegion, buildRouteCoordinates, toMapPoint } from '../../utils/map';
-import { reverseGeocodeWithGoogle } from '../../utils/googleMaps';
+import { resolveAddressForPoint } from '../../api/places';
 import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { resolveRideRoute } from '../../utils/rideRoute';
@@ -109,7 +109,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const updateAddress = useCallback(async (lat: number, lng: number, field: 'from' | 'to') => {
     try {
-      const formatted = await reverseGeocodeWithGoogle(lat, lng);
+      const formatted = await resolveAddressForPoint(lat, lng);
 
       if (field === 'from') {
         setFromAddress(formatted);
@@ -668,7 +668,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
         }}
         onMapPickConfirm={async () => {
           if (mapCenter) {
-            const addrStr = await reverseGeocodeWithGoogle(mapCenter.lat, mapCenter.lng).catch(
+            const addrStr = await resolveAddressForPoint(mapCenter.lat, mapCenter.lng).catch(
               () => 'Точка на карте',
             );
 

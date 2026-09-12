@@ -6,6 +6,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { showAlert } from '../../components/AppAlert';
+import { OptionPickerModal } from '../../components/OptionPickerModal';
+
+type UploadableDocumentType = 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'COURIER_ID';
+type DocumentSource = 'camera' | 'library';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverDocuments'>;
 
@@ -57,6 +61,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
   const [profile, setProfile] = useState<DriverDocumentsProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+  const [documentSourceFor, setDocumentSourceFor] = useState<UploadableDocumentType | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingCar, setSavingCar] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -94,20 +99,35 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
   }, [loadProfile]);
 
   const pickAndUploadDocument = useCallback(
-    async (docType: 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'COURIER_ID') => {
+    async (docType: UploadableDocumentType, source: DocumentSource) => {
       try {
-        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        // Photographing the document is what people actually do - it is lying
+        // on the table in front of them. Sending them to the gallery first
+        // meant taking the picture in another app and coming back.
+        const permissionResult =
+          source === 'camera'
+            ? await ImagePicker.requestCameraPermissionsAsync()
+            : await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.status !== 'granted') {
-          showAlert('Ошибка', 'Нужен доступ к галерее для загрузки документов');
+          showAlert(
+            'Ошибка',
+            source === 'camera'
+              ? 'Нужен доступ к камере, чтобы сфотографировать документ'
+              : 'Нужен доступ к галерее для загрузки документов',
+          );
           return;
         }
 
-        const result = await ImagePicker.launchImageLibraryAsync({
+        const pickerOptions = {
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
-          aspect: [4, 3],
+          aspect: [4, 3] as [number, number],
           quality: 0.8,
-        });
+        };
+        const result =
+          source === 'camera'
+            ? await ImagePicker.launchCameraAsync(pickerOptions)
+            : await ImagePicker.launchImageLibraryAsync(pickerOptions);
 
         if (!result.canceled && result.assets[0]) {
           setUploadingDoc(docType);
@@ -302,21 +322,21 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
               <UploadAction
                 title="Водительское удостоверение"
                 subtitle="Для режима такси"
-                onPress={() => pickAndUploadDocument('DRIVER_LICENSE')}
+                onPress={() => setDocumentSourceFor('DRIVER_LICENSE')}
                 disabled={uploadingDoc !== null}
                 busy={uploadingDoc === 'DRIVER_LICENSE'}
               />
               <UploadAction
                 title="СТС"
                 subtitle="Для такси и авто-режимов"
-                onPress={() => pickAndUploadDocument('CAR_REGISTRATION')}
+                onPress={() => setDocumentSourceFor('CAR_REGISTRATION')}
                 disabled={uploadingDoc !== null}
                 busy={uploadingDoc === 'CAR_REGISTRATION'}
               />
               <UploadAction
                 title="Удостоверение личности"
                 subtitle="Для курьерского режима"
-                onPress={() => pickAndUploadDocument('COURIER_ID')}
+                onPress={() => setDocumentSourceFor('COURIER_ID')}
                 disabled={uploadingDoc !== null}
                 busy={uploadingDoc === 'COURIER_ID'}
               />
@@ -370,6 +390,21 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <OptionPickerModal
+        visible={documentSourceFor !== null}
+        title="Как загрузить документ?"
+        options={[
+          { label: 'Сфотографировать', value: 'camera' },
+          { label: 'Выбрать из галереи', value: 'library' },
+        ]}
+        onSelect={(value) => {
+          if (documentSourceFor) {
+            void pickAndUploadDocument(documentSourceFor, value as DocumentSource);
+          }
+        }}
+        onClose={() => setDocumentSourceFor(null)}
+      />
     </SafeAreaView>
   );
 };

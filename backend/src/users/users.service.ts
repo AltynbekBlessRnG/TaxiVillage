@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client/index';
 import { randomUUID } from 'crypto';
@@ -50,6 +50,7 @@ export class UsersService {
               supportsIntercity: false,
               driverMode: 'TAXI',
               courierTransportType: 'FOOT',
+              status: 'APPROVED',
               balance: INITIAL_DRIVER_BALANCE,
             },
           },
@@ -113,6 +114,7 @@ export class UsersService {
               supportsCourier: false,
               supportsIntercity: true,
               driverMode: 'INTERCITY',
+              status: 'APPROVED',
               balance: INITIAL_DRIVER_BALANCE,
             },
           },
@@ -425,6 +427,85 @@ export class UsersService {
           merchant: true,
         },
       });
+    });
+  }
+
+  /**
+   * Roles this account can already act as.
+   *
+   * `User.role` is only the role in use right now; what a person is actually
+   * allowed to be is decided by the profiles they own, and those are separate
+   * rows. So a passenger who signs up to drive keeps their passenger profile
+   * and simply gains a second option here.
+   */
+  async getAvailableRoles(userId: string): Promise<UserRole[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { passenger: true, driver: true, merchant: true },
+    });
+
+    if (!user || user.isDeleted) {
+      return [];
+    }
+
+    // An admin account is not a village role anyone switches in and out of.
+    if (user.role === 'ADMIN') {
+      return [UserRole.ADMIN];
+    }
+
+    const roles: UserRole[] = [];
+    if (user.passenger) {
+      roles.push(UserRole.PASSENGER);
+    }
+    if (user.driver) {
+      roles.push(UserRole.DRIVER);
+    }
+    if (user.merchant) {
+      roles.push(UserRole.MERCHANT);
+    }
+    return roles;
+  }
+
+  /** Gives an existing account a driver profile it did not have before. */
+  async addDriverProfile(userId: string, fullName?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { driver: true, passenger: true, merchant: true },
+    });
+
+    if (!user || user.isDeleted) {
+      throw new NotFoundException('Пользователь не найден');
+    }
+    if (user.role === 'ADMIN') {
+      throw new BadRequestException('Администратор не может стать водителем');
+    }
+    if (user.driver) {
+      return user.driver;
+    }
+
+    return this.prisma.driverProfile.create({
+      data: {
+        userId: user.id,
+        // Reuse the name they already gave us, so nobody types it twice.
+        fullName: fullName ?? user.passenger?.fullName ?? user.merchant?.name ?? undefined,
+        status: 'APPROVED',
+        isOnline: false,
+        rating: 5,
+        balance: INITIAL_DRIVER_BALANCE,
+        supportsTaxi: true,
+        supportsCourier: true,
+        supportsIntercity: false,
+        driverMode: 'TAXI',
+        courierTransportType: 'FOOT',
+      },
+    });
+  }
+
+  /** Switches which of the account's profiles is the active one. */
+  async setActiveRole(userId: string, role: UserRole) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { role },
     });
   }
 

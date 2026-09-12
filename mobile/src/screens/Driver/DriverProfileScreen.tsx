@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient, logout } from '../../api/client';
+import { fetchRoles, switchRole, type RolesInfo } from '../../api/roles';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { LegalLinks } from '../../components/LegalLinks';
 import { resolveApiAssetUrl } from '../../utils/assets';
@@ -128,6 +129,8 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [updatingIntercity, setUpdatingIntercity] = useState(false);
   const [updatingCourier, setUpdatingCourier] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [roles, setRoles] = useState<RolesInfo | null>(null);
+  const [switchingRole, setSwitchingRole] = useState(false);
   const [modal, setModal] = useState<{
     visible: boolean;
     title: string;
@@ -143,6 +146,25 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     message: '',
   });
   const [courierTransportType, setCourierTransportType] = useState<'CAR' | 'BIKE' | 'FOOT'>('FOOT');
+
+  useEffect(() => {
+    // Fetched apart from the profile so a failure costs only the role card.
+    fetchRoles()
+      .then(setRoles)
+      .catch(() => setRoles(null));
+  }, []);
+
+  const goToPassengerMode = async () => {
+    try {
+      setSwitchingRole(true);
+      await switchRole('PASSENGER');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось сменить роль';
+      showAlert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+    } finally {
+      setSwitchingRole(false);
+    }
+  };
 
   const approvedDocuments = profile?.documents?.filter((doc) => doc.approved) ?? [];
   const hasApprovedLicense = approvedDocuments.some((doc) => doc.type === 'DRIVER_LICENSE');
@@ -681,6 +703,24 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
           </View>
+
+          {roles?.availableRoles.includes('PASSENGER') ? (
+            <View style={styles.modeCard}>
+              <View style={styles.modeHeader}>
+                <View>
+                  <Text style={styles.modeTitle}>Режим пассажира</Text>
+                  <Text style={styles.modeValue}>
+                    Заказывайте такси и еду с этого же аккаунта.
+                  </Text>
+                </View>
+                <PillButton
+                  title={switchingRole ? 'Переключаем...' : 'Перейти'}
+                  onPress={goToPassengerMode}
+                  disabled={switchingRole}
+                />
+              </View>
+            </View>
+          ) : null}
 
           <LegalLinks />
 

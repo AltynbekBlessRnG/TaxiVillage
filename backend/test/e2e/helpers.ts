@@ -73,6 +73,7 @@ export async function createE2eApp(): Promise<E2eAppContext> {
 export async function resetDatabase(prisma: PrismaService) {
   await prisma.$transaction([
     prisma.chatMessage.deleteMany(),
+    prisma.place.deleteMany(),
     prisma.favoriteAddress.deleteMany(),
     prisma.rideStatusHistory.deleteMany(),
     prisma.rideStop.deleteMany(),
