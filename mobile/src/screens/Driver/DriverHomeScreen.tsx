@@ -42,6 +42,7 @@ import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { getGoogleDirections } from '../../utils/googleMaps';
 import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
 import { resolveRideRoute } from '../../utils/rideRoute';
+import { ensureNotificationPermission } from '../../utils/notifications';
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
 import { useMessagesSummary } from '../../hooks/useMessagesSummary';
 
@@ -248,6 +249,22 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     refreshMessagesSummary().catch(() => {});
   }, [isFocused, loadDriverShell, refreshMessagesSummary]);
 
+  // Ask for location as soon as the driver lands here, the way the passenger
+  // home does, so "На линии" works on the first tap instead of stopping on a
+  // dialog. Only the plain foreground grant: "Всегда" stays behind the button.
+  // Waits for the notification dialog the login flow opened, because Android
+  // drops a second permission request made while one is on screen.
+  useEffect(() => {
+    const askUpFront = async () => {
+      await ensureNotificationPermission().catch(() => false);
+      const current = await Location.getForegroundPermissionsAsync();
+      if (current.status !== 'granted' && current.canAskAgain) {
+        await Location.requestForegroundPermissionsAsync();
+      }
+    };
+    askUpFront().catch(() => {});
+  }, []);
+
   const closeDriverModal = useCallback(() => {
     setDriverModal((current) => ({
       ...current,
@@ -316,11 +333,18 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     // "Всегда" only buys orders while the app is closed, and iOS will not grant
     // it from a button - so it is asked for after the driver is already on the
     // line, and a refusal changes nothing about being on it.
-    const currentBackground = await Location.getBackgroundPermissionsAsync();
-    if (currentBackground.status !== 'granted' && currentBackground.canAskAgain) {
-      const accepted = await confirmLocationDisclosure();
-      if (accepted) {
-        await Location.requestBackgroundPermissionsAsync().catch(() => {});
+    //
+    // Android is not asked at all. The tracking task runs as a foreground
+    // service the driver starts from this screen, and that needs no background
+    // grant - only Google Play's permission review, which costs a week and can
+    // be refused. iOS keeps it: Apple has already approved the build.
+    if (Platform.OS === 'ios') {
+      const currentBackground = await Location.getBackgroundPermissionsAsync();
+      if (currentBackground.status !== 'granted' && currentBackground.canAskAgain) {
+        const accepted = await confirmLocationDisclosure();
+        if (accepted) {
+          await Location.requestBackgroundPermissionsAsync().catch(() => {});
+        }
       }
     }
 
@@ -355,9 +379,11 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             setAuthToken(auth.accessToken);
           }
           await apiClient.post('/drivers/status', { isOnline: true });
-          // Without "Всегда" the background task cannot start, and trying would
-          // throw and take the driver off the line over something optional.
+          // On iOS, without "Всегда" the background task cannot start, and
+          // trying would throw and take the driver off the line over something
+          // optional. Android starts it from the foreground service instead.
           const backgroundGranted =
+            Platform.OS === 'android' ||
             (await Location.getBackgroundPermissionsAsync()).status === 'granted';
           if (profile?.driverMode !== 'COURIER' && backgroundGranted) {
             await startDriverBackgroundTracking();

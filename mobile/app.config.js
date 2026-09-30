@@ -63,7 +63,6 @@ export default {
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION",
         "android.permission.INTERNET"
@@ -78,7 +77,7 @@ export default {
           "locationAlwaysPermission": "Разрешите Zhetysu Go доступ к геопозиции, пока вы на смене как водитель или курьер, — в том числе когда приложение свёрнуто.",
           "locationWhenInUsePermission": "Разрешите Zhetysu Go доступ к геопозиции, чтобы показать карту и подставить адрес подачи или доставки.",
           "isIosBackgroundLocationEnabled": true,
-          "isAndroidBackgroundLocationEnabled": true
+          "isAndroidBackgroundLocationEnabled": false
         }
       ],
       [

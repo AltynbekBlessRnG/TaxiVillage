@@ -125,23 +125,38 @@ async function ensureAndroidChannel() {
   });
 }
 
+let notificationPermissionRequest: Promise<boolean> | null = null;
+
+// Shared by everything that asks right after login. Android shows one
+// permission dialog at a time and drops a second request made while the first
+// is open, so a screen that wants to ask for something else waits on this.
+export function ensureNotificationPermission(): Promise<boolean> {
+  if (!notificationPermissionRequest) {
+    notificationPermissionRequest = (async () => {
+      await ensureAndroidChannel();
+      const current = await Notifications.getPermissionsAsync();
+      if (current.status === 'granted') {
+        return true;
+      }
+      if (!current.canAskAgain) {
+        return false;
+      }
+      const requested = await Notifications.requestPermissionsAsync();
+      return requested.status === 'granted';
+    })().finally(() => {
+      notificationPermissionRequest = null;
+    });
+  }
+  return notificationPermissionRequest;
+}
+
 export async function registerPushToken(): Promise<string | null> {
   const auth = await loadAuth();
   if (!auth?.accessToken) {
     return null;
   }
 
-  await ensureAndroidChannel();
-
-  const currentPermissions = await Notifications.getPermissionsAsync();
-  let finalStatus = currentPermissions.status;
-
-  if (finalStatus !== 'granted') {
-    const requested = await Notifications.requestPermissionsAsync();
-    finalStatus = requested.status;
-  }
-
-  if (finalStatus !== 'granted') {
+  if (!(await ensureNotificationPermission())) {
     return null;
   }
 
