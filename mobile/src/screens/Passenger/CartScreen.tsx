@@ -53,6 +53,8 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                 <TouchableOpacity
                   style={[styles.stepperButton, styles.stepperButtonGhost]}
                   onPress={() => updateQty(item.menuItemId, -1)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Убрать одну порцию: ${item.name}`}
                 >
                   <Text style={styles.stepperButtonGhostText}>−</Text>
                 </TouchableOpacity>
@@ -60,6 +62,8 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                 <TouchableOpacity
                   style={styles.stepperButton}
                   onPress={() => updateQty(item.menuItemId, 1)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Добавить ещё одну порцию: ${item.name}`}
                 >
                   <Text style={styles.stepperButtonText}>+</Text>
                 </TouchableOpacity>

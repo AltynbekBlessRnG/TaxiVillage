@@ -135,7 +135,16 @@ export const ActiveOrderSheet: React.FC<Props> = ({
 
             <View style={styles.actionRow}>
               {activeRide?.driver && onOpenRideChat ? (
-                <TouchableOpacity style={styles.iconButton} onPress={onOpenRideChat}>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={onOpenRideChat}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    rideUnreadCount > 0
+                      ? `Чат с водителем, непрочитанных: ${rideUnreadCount}`
+                      : 'Чат с водителем'
+                  }
+                >
                   <Ionicons name="chatbubble-ellipses-outline" size={20} color="#09090B" />
                   {rideUnreadCount > 0 ? (
                     <View style={styles.chatBadge}>
@@ -147,7 +156,12 @@ export const ActiveOrderSheet: React.FC<Props> = ({
 
               {((activeRide && ACTIVE_CANCELABLE_STATUSES.includes(activeRide.status)) ||
                 (activeCourierOrder && activeCourierOrder.status !== 'DELIVERED' && activeCourierOrder.status !== 'CANCELED')) && onCancel ? (
-                <TouchableOpacity style={styles.secondaryButton} onPress={onCancel}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={onCancel}
+                  accessibilityRole="button"
+                  accessibilityLabel={isCourier ? 'Отменить доставку' : 'Отменить поездку'}
+                >
                   <Ionicons name="close-outline" size={20} color="#F87171" />
                   <Text style={styles.secondaryButtonText}>Отменить</Text>
                 </TouchableOpacity>

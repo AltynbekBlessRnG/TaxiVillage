@@ -61,7 +61,12 @@ export const MerchantSideDrawer: React.FC<Props> = ({
         ]}
       >
         <View style={[styles.drawerHeader, { paddingTop: insets.top + 52 }]}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Закрыть меню"
+          >
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
           <View style={styles.avatarCircle}>

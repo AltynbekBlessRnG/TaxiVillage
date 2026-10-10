@@ -365,11 +365,22 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                           <TouchableOpacity
                             style={[styles.quantityButton, styles.quantityButtonGhost]}
                             onPress={() => removeFromCart(item.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Убрать одну порцию: ${item.name}`}
                           >
                             <Text style={styles.quantityButtonGhostText}>−</Text>
                           </TouchableOpacity>
                         ) : null}
-                        <TouchableOpacity style={styles.quantityButton} onPress={() => addToCart(item)}>
+                        <TouchableOpacity
+                          style={styles.quantityButton}
+                          onPress={() => addToCart(item)}
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            qty > 0
+                              ? `Добавить ещё: ${item.name}, в корзине ${qty}`
+                              : `Добавить в корзину: ${item.name}`
+                          }
+                        >
                           <Text style={styles.quantityButtonText}>{qty > 0 ? `+ ${qty}` : '+'}</Text>
                         </TouchableOpacity>
                       </View>

@@ -487,6 +487,9 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.avatarWrap}
                 onPress={() => pickAndUploadAvatar().catch(() => null)}
                 activeOpacity={0.88}
+                accessibilityRole="button"
+                accessibilityLabel="Изменить фото профиля"
+                accessibilityState={{ busy: uploadingAvatar }}
               >
                 <View style={styles.avatarCircle}>
                   {avatarUri ? (

@@ -400,7 +400,12 @@ export const SearchSheet: React.FC<Props> = ({
             keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
           >
             <View style={styles.sheetHeader}>
-              <TouchableOpacity onPress={onClose}>
+              <TouchableOpacity
+                onPress={onClose}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Закрыть"
+              >
                 <Text style={styles.closeBtn}>✕</Text>
               </TouchableOpacity>
               <Text style={styles.sheetTitle}>

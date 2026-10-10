@@ -131,14 +131,24 @@ export const SearchingSheet: React.FC<Props> = ({
           ) : null}
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.circleBtnContainer} onPress={onCancel}>
+            <TouchableOpacity
+              style={styles.circleBtnContainer}
+              onPress={onCancel}
+              accessibilityRole="button"
+              accessibilityLabel={cancelLabel.replace(/\s+/g, ' ')}
+            >
               <View style={styles.circleBtn}>
                 <Text style={styles.btnIcon}>✕</Text>
               </View>
               <Text style={styles.btnLabel}>{cancelLabel}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.circleBtnContainer} onPress={onShowDetails}>
+            <TouchableOpacity
+              style={styles.circleBtnContainer}
+              onPress={onShowDetails}
+              accessibilityRole="button"
+              accessibilityLabel="Детали заказа"
+            >
               <View style={styles.circleBtn}>
                 <Text style={styles.btnIcon}>☰</Text>
               </View>

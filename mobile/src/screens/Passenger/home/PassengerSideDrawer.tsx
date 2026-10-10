@@ -47,11 +47,21 @@ export const PassengerSideDrawer: React.FC<Props> = ({
     <>
     {visible ? (
       <Animated.View style={[styles.menuBackdrop, { opacity: menuBackdropOpacity }]}>
-        <Pressable style={styles.flexFill} onPress={onClose} />
+        <Pressable
+          style={styles.flexFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Закрыть меню"
+        />
       </Animated.View>
     ) : null}
 
-    <Animated.View style={[styles.sideDrawer, { transform: [{ translateX: sideMenuAnim }] }]}>
+    <Animated.View
+      style={[styles.sideDrawer, { transform: [{ translateX: sideMenuAnim }] }]}
+      // Closed, the drawer is only slid off-screen; keep screen readers out.
+      accessibilityElementsHidden={!visible}
+      importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
+    >
       <View style={[styles.drawerHeader, { paddingTop: Math.max(insets.top, 12) + 16 }]}>
         <View style={styles.avatarRow}>
           <View style={styles.avatarCircle}>

@@ -363,6 +363,8 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                           key={action.label}
                           style={styles.actionIconBtn}
                           onPress={action.onPress}
+                          accessibilityRole="button"
+                          accessibilityLabel={action.label}
                         >
                           <Ionicons name={action.icon} size={22} color="#F4F4F5" />
                         </TouchableOpacity>
@@ -455,6 +457,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
           accessibilityLabel="Панель водителя"
           accessibilityHint="Проведите вверх, чтобы развернуть, вниз — чтобы свернуть"
           accessibilityValue={{ text: isSheetExpanded ? 'Развёрнута' : 'Свёрнута' }}
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
           onAccessibilityAction={(event) => settle(event.nativeEvent.actionName === 'increment')}
         >
           <View style={styles.grabHandle} />
@@ -469,6 +472,8 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
             ]}
             onPress={() => onSwitchMode('TAXI')}
             disabled={profile?.driverMode === 'TAXI'}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: profile?.driverMode === 'TAXI' }}
           >
             <Text
               style={[
@@ -488,6 +493,8 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
               ]}
               onPress={() => onSwitchMode('COURIER')}
               disabled={profile?.driverMode === 'COURIER'}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: profile?.driverMode === 'COURIER' }}
             >
               <Text
                 style={[
@@ -507,6 +514,8 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                 pressed && styles.modeTabPressed,
               ]}
               onPress={onOpenIntercity}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: profile?.driverMode === 'INTERCITY' }}
             >
               <Text
                 style={[
@@ -524,9 +533,17 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
           <Animated.View
             style={[styles.expandLayer, { opacity: expandedOpacity }]}
             pointerEvents={isSheetExpanded ? 'auto' : 'none'}
+            // Collapsed, this layer is invisible; keep screen readers out too.
+            accessibilityElementsHidden={!isSheetExpanded}
+            importantForAccessibility={isSheetExpanded ? 'auto' : 'no-hide-descendants'}
             onLayout={(event) => setExpandedHeight(event.nativeEvent.layout.height)}
           >
-            <TouchableOpacity style={styles.sectionLink} onPress={onOpenFoodDeliveries}>
+            <TouchableOpacity
+              style={styles.sectionLink}
+              onPress={onOpenFoodDeliveries}
+              accessibilityRole="button"
+              accessibilityLabel="Доставка еды"
+            >
               <Text style={styles.sectionLinkText}>Доставка еды</Text>
               <Text style={styles.sectionLinkChevron}>›</Text>
             </TouchableOpacity>

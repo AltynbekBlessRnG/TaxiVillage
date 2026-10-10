@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  BackHandler,
+  Dimensions,
+  Pressable,
+  Image,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { showAlert } from '../AppAlert';
@@ -87,15 +97,37 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
     ]).start();
   }, [fadeAnim, isOpen, slideAnim]);
 
-  if (!isOpen && slideAnim.interpolate({ inputRange: [-width, 0], outputRange: [0, 1] }) as any === 0) {
-    return null;
-  }
+  // The menu is a plain overlay, not a Modal, so Android Back would leave the
+  // screen instead of closing it.
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [isOpen, onClose]);
 
   return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents={isOpen ? 'auto' : 'none'}>
+    <View
+      style={StyleSheet.absoluteFillObject}
+      pointerEvents={isOpen ? 'auto' : 'none'}
+      // Closed, the menu sits off-screen; keep screen readers out of it, and
+      // while open keep them out of the map behind it.
+      accessibilityElementsHidden={!isOpen}
+      importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
+      accessibilityViewIsModal={isOpen}
+    >
       {/* Темный фон */}
       <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Закрыть меню"
+        />
       </Animated.View>
 
       {/* Само меню */}
@@ -149,7 +181,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
           ))}
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={onLogout} accessibilityRole="button">
           <Text style={styles.logoutText}>Выйти из аккаунта</Text>
         </TouchableOpacity>
       </Animated.View>

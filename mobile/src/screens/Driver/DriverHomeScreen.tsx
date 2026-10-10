@@ -1254,6 +1254,12 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       <TouchableOpacity
         style={[styles.burgerBtn, { top: topInset + 8 }]}
         onPress={() => setIsMenuOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel={
+          unreadNotificationsCount > 0
+            ? `Меню, непрочитанных уведомлений: ${unreadNotificationsCount}`
+            : 'Меню'
+        }
       >
         <Text style={styles.iconText}>☰</Text>
         {unreadNotificationsCount > 0 ? (
@@ -1276,6 +1282,8 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           { bottom: (statusSheetHeight || Math.max(insets.bottom, 16) + 246) + 16 },
         ]}
         onPress={recenterMap}
+        accessibilityRole="button"
+        accessibilityLabel="Показать моё местоположение"
       >
         <View style={styles.recenterOuter}>
           <View style={styles.recenterInner} />

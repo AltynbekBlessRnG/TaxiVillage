@@ -206,7 +206,12 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Назад"
+        >
           <Ionicons name="arrow-back" size={22} color="#F4F4F5" />
         </TouchableOpacity>
         <Text style={styles.title}>Личный кабинет</Text>
@@ -220,7 +225,14 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.heroCard}>
-            <TouchableOpacity style={styles.avatarWrap} onPress={() => pickAndUploadAvatar().catch(() => null)} activeOpacity={0.88}>
+            <TouchableOpacity
+              style={styles.avatarWrap}
+              onPress={() => pickAndUploadAvatar().catch(() => null)}
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel="Изменить фото профиля"
+              accessibilityState={{ busy: uploadingAvatar }}
+            >
               <View style={styles.avatarCircle}>
                 {avatarUri ? (
                   <Image source={{ uri: avatarUri }} style={styles.avatarImage} />

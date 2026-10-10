@@ -54,7 +54,16 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
 
   return (
     <View style={styles.uiOverlay} pointerEvents="box-none">
-      <TouchableOpacity style={[styles.burgerBtn, { top: topInset + 8 }]} onPress={onOpenMenu}>
+      <TouchableOpacity
+        style={[styles.burgerBtn, { top: topInset + 8 }]}
+        onPress={onOpenMenu}
+        accessibilityRole="button"
+        accessibilityLabel={
+          unreadNotificationsCount > 0
+            ? `Меню, непрочитанных уведомлений: ${unreadNotificationsCount}`
+            : 'Меню'
+        }
+      >
         <Ionicons name="menu" size={24} color="#F4F4F5" />
         {unreadNotificationsCount > 0 ? (
           <View style={styles.burgerBadge}>
@@ -89,6 +98,8 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
       <TouchableOpacity
         style={[styles.recenterBtn, { bottom: bottomInset + 190 }]}
         onPress={onRecenter}
+        accessibilityRole="button"
+        accessibilityLabel="Показать моё местоположение"
       >
         <View style={styles.recenterOuter}>
           <View style={styles.recenterInner} />
@@ -99,6 +110,8 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
         <TouchableOpacity
           style={[styles.activeRideBanner, { bottom: bottomInset + 120 }]}
           onPress={onOpenActiveRide}
+          accessibilityRole="button"
+          accessibilityLabel="У вас есть активная поездка. Открыть"
         >
           <View style={styles.dotGreen} />
           <Text style={styles.activeRideText}>У вас есть активная поездка</Text>
@@ -114,6 +127,8 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
             { bottom: bottomInset + 120 },
           ]}
           onPress={onOpenActiveCourier}
+          accessibilityRole="button"
+          accessibilityLabel="У вас есть активная доставка. Открыть"
         >
           <View style={styles.dotGreen} />
           <Text style={styles.activeRideText}>У вас есть активная доставка</Text>

@@ -167,7 +167,27 @@ export const ConfirmationSheet: React.FC<Props> = ({
 
               <View style={styles.routeRow}>
                 <View style={styles.squareRedSmall} />
-                <TouchableOpacity style={styles.addressContainer} onPress={onEditAddress}>
+                <TouchableOpacity
+                  style={styles.addressContainer}
+                  onPress={onEditAddress}
+                  // The stop "✕" buttons sit inside this one, where a screen
+                  // reader cannot reach them; offer their removal as actions.
+                  accessibilityActions={
+                    serviceType === 'taxi'
+                      ? stops.map((stop, index) => ({
+                          name: `removeStop${index}`,
+                          label: `Убрать заезд: ${stop.address}`,
+                        }))
+                      : undefined
+                  }
+                  onAccessibilityAction={(event) => {
+                    const match = /^removeStop(\d+)$/.exec(event.nativeEvent.actionName);
+                    if (match) {
+                      const index = Number(match[1]);
+                      handleStopPress(index, stops[index]?.address ?? '');
+                    }
+                  }}
+                >
                   <Text style={styles.routeLabel}>Куда</Text>
                   <Text style={styles.addressText} numberOfLines={1}>
                     {toAddress || (serviceType === 'courier' ? 'Куда доставить?' : 'Куда едем?')}
@@ -199,6 +219,9 @@ export const ConfirmationSheet: React.FC<Props> = ({
                     style={[styles.sideActionBtn, styles.plusBtn, isAddStopDisabled && styles.actionBtnDisabled]}
                     onPress={onAddStop}
                     disabled={isAddStopDisabled}
+                    accessibilityRole="button"
+                    accessibilityLabel="Добавить заезд"
+                    accessibilityState={{ disabled: isAddStopDisabled }}
                   >
                     <Text style={styles.plusText}>+</Text>
                   </TouchableOpacity>
@@ -250,12 +273,16 @@ export const ConfirmationSheet: React.FC<Props> = ({
                     <TouchableOpacity
                       style={styles.stepperBtn}
                       onPress={() => adjustPrice(-PRICE_STEP)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Уменьшить цену на ${PRICE_STEP} тенге`}
                     >
                       <Text style={styles.stepperText}>−</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.stepperBtn}
                       onPress={() => adjustPrice(PRICE_STEP)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Увеличить цену на ${PRICE_STEP} тенге`}
                     >
                       <Text style={styles.stepperText}>+</Text>
                     </TouchableOpacity>

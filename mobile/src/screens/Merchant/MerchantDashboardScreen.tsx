@@ -309,7 +309,12 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
       >
         <Pressable style={styles.flex} onPress={Keyboard.dismiss}>
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.burgerBtn} onPress={() => setIsMenuOpen(true)}>
+        <TouchableOpacity
+          style={styles.burgerBtn}
+          onPress={() => setIsMenuOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Меню"
+        >
           <Text style={styles.burgerIcon}>☰</Text>
         </TouchableOpacity>
 
@@ -325,6 +330,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
           <Switch
             value={isOpen}
             onValueChange={setIsOpen}
+            accessibilityLabel="Заведение открыто"
             trackColor={{ false: '#7F1D1D', true: '#166534' }}
             thumbColor="#fff"
           />
