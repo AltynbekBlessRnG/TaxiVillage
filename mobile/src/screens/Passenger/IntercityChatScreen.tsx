@@ -22,6 +22,7 @@ import { loadAuth } from '../../storage/authStorage';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { showChatSafetyActions } from '../../utils/chatSafety';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityChat'>;
 
@@ -300,7 +301,7 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
           value={newMessage}
           onChangeText={setNewMessage}
           placeholder="Введите сообщение..."
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           multiline
           maxLength={500}
           editable={!loading}
@@ -326,7 +327,7 @@ export const IntercityChatScreen: React.FC<Props> = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090B' },
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -339,28 +340,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
-  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#F4F4F5', flex: 1, textAlign: 'center' },
+  backButtonText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.text, flex: 1, textAlign: 'center' },
   headerSpacer: { width: 72 },
   messagesList: { flex: 1 },
   messagesContainer: { paddingHorizontal: 20, paddingBottom: 20 },
   loadMoreButton: {
     alignSelf: 'center',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 12,
     marginTop: 4,
   },
   loadMoreButtonDisabled: { opacity: 0.6 },
-  loadMoreButtonText: { color: '#A1A1AA', fontSize: 13, fontWeight: '700' },
+  loadMoreButtonText: { color: colors.textSecondary, fontSize: 13, fontWeight: '700' },
   messageContainer: { marginVertical: 8, maxWidth: '84%', alignSelf: 'flex-start' },
   ownMessage: { alignSelf: 'flex-end' },
   messageHeader: {
@@ -376,9 +377,9 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     overflow: 'hidden',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -387,53 +388,53 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '800',
   },
   messageMeta: {
     flex: 1,
   },
-  senderName: { fontSize: 12, color: '#A1A1AA', fontWeight: '700' },
-  timestamp: { fontSize: 10, color: '#71717A', marginTop: 2 },
+  senderName: { fontSize: 12, color: colors.textSecondary, fontWeight: '700' },
+  timestamp: { fontSize: 10, color: colors.textTertiary, marginTop: 2 },
   messageContent: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     maxWidth: '100%',
   },
-  ownBubble: { backgroundColor: '#0C4A6E', borderColor: '#0369A1' },
-  messageText: { fontSize: 14, color: '#F4F4F5', lineHeight: 18 },
+  ownBubble: { backgroundColor: colors.accentSurface, borderColor: colors.accentBorder },
+  messageText: { fontSize: 14, color: colors.text, lineHeight: 18 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: '#18181B',
+    borderTopColor: colors.surface,
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#18181B',
-    color: '#F4F4F5',
+    backgroundColor: colors.surface,
+    color: colors.text,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     maxHeight: 100,
   },
   sendButton: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 18,
     marginLeft: 12,
   },
   sendButtonDisabled: { opacity: 0.55 },
-  sendButtonText: { color: '#082F49', fontSize: 15, fontWeight: '800' },
+  sendButtonText: { color: colors.accentSurface, fontSize: 15, fontWeight: '800' },
 });

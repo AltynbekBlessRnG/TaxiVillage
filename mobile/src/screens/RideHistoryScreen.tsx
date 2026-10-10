@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiClient } from '../api/client';
 import { loadAuth } from '../storage/authStorage';
+import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideHistory'>;
 
@@ -161,7 +162,7 @@ export const RideHistoryScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090B' },
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -171,32 +172,32 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   backButton: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
-  title: { color: '#F4F4F5', fontSize: 22, fontWeight: '800' },
+  backButtonText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  title: { color: colors.text, fontSize: 22, fontWeight: '800' },
   headerSpacer: { width: 72 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#71717A', fontSize: 15 },
+  loadingText: { color: colors.textTertiary, fontSize: 15 },
   listContent: { paddingHorizontal: 16, paddingBottom: 28 },
   item: {
     padding: 18,
     marginBottom: 12,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
-  route: { fontSize: 16, marginBottom: 10, color: '#F4F4F5', fontWeight: '600' },
+  route: { fontSize: 16, marginBottom: 10, color: colors.text, fontWeight: '600' },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  status: { fontSize: 14, color: '#A1A1AA' },
-  price: { fontSize: 16, fontWeight: '800', color: '#F4F4F5' },
-  date: { fontSize: 12, color: '#71717A' },
-  openRideHint: { marginTop: 10, fontSize: 12, color: '#60A5FA', fontWeight: '600' },
-  empty: { textAlign: 'center', marginTop: 40, color: '#71717A', fontSize: 15 },
+  status: { fontSize: 14, color: colors.textSecondary },
+  price: { fontSize: 16, fontWeight: '800', color: colors.text },
+  date: { fontSize: 12, color: colors.textTertiary },
+  openRideHint: { marginTop: 10, fontSize: 12, color: colors.infoText, fontWeight: '600' },
+  empty: { textAlign: 'center', marginTop: 40, color: colors.textTertiary, fontSize: 15 },
 });

@@ -8,6 +8,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Cart'>;
 
@@ -33,7 +34,7 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       eyebrow="Корзина"
       title={restaurantName}
       subtitle="Проверь блюда и перейди к адресу, оплате и доставке."
@@ -113,10 +114,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    backgroundColor: '#111827',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -124,13 +125,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rowTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 3,
   },
   rowSubtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -143,24 +144,24 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#2D160B',
+    backgroundColor: colors.foodSurface,
     borderWidth: 1,
-    borderColor: '#FB923C',
+    borderColor: colors.food,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperButtonGhost: {
-    backgroundColor: '#18181B',
-    borderColor: '#3F3F46',
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
   },
   stepperButtonText: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontSize: 17,
     fontWeight: '900',
     lineHeight: 19,
   },
   stepperButtonGhostText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 19,
     fontWeight: '900',
     lineHeight: 21,
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
   stepperValue: {
     minWidth: 18,
     textAlign: 'center',
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '900',
   },
@@ -180,22 +181,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   totalLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '700',
   },
   totalValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
   },
   totalLabelAccent: {
-    color: '#60A5FA',
+    color: colors.infoText,
     fontSize: 15,
     fontWeight: '900',
   },
   totalValueAccent: {
-    color: '#60A5FA',
+    color: colors.infoText,
     fontSize: 18,
     fontWeight: '900',
   },

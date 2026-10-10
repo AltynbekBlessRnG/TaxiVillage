@@ -8,6 +8,7 @@ import { registerPushToken } from '../../utils/notifications';
 import { AuthScreenLayout } from '../../components/AuthScreenLayout';
 import { formatPhoneInput, isCompletePhone, toE164 } from '../../utils/phone';
 import { extractApiError } from '../../utils/apiError';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -114,7 +115,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           testID="login-phone"
           style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
           placeholder="+7 700 000 00 00"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           keyboardType="phone-pad"
           autoCapitalize="none"
           autoComplete="tel"
@@ -138,7 +139,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             testID="login-password"
             style={styles.passwordInput}
             placeholder="Пароль"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
             secureTextEntry={!showPassword}
             autoComplete="current-password"
             textContentType="password"
@@ -185,46 +186,46 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   eyebrow: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -1,
     marginBottom: 14,
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '700',
     marginBottom: 8,
   },
   subtitle: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 15,
     lineHeight: 22,
   },
   formCard: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   input: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 16,
     marginBottom: 14,
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
   },
   inputFocused: {
-    borderColor: '#3B82F6',
+    borderColor: colors.info,
   },
   passwordWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingLeft: 18,
     paddingRight: 8,
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     paddingVertical: 16,
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
   },
   revealButton: {
@@ -241,17 +242,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   revealText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
   },
   error: {
-    color: '#EF4444',
+    color: colors.dangerTextStrong,
     marginBottom: 14,
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 18,
     paddingVertical: 18,
     alignItems: 'center',
@@ -261,7 +262,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   buttonText: {
-    color: '#000000',
+    color: colors.textInverse,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -272,11 +273,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   linkText: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 15,
   },
   link: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },

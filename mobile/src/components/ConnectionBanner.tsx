@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '../theme/colors';
 
 interface Props {
   visible: boolean;
@@ -37,11 +38,11 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     backgroundColor: 'rgba(127,29,29,0.96)',
     borderBottomWidth: 1,
-    borderBottomColor: '#B91C1C',
+    borderBottomColor: colors.dangerStrong,
     zIndex: 200,
   },
   text: {
-    color: '#FEE2E2',
+    color: colors.dangerText,
     fontSize: 13,
     fontWeight: '700',
     textAlign: 'center',

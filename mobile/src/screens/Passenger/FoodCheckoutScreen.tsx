@@ -17,6 +17,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodCheckout'>;
 type PaymentMethod = 'CASH' | 'KASPI_TRANSFER';
@@ -160,7 +161,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       eyebrow="Доставка еды"
       title={restaurantName}
       subtitle="Заказ будет принят заведением внутри Zhetysu Go."
@@ -194,7 +195,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
           }}
           style={styles.input}
           placeholder="Адрес и ориентир"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
         />
         <TouchableOpacity style={styles.locationButton} onPress={useCurrentLocation}>
           <Text style={styles.locationButtonText}>
@@ -206,7 +207,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
           onChangeText={setComment}
           style={[styles.input, styles.comment]}
           placeholder="Комментарий к заказу"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           multiline
         />
       </ServiceCard>
@@ -254,7 +255,7 @@ export const FoodCheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
             }}
             style={[styles.input, styles.promoInput]}
             placeholder="USHARAL500"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
             autoCapitalize="characters"
           />
           <TouchableOpacity style={styles.promoButton} onPress={validatePromo}>
@@ -317,23 +318,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    backgroundColor: '#111827',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   summaryLeft: { flex: 1 },
-  summaryName: { color: '#F4F4F5', fontSize: 14, fontWeight: '800' },
-  summaryQty: { color: '#A1A1AA', fontSize: 12, fontWeight: '600', marginTop: 2 },
-  summaryPrice: { color: '#F4F4F5', fontSize: 14, fontWeight: '900' },
+  summaryName: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  summaryQty: { color: colors.textSecondary, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  summaryPrice: { color: colors.text, fontSize: 14, fontWeight: '900' },
   input: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
-    color: '#F4F4F5',
+    borderColor: colors.border,
+    color: colors.text,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
@@ -342,41 +343,41 @@ const styles = StyleSheet.create({
   comment: { minHeight: 88, textAlignVertical: 'top' },
   locationButton: {
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
     marginBottom: 12,
   },
-  locationButtonText: { color: '#FDBA74', fontWeight: '800' },
+  locationButtonText: { color: colors.foodText, fontWeight: '800' },
   choiceRow: { flexDirection: 'row', gap: 10 },
   choiceButton: {
     flex: 1,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  choiceButtonActive: { backgroundColor: '#3F1F0F', borderColor: '#FB923C' },
-  choiceText: { color: '#A1A1AA', fontWeight: '800' },
-  choiceTextActive: { color: '#FED7AA' },
-  paymentHint: { color: '#A1A1AA', fontSize: 12, lineHeight: 18, marginTop: 12 },
+  choiceButtonActive: { backgroundColor: colors.foodSurface, borderColor: colors.food },
+  choiceText: { color: colors.textSecondary, fontWeight: '800' },
+  choiceTextActive: { color: colors.foodTextSoft },
+  paymentHint: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 12 },
   promoRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   promoInput: { flex: 1, marginBottom: 0 },
   promoButton: {
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 15,
   },
-  promoButtonText: { color: '#F4F4F5', fontWeight: '800' },
+  promoButtonText: { color: colors.text, fontWeight: '800' },
   totalBox: {
     marginTop: 14,
-    backgroundColor: '#1C1917',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     padding: 16,
   },
   totalRow: {
@@ -386,11 +387,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     gap: 12,
   },
-  totalLabel: { color: '#A1A1AA', fontSize: 13, fontWeight: '700' },
-  totalValueSmall: { color: '#E7E5E4', fontSize: 13, fontWeight: '800' },
-  discountLabel: { color: '#86EFAC', fontSize: 13, fontWeight: '800' },
-  totalDivider: { height: 1, backgroundColor: '#3F3F46', marginVertical: 8 },
-  totalPrimaryLabel: { color: '#F4F4F5', fontSize: 15, fontWeight: '900' },
-  totalPrimaryValue: { color: '#FB923C', fontSize: 22, fontWeight: '900' },
-  serverNote: { color: '#71717A', fontSize: 11, lineHeight: 16, marginTop: 10 },
+  totalLabel: { color: colors.textSecondary, fontSize: 13, fontWeight: '700' },
+  totalValueSmall: { color: colors.textMuted, fontSize: 13, fontWeight: '800' },
+  discountLabel: { color: colors.successText, fontSize: 13, fontWeight: '800' },
+  totalDivider: { height: 1, backgroundColor: colors.borderStrong, marginVertical: 8 },
+  totalPrimaryLabel: { color: colors.text, fontSize: 15, fontWeight: '900' },
+  totalPrimaryValue: { color: colors.food, fontSize: 22, fontWeight: '900' },
+  serverNote: { color: colors.textTertiary, fontSize: 11, lineHeight: 16, marginTop: 10 },
 });

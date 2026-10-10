@@ -12,6 +12,7 @@ import {
   ServiceScreen,
 } from '../../components/ServiceScreen';
 import { formatIntercityDateTime } from '../../constants/intercity';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityBooking'>;
 
@@ -70,7 +71,7 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
 
   return (
     <ServiceScreen
-      accentColor="#38BDF8"
+      accentColor={colors.accent}
       title="Подтверждение поездки"
       subtitle=""
       backLabel="К предложениям"
@@ -86,7 +87,7 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
         <InlineLabel label="Водитель" value={driverName} />
         <InlineLabel label="Авто" value={car} />
         <InlineLabel label="Выезд" value={formatIntercityDateTime(departureAt)} />
-        <InlineLabel label="Цена за место" value={`${pricePerSeat} тг`} accentColor="#38BDF8" />
+        <InlineLabel label="Цена за место" value={`${pricePerSeat} тг`} accentColor={colors.accent} />
         <InlineLabel label="Свободно мест" value={`${seatsRemaining} из ${seatCapacity}`} />
         <InlineLabel label="Салон" value={womenOnly ? 'Только женщины' : 'Любой'} />
         <InlineLabel label="Багаж" value={baggageSpace ? 'Есть место для багажа' : 'Без багажа'} />
@@ -123,7 +124,7 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
             onChangeText={setSeatsBooked}
             keyboardType="number-pad"
             placeholder="Количество мест"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
           />
         ) : null}
         <TextInput
@@ -131,7 +132,7 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
           value={comment}
           onChangeText={setComment}
           placeholder="Комментарий для водителя"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           multiline
         />
         <View style={styles.totalCard}>
@@ -161,14 +162,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   heroRoute: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '900',
     marginBottom: 8,
   },
   heroText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -177,39 +178,39 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modeCard: {
-    backgroundColor: '#111827',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 14,
   },
   modeCardActive: {
-    backgroundColor: '#082F49',
-    borderColor: '#38BDF8',
+    backgroundColor: colors.accentSurface,
+    borderColor: colors.accent,
   },
   modeCardTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
   modeCardTitleActive: {
-    color: '#E0F2FE',
+    color: colors.accentTextSoft,
   },
   modeCardText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
   },
   modeCardTextActive: {
-    color: '#BAE6FD',
+    color: colors.accentText,
   },
   input: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
-    color: '#F4F4F5',
+    borderColor: colors.border,
+    color: colors.text,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
@@ -220,20 +221,20 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   totalCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: colors.border,
     padding: 16,
   },
   totalLabel: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 6,
   },
   totalValue: {
-    color: '#E0F2FE',
+    color: colors.accentTextSoft,
     fontSize: 24,
     fontWeight: '900',
   },

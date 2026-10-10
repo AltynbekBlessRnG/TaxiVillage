@@ -16,6 +16,7 @@ import {
   ServiceScreen,
 } from '../../components/ServiceScreen';
 import { showAlert } from '../../components/AppAlert';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodOrderStatus'>;
 
@@ -145,14 +146,14 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FB923C" />
+        <ActivityIndicator size="large" color={colors.food} />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       eyebrow="Еда"
       title="Заказ оформлен"
       subtitle="Здесь отображаются приготовление и доставка заказа."
@@ -177,10 +178,10 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
           <InlineLabel
             label="Скидка"
             value={`−${Math.round(Number(order.discountAmount))} ₸`}
-            accentColor="#86EFAC"
+            accentColor={colors.successText}
           />
         ) : null}
-        <InlineLabel label="Итого" value={`${Math.round(Number(order?.totalPrice || 0))} ₸`} accentColor="#60A5FA" />
+        <InlineLabel label="Итого" value={`${Math.round(Number(order?.totalPrice || 0))} ₸`} accentColor={colors.infoText} />
         <InlineLabel
           label="Оплата"
           value={order?.paymentMethod === 'KASPI_TRANSFER' ? 'Перевод Kaspi' : 'Наличными'}
@@ -189,7 +190,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
           <InlineLabel
             label="Причина отмены"
             value={order.cancellationReason}
-            accentColor="#FCA5A5"
+            accentColor={colors.dangerText}
           />
         ) : null}
       </ServiceCard>
@@ -231,7 +232,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
                   longitude: order.driver.lng,
                 }}
                 title="Водитель"
-                pinColor="#FB923C"
+                pinColor={colors.food}
               />
               {order.deliveryLat != null && order.deliveryLng != null ? (
                 <Marker
@@ -240,7 +241,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
                     longitude: order.deliveryLng,
                   }}
                   title="Адрес доставки"
-                  pinColor="#3B82F6"
+                  pinColor={colors.info}
                 />
               ) : null}
             </MapView>
@@ -268,7 +269,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
         <PrimaryButton
           title={actionLoading ? 'Отменяем…' : 'Отменить заказ'}
           onPress={cancelOrder}
-          accentColor="#FCA5A5"
+          accentColor={colors.dangerText}
           disabled={actionLoading}
         />
       ) : null}
@@ -282,7 +283,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       <PrimaryButton
         title="Мои заказы"
         onPress={() => navigation.navigate('FoodOrderHistory')}
-        accentColor="#FDBA74"
+        accentColor={colors.foodText}
       />
       <PrimaryButton title="На главную" onPress={() => navigation.navigate('PassengerHome', {})} />
     </ServiceScreen>
@@ -294,35 +295,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   heroBlock: {
     marginBottom: 12,
     paddingHorizontal: 4,
   },
   heroTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '900',
     marginBottom: 8,
   },
   heroText: {
-    color: '#FDBA74',
+    color: colors.foodText,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '700',
   },
   statusPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#3F1F0F',
+    backgroundColor: colors.foodSurface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     marginBottom: 14,
   },
   statusText: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontWeight: '800',
   },
   timeline: {
@@ -336,19 +337,19 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 6,
-    backgroundColor: '#3F3F46',
+    backgroundColor: colors.borderStrong,
     marginRight: 12,
   },
   timelineDotActive: {
-    backgroundColor: '#FB923C',
+    backgroundColor: colors.food,
   },
   timelineText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   timelineTextActive: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
   driverMap: {
     height: 170,

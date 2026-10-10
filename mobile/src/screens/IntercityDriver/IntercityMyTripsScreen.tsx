@@ -16,6 +16,7 @@ import { apiClient } from '../../api/client';
 import { createIntercitySocket } from '../../api/intercitySocket';
 import { loadAuth } from '../../storage/authStorage';
 import { formatIntercityDateTime } from '../../constants/intercity';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityMyTrips'>;
 
@@ -94,7 +95,7 @@ export const IntercityMyTripsScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#38BDF8" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -176,13 +177,13 @@ export const IntercityMyTripsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   header: {
     paddingHorizontal: 20,
@@ -191,21 +192,21 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 18,
   },
   backText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 32,
     lineHeight: 38,
     fontWeight: '900',
@@ -216,51 +217,51 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   emptyCard: {
-    backgroundColor: '#16161A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 24,
     padding: 18,
   },
   emptyTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '900',
   },
   tripCard: {
-    backgroundColor: '#16161A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 24,
     padding: 18,
   },
   tripCardCurrent: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#0C1420',
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSurface,
   },
   currentBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#10334A',
+    backgroundColor: colors.accentSurface,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginBottom: 10,
   },
   currentBadgeText: {
-    color: '#7DD3FC',
+    color: colors.accentText,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   routeText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 8,
   },
   metaText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 4,
@@ -272,12 +273,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   openLabel: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
   },
   openArrow: {
-    color: '#7DD3FC',
+    color: colors.accentText,
     fontSize: 22,
     fontWeight: '800',
   },
@@ -289,9 +290,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 20,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: '#18181B',
+    borderTopColor: colors.surface,
     flexDirection: 'row',
     gap: 10,
   },
@@ -300,13 +301,13 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
-    backgroundColor: '#121216',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -314,12 +315,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 56,
     borderRadius: 18,
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonText: {
-    color: '#04131A',
+    color: colors.onAccent,
     fontSize: 14,
     fontWeight: '900',
   },

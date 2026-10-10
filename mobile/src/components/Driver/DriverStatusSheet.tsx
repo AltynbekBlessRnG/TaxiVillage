@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../theme/colors';
 
 interface DriverStatusSheetProps {
   isOnline: boolean;
@@ -290,7 +291,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                     {currentRide ? (
                       <View style={styles.routeCardActive}>
                         <View style={styles.routePointCompact}>
-                          <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
+                          <View style={[styles.dot, { backgroundColor: colors.info }]} />
                           <View style={styles.routeTextWrap}>
                             <Text style={styles.routeText}>{currentRide?.fromAddress || '-'}</Text>
                             {currentRide?.pickupLocationPrecision === 'LANDMARK_TEXT' ? (
@@ -302,22 +303,22 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                         </View>
                         {(currentRide?.stops ?? []).length > 0 || currentRide?.toAddress ? (
                           <View style={styles.routeArrowWrap}>
-                            <Ionicons name="arrow-down" size={16} color="#5F5F68" />
+                            <Ionicons name="arrow-down" size={16} color={colors.textTertiary} />
                           </View>
                         ) : null}
                         {(currentRide?.stops ?? []).map((stop: any, index: number) => (
                           <React.Fragment key={`${stop.address}-${index}`}>
                             <View style={styles.routePointCompact}>
-                              <View style={[styles.dot, { backgroundColor: '#F97316' }]} />
+                              <View style={[styles.dot, { backgroundColor: colors.foodStrong }]} />
                               <Text style={styles.routeText}>{stop.address}</Text>
                             </View>
                             <View style={styles.routeArrowWrap}>
-                              <Ionicons name="arrow-down" size={16} color="#5F5F68" />
+                              <Ionicons name="arrow-down" size={16} color={colors.textTertiary} />
                             </View>
                           </React.Fragment>
                         ))}
                         <View style={styles.routePointCompact}>
-                          <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
+                          <View style={[styles.dot, { backgroundColor: colors.danger }]} />
                           <View style={styles.routeTextWrap}>
                             <Text style={styles.routeText}>{currentRide?.toAddress || '-'}</Text>
                             {currentRide?.dropoffLocationPrecision === 'LANDMARK_TEXT' ? (
@@ -333,16 +334,16 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                     {currentCourierOrder ? (
                       <View style={styles.routeCardActive}>
                         <View style={styles.routePointCompact}>
-                          <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
+                          <View style={[styles.dot, { backgroundColor: colors.info }]} />
                           <Text style={styles.routeText}>
                             {currentCourierOrder?.pickupAddress || '-'}
                           </Text>
                         </View>
                         <View style={styles.routeArrowWrap}>
-                          <Ionicons name="arrow-down" size={16} color="#5F5F68" />
+                          <Ionicons name="arrow-down" size={16} color={colors.textTertiary} />
                         </View>
                         <View style={styles.routePointCompact}>
-                          <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
+                          <View style={[styles.dot, { backgroundColor: colors.danger }]} />
                           <Text style={styles.routeText}>
                             {currentCourierOrder?.dropoffAddress || '-'}
                           </Text>
@@ -366,7 +367,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                           accessibilityRole="button"
                           accessibilityLabel={action.label}
                         >
-                          <Ionicons name={action.icon} size={22} color="#F4F4F5" />
+                          <Ionicons name={action.icon} size={22} color={colors.text} />
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -387,7 +388,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                       <Ionicons
                         name={primaryAction.icon}
                         size={18}
-                        color={primaryAction.tone === 'success' ? '#062117' : '#04131A'}
+                        color={primaryAction.tone === 'success' ? colors.onSuccess : colors.onAccent}
                         style={styles.bottomPrimaryIcon}
                       />
                       <Text
@@ -420,7 +421,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                     <Ionicons
                       name={primaryAction.icon}
                       size={18}
-                      color={primaryAction.tone === 'success' ? '#062117' : '#04131A'}
+                      color={primaryAction.tone === 'success' ? colors.onSuccess : colors.onAccent}
                       style={styles.bottomPrimaryIcon}
                     />
                     <Text
@@ -574,7 +575,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                               {
                                 height: `${Math.max(8, Math.round((bucket.earnings / maxEarnings) * 100))}%`,
                                 backgroundColor:
-                                  profile?.driverMode === 'COURIER' ? '#F59E0B' : '#3B82F6',
+                                  profile?.driverMode === 'COURIER' ? colors.warning : colors.info,
                               },
                             ]}
                           />
@@ -678,15 +679,15 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
 const styles = StyleSheet.create({
   container: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 100 },
   workspace: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     padding: 16,
     paddingBottom: 24,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderBottomWidth: 0,
-    borderColor: '#2F2F35',
-    shadowColor: '#000',
+    borderColor: colors.borderStrong,
+    shadowColor: colors.shadow,
     shadowOpacity: 0.26,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: -6 },
@@ -708,33 +709,33 @@ const styles = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 999,
-    backgroundColor: '#3A3A40',
+    backgroundColor: colors.surfacePressed,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingVertical: 12,
   },
   summaryCell: { flex: 1, alignItems: 'center', gap: 4 },
   summaryLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-  summaryValue: { color: '#F4F4F5', fontSize: 18, fontWeight: '900' },
-  summaryDividerVertical: { width: 1, alignSelf: 'stretch', backgroundColor: '#27272A' },
+  summaryValue: { color: colors.text, fontSize: 18, fontWeight: '900' },
+  summaryDividerVertical: { width: 1, alignSelf: 'stretch', backgroundColor: colors.surfaceRaised },
   modeTabs: {
     flexDirection: 'row',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 6,
     gap: 6,
     marginBottom: 14,
@@ -749,35 +750,35 @@ const styles = StyleSheet.create({
   // The tabs had only an activeOpacity dip, which reads as nothing on a dark
   // panel; a lifted background makes the press land.
   modeTabPressed: {
-    backgroundColor: '#3F3F46',
+    backgroundColor: colors.borderStrong,
   },
   modeTabActive: {
-    backgroundColor: '#082F49',
+    backgroundColor: colors.accentSurface,
     borderWidth: 1,
-    borderColor: '#0EA5E9',
+    borderColor: colors.accentStrong,
   },
   modeTabActiveCourier: {
-    backgroundColor: '#3F2B05',
+    backgroundColor: colors.warningSurface,
   },
   modeTabActiveIntercity: {
-    backgroundColor: '#08303F',
+    backgroundColor: colors.accentSurface,
     borderWidth: 1,
-    borderColor: '#38BDF8',
+    borderColor: colors.accent,
   },
   sectionLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 14,
   },
-  sectionLinkText: { color: '#F4F4F5', fontSize: 15, fontWeight: '700' },
-  sectionLinkChevron: { color: '#71717A', fontSize: 22, fontWeight: '300' },
+  sectionLinkText: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  sectionLinkChevron: { color: colors.textTertiary, fontSize: 22, fontWeight: '300' },
   goButton: {
     borderRadius: 18,
     minHeight: 58,
@@ -786,28 +787,28 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   goButtonOffline: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
   },
   goButtonOnline: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
   },
   goButtonText: {
-    color: '#04231A',
+    color: colors.onSuccess,
     fontSize: 17,
     fontWeight: '900',
   },
   goButtonTextOnline: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
   modeTabText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '800',
   },
   modeTabTextActive: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
 
   statusRow: {
@@ -817,29 +818,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
-  statusText: { color: '#F4F4F5', fontSize: 15, fontWeight: '600' },
+  statusText: { color: colors.text, fontSize: 15, fontWeight: '600' },
   waitingPanel: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   offerBlockCompact: {
     marginTop: 10,
   },
 
   infoCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   infoCardCompact: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   infoHeader: {
     flex: 1,
@@ -850,24 +851,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   infoTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
   infoChevron: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 18,
     fontWeight: '800',
     marginLeft: 12,
   },
   infoSummary: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
   },
   infoText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -886,9 +887,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 72,
     borderRadius: 12,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     justifyContent: 'flex-end',
     overflow: 'hidden',
     marginBottom: 6,
@@ -899,20 +900,20 @@ const styles = StyleSheet.create({
     minHeight: 6,
   },
   chartValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '800',
     marginBottom: 2,
   },
   chartLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
 
   card: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 10,
@@ -920,48 +921,48 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
-  cardTitle: { color: '#F4F4F5', fontSize: 16, fontWeight: '600' },
+  cardTitle: { color: colors.text, fontSize: 16, fontWeight: '600' },
   cardRight: { flexDirection: 'row', alignItems: 'center' },
-  cardValue: { color: '#F4F4F5', fontSize: 18, fontWeight: '800' },
-  chevron: { color: '#71717A', fontSize: 22, marginLeft: 10, marginTop: -2 },
+  cardValue: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  chevron: { color: colors.textTertiary, fontSize: 22, marginLeft: 10, marginTop: -2 },
 
   metricsCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     height: 76,
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   offerBlock: {
     marginBottom: 14,
   },
   offerTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 10,
   },
   offerCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   offerRoute: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
   offerMeta: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
   },
   metricBox: {
@@ -972,42 +973,42 @@ const styles = StyleSheet.create({
   verticalDivider: {
     width: 1,
     height: 36,
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
   },
   metricLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     textTransform: 'uppercase',
     marginBottom: 4,
     fontWeight: '600',
   },
   metricValueWhite: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
   },
   metricValueYellow: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontSize: 16,
     fontWeight: '800',
   },
 
   activeCard: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     paddingHorizontal: 14,
     paddingTop: 18,
     paddingBottom: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
-  activeCardCourier: { backgroundColor: '#09090B', borderColor: '#27272A' },
+  activeCardCourier: { backgroundColor: colors.bg, borderColor: colors.border },
   handleLineActive: {
     alignSelf: 'center',
     width: 42,
     height: 4,
     borderRadius: 999,
-    backgroundColor: '#3A3A40',
+    backgroundColor: colors.surfacePressed,
     marginBottom: 12,
   },
   activeSummaryBar: {
@@ -1020,14 +1021,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   activeSummaryTime: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   activeSummaryAddress: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -1035,15 +1036,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   activeSummaryPrice: {
-    color: '#60A5FA',
+    color: colors.infoText,
     fontSize: 20,
     fontWeight: '900',
   },
   activeSummaryPriceCourier: {
-    color: '#FACC15',
+    color: colors.highlight,
   },
   activeSummaryChevron: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 18,
     fontWeight: '900',
     marginTop: 4,
@@ -1053,7 +1054,7 @@ const styles = StyleSheet.create({
   },
   summaryDivider: {
     height: 2,
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 999,
     marginTop: 12,
     marginBottom: 12,
@@ -1075,25 +1076,25 @@ const styles = StyleSheet.create({
   routePointCompact: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   routeTextWrap: { flex: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  routeText: { color: '#E4E4E7', fontSize: 14, flex: 1, fontWeight: '600' },
+  routeText: { color: colors.textMuted, fontSize: 14, flex: 1, fontWeight: '600' },
   precisionBadge: {
     alignSelf: 'flex-start',
     marginTop: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   precisionBadgeText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
   courierMiniMeta: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,
@@ -1109,8 +1110,8 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#2C2C33',
-    backgroundColor: '#18181B',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1131,32 +1132,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   bottomHalfActionPrimary: {
-    backgroundColor: '#0EA5E9',
+    backgroundColor: colors.accentStrong,
   },
   bottomHalfActionSuccess: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
   },
   bottomHalfActionCancel: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: '#2B1114',
+    backgroundColor: colors.dangerSurface,
     borderWidth: 1,
-    borderColor: '#7F1D1D',
+    borderColor: colors.dangerBorder,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
   bottomHalfActionText: {
-    color: '#04131A',
+    color: colors.onAccent,
     fontSize: 14,
     fontWeight: '900',
   },
   bottomHalfActionTextSuccess: {
-    color: '#062117',
+    color: colors.onSuccess,
   },
   bottomHalfActionCancelText: {
-    color: '#F87171',
+    color: colors.dangerTextStrong,
     fontSize: 14,
     fontWeight: '900',
   },
@@ -1166,23 +1167,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: '#0EA5E9',
+    backgroundColor: colors.accentStrong,
     paddingVertical: 15,
     paddingHorizontal: 18,
   },
   bottomPrimaryFullSuccess: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
   },
   bottomPrimaryIcon: {
     marginRight: 8,
   },
   bottomPrimaryFullText: {
-    color: '#04131A',
+    color: colors.onAccent,
     fontSize: 15,
     fontWeight: '900',
   },
   bottomPrimaryFullTextSuccess: {
-    color: '#062117',
+    color: colors.onSuccess,
   },
 });
 

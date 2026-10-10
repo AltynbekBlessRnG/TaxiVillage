@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { colors } from '../../theme/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -172,17 +173,17 @@ const styles = StyleSheet.create({
     elevation: 24,
   },
   background: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.surfaceSunken,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   handle: {
     paddingTop: 10,
   },
   handleIndicator: {
-    backgroundColor: '#3F3F46',
+    backgroundColor: colors.borderStrong,
     width: 42,
     height: 4,
   },
@@ -197,47 +198,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
-  title: { color: '#fff', fontSize: 18, fontWeight: '800', flex: 1 },
-  timer: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },
+  title: { color: colors.white, fontSize: 18, fontWeight: '800', flex: 1 },
+  timer: { color: colors.white, fontSize: 14, fontWeight: '600', marginLeft: 12 },
   progressBarBg: {
     height: 3,
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     width: '100%',
     marginBottom: 16,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     width: '40%',
     position: 'absolute',
   },
   raiseBlock: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 14,
     marginBottom: 16,
   },
   raiseHint: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 10,
   },
   raiseError: {
-    color: '#F87171',
+    color: colors.dangerTextStrong,
     fontSize: 12,
     marginBottom: 8,
   },
   raiseBtn: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 14,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  raiseBtnText: { color: '#09090B', fontSize: 15, fontWeight: '900' },
+  raiseBtnText: { color: colors.textInverse, fontSize: 15, fontWeight: '900' },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -249,15 +250,15 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.surfaceElevated,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
-  btnIcon: { color: '#fff', fontSize: 18 },
+  btnIcon: { color: colors.white, fontSize: 18 },
   btnLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 8,

@@ -12,6 +12,7 @@ import { formatIntercityDateTime } from '../../constants/intercity';
 import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
 import { saveNotificationToInbox } from '../../storage/notificationsInbox';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityOrderStatus'>;
 
@@ -127,7 +128,7 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#38BDF8" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -185,7 +186,7 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
 
   return (
     <ServiceScreen
-      accentColor="#38BDF8"
+      accentColor={colors.accent}
       title="Моя заявка"
       subtitle=""
       backLabel="На главную"
@@ -198,7 +199,7 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
         <InlineLabel label="Маршрут" value={`${order?.fromCity || '-'} → ${order?.toCity || '-'}`} />
         <InlineLabel label="Выезд" value={formatIntercityDateTime(order?.departureAt)} />
         <InlineLabel label="Мест" value={String(order?.seats || 1)} />
-        <InlineLabel label="Цена" value={`${Math.round(Number(order?.price || 0))} тг`} accentColor="#38BDF8" />
+        <InlineLabel label="Цена" value={`${Math.round(Number(order?.price || 0))} тг`} accentColor={colors.accent} />
         {order?.baggage ? <InlineLabel label="Багаж" value={order.baggage} /> : null}
         {order?.comment ? <InlineLabel label="Комментарий" value={order.comment} /> : null}
       </ServiceCard>
@@ -239,7 +240,7 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
                 .join(' • ') || 'Авто не указано'
             }
           />
-          <InlineLabel label="Цена" value={`${Math.round(Number(pendingInvite.priceOffered || 0))} тг`} accentColor="#38BDF8" />
+          <InlineLabel label="Цена" value={`${Math.round(Number(pendingInvite.priceOffered || 0))} тг`} accentColor={colors.accent} />
           <PrimaryButton title="Принять место в рейсе" onPress={() => acceptInvite(pendingInvite.id).catch(() => null)} />
           <PrimaryButton title="Не подходит" onPress={() => declineInvite(pendingInvite.id).catch(() => null)} />
         </ServiceCard>
@@ -284,18 +285,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   pill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#082F49',
+    backgroundColor: colors.accentSurface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     marginBottom: 12,
   },
   pillText: {
-    color: '#7DD3FC',
+    color: colors.accentText,
     fontWeight: '800',
   },
 });

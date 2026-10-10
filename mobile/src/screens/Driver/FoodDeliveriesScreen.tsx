@@ -15,6 +15,7 @@ import {
   ServiceScreen,
 } from '../../components/ServiceScreen';
 import { showAlert } from '../../components/AppAlert';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodDeliveries'>;
 
@@ -122,14 +123,14 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#FB923C" size="large" />
+        <ActivityIndicator color={colors.food} size="large" />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       eyebrow="Водитель"
       title="Доставка еды"
       subtitle="Вся стоимость доставки указана до принятия заказа."
@@ -145,7 +146,7 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
           <InlineLabel
             label="Получите за доставку"
             value={`${Math.round(Number(current.driverPayout || 0))} ₸`}
-            accentColor="#86EFAC"
+            accentColor={colors.successText}
           />
           <InlineLabel
             label="Оплата заказа"
@@ -184,7 +185,7 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
               }
               onPress={advance}
               disabled={actionLoading}
-              accentColor="#FB923C"
+              accentColor={colors.food}
             />
           ) : null}
         </ServiceCard>
@@ -214,13 +215,13 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
               <InlineLabel
                 label="Доход"
                 value={`${Math.round(Number(order.driverPayout || 0))} ₸`}
-                accentColor="#86EFAC"
+                accentColor={colors.successText}
               />
               <PrimaryButton
                 title={actionLoading ? 'Принимаем…' : 'Принять доставку'}
                 onPress={() => claim(order.id)}
                 disabled={actionLoading}
-                accentColor="#FB923C"
+                accentColor={colors.food}
               />
             </ServiceCard>
           ))
@@ -234,11 +235,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
-  empty: { color: '#A1A1AA', fontSize: 15 },
+  empty: { color: colors.textSecondary, fontSize: 15 },
   merchantName: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '900',
     marginBottom: 12,
@@ -247,10 +248,10 @@ const styles = StyleSheet.create({
   routeButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     borderRadius: 14,
     paddingVertical: 11,
     alignItems: 'center',
   },
-  routeButtonText: { color: '#FDBA74', fontWeight: '800', fontSize: 12 },
+  routeButtonText: { color: colors.foodText, fontWeight: '800', fontSize: 12 },
 });

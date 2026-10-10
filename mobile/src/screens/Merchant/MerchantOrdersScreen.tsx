@@ -9,6 +9,7 @@ import { createFoodOrdersSocket } from '../../api/socket';
 import { loadAuth } from '../../storage/authStorage';
 import { InlineLabel, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
 import { showAlert } from '../../components/AppAlert';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MerchantOrders'>;
 
@@ -133,14 +134,14 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FB923C" />
+        <ActivityIndicator size="large" color={colors.food} />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       eyebrow="Заведение"
       title="Входящие заказы"
       subtitle="Принимайте заказы и обновляйте их статус."
@@ -213,21 +214,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   heroBlock: {
     marginBottom: 12,
     paddingHorizontal: 4,
   },
   heroTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '900',
     marginBottom: 8,
   },
   heroText: {
-    color: '#FDBA74',
+    color: colors.foodText,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -239,56 +240,56 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     flex: 1,
   },
   statusBadge: {
-    backgroundColor: '#3F1F0F',
+    backgroundColor: colors.foodSurface,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   statusBadgeActive: {
-    backgroundColor: '#143124',
+    backgroundColor: colors.successSurface,
   },
   statusBadgeText: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontSize: 12,
     fontWeight: '800',
   },
   actionButton: {
-    backgroundColor: '#FB923C',
+    backgroundColor: colors.food,
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
   },
   actionButtonText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontWeight: '900',
     fontSize: 15,
   },
   cancelButton: {
     borderWidth: 1,
-    borderColor: '#7F1D1D',
+    borderColor: colors.dangerBorder,
     borderRadius: 16,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 10,
   },
   cancelButtonText: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
     fontWeight: '800',
   },
   emptyText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
   },
   openedFromLinkText: {
-    color: '#86EFAC',
+    color: colors.successText,
     fontSize: 14,
     fontWeight: '800',
   },

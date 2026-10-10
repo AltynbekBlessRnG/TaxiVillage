@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { colors } from '../../theme/colors';
 
 interface Props {
   visible: boolean;
@@ -116,17 +117,17 @@ const styles = StyleSheet.create({
     elevation: 24,
   },
   background: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   handle: {
     paddingTop: 10,
   },
   handleIndicator: {
-    backgroundColor: '#3F3F46',
+    backgroundColor: colors.borderStrong,
     width: 40,
     height: 4,
   },
@@ -135,34 +136,34 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     paddingTop: 4,
   },
-  title: { color: '#F4F4F5', fontSize: 18, fontWeight: '800', marginBottom: 14, textAlign: 'center' },
+  title: { color: colors.text, fontSize: 18, fontWeight: '800', marginBottom: 14, textAlign: 'center' },
   routeCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     marginBottom: 14,
   },
   routeRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   routeTextWrap: { flex: 1 },
-  routeLabel: { color: '#A1A1AA', fontSize: 11, fontWeight: '700', marginBottom: 2 },
-  routeText: { color: '#F4F4F5', fontSize: 14, fontWeight: '500' },
-  dotBlue: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#3B82F6', marginTop: 4, marginRight: 12 },
-  dotStop: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#F97316', marginTop: 4, marginRight: 12 },
-  dotRed: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444', marginTop: 4, marginRight: 12 },
-  routeDivider: { height: 1, backgroundColor: '#27272A', marginTop: 4, marginBottom: 10 },
+  routeLabel: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', marginBottom: 2 },
+  routeText: { color: colors.text, fontSize: 14, fontWeight: '500' },
+  dotBlue: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.info, marginTop: 4, marginRight: 12 },
+  dotStop: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.foodStrong, marginTop: 4, marginRight: 12 },
+  dotRed: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger, marginTop: 4, marginRight: 12 },
+  routeDivider: { height: 1, backgroundColor: colors.surfaceRaised, marginTop: 4, marginBottom: 10 },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  priceLabel: { color: '#A1A1AA', fontSize: 13, fontWeight: '600' },
-  priceValue: { color: '#F4F4F5', fontSize: 17, fontWeight: '800' },
+  priceLabel: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  priceValue: { color: colors.text, fontSize: 17, fontWeight: '800' },
   closeBtn: {
     height: 48,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
-    backgroundColor: '#18181B',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeBtnText: { color: '#F4F4F5', fontSize: 15, fontWeight: '800' },
+  closeBtnText: { color: colors.text, fontSize: 15, fontWeight: '800' },
 });

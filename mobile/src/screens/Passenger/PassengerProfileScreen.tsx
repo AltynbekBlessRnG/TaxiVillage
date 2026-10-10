@@ -10,6 +10,7 @@ import { becomeDriver, fetchRoles, switchRole, type RolesInfo } from '../../api/
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { LegalLinks } from '../../components/LegalLinks';
 import { resolveApiAssetUrl } from '../../utils/assets';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PassengerProfile'>;
 
@@ -212,7 +213,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
           accessibilityRole="button"
           accessibilityLabel="Назад"
         >
-          <Ionicons name="arrow-back" size={22} color="#F4F4F5" />
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Личный кабинет</Text>
         <View style={styles.headerSpacer} />
@@ -220,7 +221,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#F4F4F5" />
+          <ActivityIndicator size="large" color={colors.text} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -242,9 +243,9 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
               </View>
               <View style={styles.avatarEditBadge}>
                 {uploadingAvatar ? (
-                  <ActivityIndicator size="small" color="#09090B" />
+                  <ActivityIndicator size="small" color={colors.textInverse} />
                 ) : (
-                  <Ionicons name="camera-outline" size={16} color="#09090B" />
+                  <Ionicons name="camera-outline" size={16} color={colors.textInverse} />
                 )}
               </View>
             </TouchableOpacity>
@@ -257,7 +258,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.sectionEyebrow}>Контакты</Text>
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <Ionicons name="call-outline" size={18} color="#F4F4F5" />
+                <Ionicons name="call-outline" size={18} color={colors.text} />
               </View>
               <View style={styles.infoBody}>
                 <Text style={styles.infoLabel}>Номер телефона</Text>
@@ -270,7 +271,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.sectionEyebrow}>Оплата</Text>
             <View style={styles.paymentRow}>
               <View style={styles.cashBadge}>
-                <Ionicons name="cash-outline" size={18} color="#04131A" />
+                <Ionicons name="cash-outline" size={18} color={colors.onAccent} />
               </View>
               <View style={styles.infoBody}>
                 <Text style={styles.infoLabel}>Способ оплаты</Text>
@@ -287,7 +288,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <>
                   <View style={styles.infoRow}>
                     <View style={styles.infoIcon}>
-                      <Ionicons name="car-outline" size={18} color="#F4F4F5" />
+                      <Ionicons name="car-outline" size={18} color={colors.text} />
                     </View>
                     <View style={styles.infoBody}>
                       <Text style={styles.infoLabel}>Сейчас вы пассажир</Text>
@@ -309,7 +310,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <>
                   <View style={styles.infoRow}>
                     <View style={styles.infoIcon}>
-                      <Ionicons name="car-outline" size={18} color="#F4F4F5" />
+                      <Ionicons name="car-outline" size={18} color={colors.text} />
                     </View>
                     <View style={styles.infoBody}>
                       <Text style={styles.infoLabel}>Хотите возить пассажиров?</Text>
@@ -385,7 +386,7 @@ export const PassengerProfileScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -399,14 +400,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 16,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '900',
   },
@@ -425,10 +426,10 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   heroCard: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingVertical: 26,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -440,9 +441,9 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarText: {
-    color: '#E2E8F0',
+    color: colors.textMuted,
     fontSize: 28,
     fontWeight: '900',
   },
@@ -463,39 +464,39 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#FACC15',
+    backgroundColor: colors.highlight,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#111113',
+    borderColor: colors.surfaceSunken,
   },
   fullName: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 24,
     fontWeight: '900',
     textAlign: 'center',
     marginBottom: 6,
   },
   phone: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },
   avatarHint: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 10,
   },
   sectionCard: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 18,
   },
   sectionEyebrow: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -513,9 +514,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -524,7 +525,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#FACC15',
+    backgroundColor: colors.highlight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -533,46 +534,46 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
     marginBottom: 6,
   },
   infoValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
   },
   infoHint: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 6,
   },
   roleButton: {
     marginTop: 14,
-    backgroundColor: '#22D3EE',
+    backgroundColor: colors.accent,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
   },
   roleButtonText: {
-    color: '#04131A',
+    color: colors.onAccent,
     fontSize: 15,
     fontWeight: '900',
   },
   deleteButton: {
     marginTop: 4,
-    backgroundColor: '#2B1114',
+    backgroundColor: colors.dangerSurface,
     borderWidth: 1,
-    borderColor: '#7F1D1D',
+    borderColor: colors.dangerBorder,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
   },
   deleteButtonText: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
     fontSize: 15,
     fontWeight: '900',
   },

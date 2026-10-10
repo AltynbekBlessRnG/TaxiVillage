@@ -11,6 +11,7 @@ import {
 } from '../../utils/googleMaps';
 import { showAlert } from '../../components/AppAlert';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FavoriteAddresses'>;
 
@@ -226,7 +227,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
                   accessibilityRole="button"
                   accessibilityLabel={`Изменить адрес ${address.name}`}
                 >
-                  <Ionicons name="pencil" size={18} color="#E4E4E7" />
+                  <Ionicons name="pencil" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.iconButton, styles.deleteButton]}
@@ -234,7 +235,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
                   accessibilityRole="button"
                   accessibilityLabel={`Удалить адрес ${address.name}`}
                 >
-                  <Ionicons name="trash" size={18} color="#FCA5A5" />
+                  <Ionicons name="trash" size={18} color={colors.dangerText} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -267,14 +268,14 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="Название"
-                placeholderTextColor="#71717A"
+                placeholderTextColor={colors.textTertiary}
                 value={formData.name}
                 onChangeText={(text) => setFormData((current) => ({ ...current, name: text }))}
               />
               <TextInput
                 style={styles.input}
                 placeholder="Найдите адрес через Google"
-                placeholderTextColor="#71717A"
+                placeholderTextColor={colors.textTertiary}
                 value={formData.address}
                 onChangeText={handleAddressInputChange}
               />
@@ -289,7 +290,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
 
               {searchLoading ? (
                 <View style={styles.searchLoading}>
-                  <ActivityIndicator color="#F4F4F5" size="small" />
+                  <ActivityIndicator color={colors.text} size="small" />
                   <Text style={styles.searchLoadingText}>Ищем адрес...</Text>
                 </View>
               ) : null}
@@ -334,7 +335,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090B' },
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -344,100 +345,100 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   backButton: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
-  title: { fontSize: 24, fontWeight: '800', color: '#F4F4F5' },
-  addButton: { backgroundColor: '#F4F4F5', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14 },
-  addButtonText: { color: '#000000', fontSize: 14, fontWeight: '800' },
+  backButtonText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  title: { fontSize: 24, fontWeight: '800', color: colors.text },
+  addButton: { backgroundColor: colors.surfaceInverse, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14 },
+  addButtonText: { color: colors.textInverse, fontSize: 14, fontWeight: '800' },
   list: { flex: 1 },
   listContent: { paddingHorizontal: 20, paddingBottom: 28 },
   empty: { marginTop: 100, alignItems: 'center' },
-  emptyText: { fontSize: 18, fontWeight: '700', color: '#F4F4F5', marginBottom: 8 },
-  emptySubtext: { fontSize: 14, color: '#71717A', textAlign: 'center' },
+  emptyText: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  emptySubtext: { fontSize: 14, color: colors.textTertiary, textAlign: 'center' },
   addressCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   addressContent: { flex: 1, paddingRight: 12 },
-  addressName: { fontSize: 16, fontWeight: '700', color: '#F4F4F5', marginBottom: 6 },
-  addressText: { fontSize: 14, color: '#A1A1AA', lineHeight: 20 },
+  addressName: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 6 },
+  addressText: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
   addressActions: { flexDirection: 'row', gap: 8 },
-  iconButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#27272A', justifyContent: 'center', alignItems: 'center' },
-  deleteButton: { backgroundColor: '#3F1D1D' },
+  iconButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceRaised, justifyContent: 'center', alignItems: 'center' },
+  deleteButton: { backgroundColor: colors.dangerSurface },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalAvoiding: { width: '100%' },
   modalContent: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     padding: 24,
     borderRadius: 24,
     width: '100%',
     maxWidth: 420,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     maxHeight: '85%',
   },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: '#F4F4F5', marginBottom: 18, textAlign: 'center' },
-  presetLabel: { color: '#71717A', fontSize: 13, marginBottom: 10, textTransform: 'uppercase' },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 18, textAlign: 'center' },
+  presetLabel: { color: colors.textTertiary, fontSize: 13, marginBottom: 10, textTransform: 'uppercase' },
   presetButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  presetButton: { backgroundColor: '#09090B', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#27272A' },
-  presetButtonActive: { backgroundColor: '#27272A' },
-  presetButtonText: { fontSize: 12, color: '#A1A1AA', fontWeight: '600' },
-  presetButtonTextActive: { color: '#F4F4F5' },
+  presetButton: { backgroundColor: colors.bg, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
+  presetButtonActive: { backgroundColor: colors.surfaceRaised },
+  presetButtonText: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
+  presetButtonTextActive: { color: colors.text },
   input: {
-    backgroundColor: '#09090B',
-    color: '#F4F4F5',
+    backgroundColor: colors.bg,
+    color: colors.text,
     borderRadius: 16,
     padding: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     marginBottom: 12,
   },
   coordinateHint: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     marginBottom: 12,
   },
-  coordinateHintText: { color: '#A1A1AA', fontSize: 13, lineHeight: 18 },
+  coordinateHintText: { color: colors.textSecondary, fontSize: 13, lineHeight: 18 },
   searchLoading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12 },
-  searchLoadingText: { color: '#A1A1AA', marginLeft: 8, fontSize: 13 },
+  searchLoadingText: { color: colors.textSecondary, marginLeft: 8, fontSize: 13 },
   suggestionsList: {
     maxHeight: 220,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     marginBottom: 14,
   },
   suggestionItem: {
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272A',
+    borderBottomColor: colors.border,
   },
-  suggestionTitle: { color: '#F4F4F5', fontSize: 15, fontWeight: '600' },
-  suggestionSubtitle: { color: '#71717A', fontSize: 12, marginTop: 4 },
+  suggestionTitle: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  suggestionSubtitle: { color: colors.textTertiary, fontSize: 12, marginTop: 4 },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 10 },
-  cancelModalButton: { flex: 1, backgroundColor: '#27272A', paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
-  cancelModalButtonText: { fontSize: 16, fontWeight: '700', color: '#A1A1AA' },
-  saveModalButton: { flex: 1, backgroundColor: '#F4F4F5', paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  cancelModalButton: { flex: 1, backgroundColor: colors.surfaceRaised, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  cancelModalButtonText: { fontSize: 16, fontWeight: '700', color: colors.textSecondary },
+  saveModalButton: { flex: 1, backgroundColor: colors.surfaceInverse, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
   saveModalButtonDisabled: { opacity: 0.6 },
-  saveModalButtonText: { fontSize: 16, fontWeight: '800', color: '#000000' },
+  saveModalButtonText: { fontSize: 16, fontWeight: '800', color: colors.textInverse },
 });

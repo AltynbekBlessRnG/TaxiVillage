@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { colors } from '../theme/colors';
 
 type Option = {
   label: string;
@@ -59,14 +60,14 @@ const styles = StyleSheet.create({
   },
   card: {
     maxHeight: '78%',
-    backgroundColor: '#141418',
+    backgroundColor: colors.surface,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 18,
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '900',
     marginBottom: 14,
@@ -75,23 +76,23 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   option: {
-    backgroundColor: '#0B0B0E',
+    backgroundColor: colors.bg,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
   optionActive: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#0F172A',
+    borderColor: colors.accent,
+    backgroundColor: colors.surfaceSunken,
   },
   optionText: {
-    color: '#E4E4E7',
+    color: colors.textMuted,
     fontSize: 15,
     fontWeight: '700',
   },
   optionTextActive: {
-    color: '#DBF0FF',
+    color: colors.accentTextSoft,
   },
 });

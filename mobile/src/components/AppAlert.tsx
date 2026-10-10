@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '../theme/colors';
 
 export type AppAlertButton = {
   text: string;
@@ -153,20 +154,20 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 20,
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '900',
     marginBottom: 10,
   },
   message: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -191,28 +192,28 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   buttonPrimary: {
-    backgroundColor: '#F97316',
+    backgroundColor: colors.foodStrong,
   },
   buttonCancel: {
     borderWidth: 1,
-    borderColor: '#3F3F46',
-    backgroundColor: '#18181B',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
   },
   buttonDestructive: {
-    backgroundColor: '#3F1518',
+    backgroundColor: colors.dangerSurface,
   },
   buttonText: {
     fontSize: 14,
     fontWeight: '900',
   },
   buttonTextPrimary: {
-    color: '#09090B',
+    color: colors.textInverse,
   },
   buttonTextCancel: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontWeight: '800',
   },
   buttonTextDestructive: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
   },
 });

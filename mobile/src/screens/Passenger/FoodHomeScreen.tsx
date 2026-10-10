@@ -14,6 +14,7 @@ import { apiClient } from '../../api/client';
 import { ServiceScreen } from '../../components/ServiceScreen';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { FoodCoverArt } from '../../components/Food/FoodCoverArt';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodHome'>;
 
@@ -157,14 +158,14 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FB923C" />
+        <ActivityIndicator size="large" color={colors.food} />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       eyebrow="Еда"
       title="Рестораны"
       subtitle=""
@@ -327,20 +328,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#3F3F46',
-    backgroundColor: '#18181B',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 13,
     marginBottom: 16,
   },
   historyButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '900',
   },
   historyButtonArrow: {
-    color: '#FB923C',
+    color: colors.food,
     fontSize: 25,
     lineHeight: 25,
   },
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   featuredCard: {
     marginBottom: 18,
@@ -370,7 +371,7 @@ const styles = StyleSheet.create({
     padding: 22,
   },
   featuredEyebrow: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -378,13 +379,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   featuredTitle: {
-    color: '#FAFAF9',
+    color: colors.text,
     fontSize: 28,
     fontWeight: '900',
     marginBottom: 8,
   },
   featuredSubtitle: {
-    color: '#E7E5E4',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 12,
@@ -394,7 +395,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   featuredChip: {
-    color: '#FFF7ED',
+    color: colors.foodTextSoft,
     backgroundColor: 'rgba(9,9,11,0.62)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
@@ -417,28 +418,28 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   categoryIconWrapActive: {
-    backgroundColor: '#2D160B',
-    borderColor: '#FB923C',
+    backgroundColor: colors.foodSurface,
+    borderColor: colors.food,
   },
   categoryEmoji: {
     fontSize: 28,
   },
   categoryLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '800',
     textAlign: 'center',
   },
   categoryLabelActive: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
   filterRail: {
     gap: 10,
@@ -446,24 +447,24 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   filterChip: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   filterChipActive: {
-    backgroundColor: '#2D160B',
-    borderColor: '#FB923C',
+    backgroundColor: colors.foodSurface,
+    borderColor: colors.food,
   },
   filterChipText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
   filterChipTextActive: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
   },
   restaurantCard: {
     marginBottom: 18,
@@ -494,7 +495,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.14)',
   },
   ratingBadgeText: {
-    color: '#FAFAF9',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -510,18 +511,18 @@ const styles = StyleSheet.create({
   },
   restaurantName: {
     flex: 1,
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 24,
     fontWeight: '900',
   },
   restaurantEta: {
-    color: '#E7E5E4',
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: '800',
     marginTop: 5,
   },
   restaurantSecondary: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 10,
   },
@@ -531,56 +532,56 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   restaurantPromoPill: {
-    backgroundColor: '#1F2A1A',
+    backgroundColor: colors.successSurface,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   restaurantWhatsappPill: {
-    backgroundColor: '#143124',
+    backgroundColor: colors.successSurface,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   restaurantWhatsappText: {
-    color: '#86EFAC',
+    color: colors.successText,
     fontSize: 12,
     fontWeight: '800',
   },
   restaurantPromoText: {
-    color: '#86EFAC',
+    color: colors.successText,
     fontSize: 12,
     fontWeight: '800',
   },
   restaurantMutedPill: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   restaurantMutedText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },
   emptyBlock: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 22,
     padding: 18,
     marginBottom: 14,
   },
   emptyTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 6,
   },
   emptyText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },

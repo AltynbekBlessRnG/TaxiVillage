@@ -39,6 +39,7 @@ import { MessagesScreen } from '../screens/MessagesScreen';
 import { loadAuth } from '../storage/authStorage';
 import { setAuthToken } from '../api/client';
 import { registerPushToken } from '../utils/notifications';
+import { colors } from '../theme/colors';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -162,7 +163,7 @@ export const AppNavigator: React.FC = () => {
         headerShown: false,
         animation: 'slide_from_right',
         contentStyle: {
-          backgroundColor: '#09090B',
+          backgroundColor: colors.bg,
         },
       }}
     >
@@ -234,12 +235,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#F4F4F5',
+    color: colors.text,
   },
 });
 

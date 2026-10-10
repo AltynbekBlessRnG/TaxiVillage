@@ -11,6 +11,7 @@ import { InlineLabel, PrimaryButton, SecondaryButton, ServiceCard, ServiceScreen
 import { formatIntercityDateTime } from '../../constants/intercity';
 import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityDriverOrder'>;
 
@@ -144,14 +145,14 @@ export const IntercityDriverOrderScreen: React.FC<Props> = ({ navigation, route 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#38BDF8" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#38BDF8"
+      accentColor={colors.accent}
       title="Заявка пассажира"
       subtitle=""
       backLabel="К заявкам"
@@ -164,7 +165,7 @@ export const IntercityDriverOrderScreen: React.FC<Props> = ({ navigation, route 
         <InlineLabel label="Маршрут" value={`${order?.fromCity || '-'} → ${order?.toCity || '-'}`} />
         <InlineLabel label="Выезд" value={formatIntercityDateTime(order?.departureAt)} />
         <InlineLabel label="Мест" value={String(order?.seats || 1)} />
-        <InlineLabel label="Цена" value={`${Math.round(Number(order?.price || 0))} тг`} accentColor="#38BDF8" />
+        <InlineLabel label="Цена" value={`${Math.round(Number(order?.price || 0))} тг`} accentColor={colors.accent} />
         {order?.baggage ? <InlineLabel label="Багаж" value={order.baggage} /> : null}
         {order?.comment ? <InlineLabel label="Комментарий" value={order.comment} /> : null}
       </ServiceCard>
@@ -195,7 +196,7 @@ export const IntercityDriverOrderScreen: React.FC<Props> = ({ navigation, route 
         <PrimaryButton
           title={processing ? 'Обновляем...' : nextAction.label}
           onPress={updateStatus}
-          accentColor="#38BDF8"
+          accentColor={colors.accent}
         />
       ) : null}
       {canCancel ? <SecondaryButton title="Отменить" onPress={cancelOrder} /> : null}
@@ -216,18 +217,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   statusPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#082F49',
+    backgroundColor: colors.accentSurface,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,
   },
   statusPillText: {
-    color: '#BAE6FD',
+    color: colors.accentText,
     fontWeight: '800',
   },
 });

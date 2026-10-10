@@ -19,6 +19,7 @@ import { PrimaryButton, ServiceScreen } from '../../components/ServiceScreen';
 import { openWhatsAppOrder } from '../../utils/foodWhatsapp';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { FoodCoverArt } from '../../components/Food/FoodCoverArt';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Restaurant'>;
 
@@ -184,14 +185,14 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FB923C" />
+        <ActivityIndicator size="large" color={colors.food} />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       eyebrow="Меню"
       title={restaurantName}
       subtitle=""
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   hero: {
     minHeight: 214,
@@ -477,7 +478,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.14)',
   },
   heroMetaChipText: {
-    color: '#FFF7ED',
+    color: colors.foodTextSoft,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -485,13 +486,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   heroTitle: {
-    color: '#FFF7ED',
+    color: colors.foodTextSoft,
     fontSize: 30,
     fontWeight: '900',
     marginBottom: 6,
   },
   heroSubtitle: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -505,19 +506,19 @@ const styles = StyleSheet.create({
     minHeight: 74,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   quickFactValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 4,
   },
   quickFactLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -533,33 +534,33 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     padding: 16,
     borderRadius: 20,
-    backgroundColor: '#151518',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   contactInfo: {
     flex: 1,
   },
   contactLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   contactValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
   contactButton: {
-    backgroundColor: '#143124',
+    backgroundColor: colors.successSurface,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   contactButtonText: {
-    color: '#86EFAC',
+    color: colors.successText,
     fontSize: 13,
     fontWeight: '900',
   },
@@ -572,30 +573,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 18,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   categoryTabActive: {
-    backgroundColor: '#2D160B',
-    borderColor: '#FB923C',
+    backgroundColor: colors.foodSurface,
+    borderColor: colors.food,
   },
   categoryTabText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
     marginBottom: 4,
   },
   categoryTabTextActive: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
   },
   categoryTabMeta: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
   },
   categoryTabMetaActive: {
-    color: '#FDBA74',
+    color: colors.foodText,
   },
   section: {
     marginBottom: 20,
@@ -607,12 +608,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '900',
   },
   sectionMeta: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -621,7 +622,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272A',
+    borderBottomColor: colors.border,
   },
   menuImage: {
     width: 82,
@@ -637,13 +638,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   menuName: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 4,
   },
   menuDescription: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     marginBottom: 8,
   },
@@ -654,7 +655,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuPrice: {
-    color: '#FB923C',
+    color: colors.food,
     fontSize: 15,
     fontWeight: '900',
   },
@@ -662,14 +663,14 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '900',
   },
@@ -682,43 +683,43 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#2D160B',
+    backgroundColor: colors.foodSurface,
     borderWidth: 1,
-    borderColor: '#FB923C',
+    borderColor: colors.food,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quantityButtonGhost: {
-    backgroundColor: '#18181B',
-    borderColor: '#3F3F46',
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
   },
   quantityButtonText: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontSize: 15,
     fontWeight: '900',
   },
   quantityButtonGhostText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     lineHeight: 20,
   },
   emptyBlock: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 22,
     padding: 18,
     marginBottom: 14,
   },
   emptyTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 6,
   },
   emptyText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },

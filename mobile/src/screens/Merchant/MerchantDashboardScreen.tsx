@@ -26,6 +26,7 @@ import { LegalLinks } from '../../components/LegalLinks';
 import { PrimaryButton, SecondaryButton } from '../../components/ServiceScreen';
 import { MerchantSideDrawer } from './MerchantSideDrawer';
 import { resolveApiAssetUrl } from '../../utils/assets';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MerchantDashboard'>;
 
@@ -295,7 +296,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FB923C" />
+        <ActivityIndicator size="large" color={colors.food} />
       </View>
     );
   }
@@ -331,8 +332,8 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
             value={isOpen}
             onValueChange={setIsOpen}
             accessibilityLabel="Заведение открыто"
-            trackColor={{ false: '#7F1D1D', true: '#166534' }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.dangerBorder, true: colors.successBorder }}
+            thumbColor={colors.white}
           />
         </View>
       </View>
@@ -345,7 +346,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
       >
         <ImageBackground
           source={coverUri ? { uri: coverUri } : undefined}
-          style={[styles.coverPreview, { backgroundColor: profile?.tone || '#7C2D12' }]}
+          style={[styles.coverPreview, { backgroundColor: profile?.tone || colors.foodBorder }]}
           imageStyle={styles.coverPreviewImage}
         >
           <View style={styles.coverOverlay} />
@@ -418,21 +419,21 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
             onChangeText={setName}
             style={styles.input}
             placeholder="Название заведения"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
           />
           <TextInput
             value={cuisine}
             onChangeText={setCuisine}
             style={styles.input}
             placeholder="Кухня"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
           />
           <TextInput
             value={description}
             onChangeText={setDescription}
             style={[styles.input, styles.multilineInput]}
             placeholder="Короткое описание"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
             multiline
           />
         </View>
@@ -445,7 +446,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
             onChangeText={setContactPhone}
             style={styles.input}
             placeholder="Телефон ответственного"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
             keyboardType="phone-pad"
           />
           <TextInput
@@ -453,14 +454,14 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
             onChangeText={setAddress}
             style={styles.input}
             placeholder="Адрес заведения"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
           />
           <TextInput
             value={whatsAppPhone}
             onChangeText={setWhatsAppPhone}
             style={styles.input}
             placeholder="WhatsApp для резервной связи (необязательно)"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
             keyboardType="phone-pad"
           />
           <View style={styles.row}>
@@ -469,7 +470,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onChangeText={setEtaMinutes}
               style={[styles.input, styles.halfInput]}
               placeholder="Приготовление, мин"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               keyboardType="numeric"
             />
             <TextInput
@@ -477,7 +478,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onChangeText={setMinOrder}
               style={[styles.input, styles.halfInput]}
               placeholder="Мин. чек"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               keyboardType="numeric"
             />
           </View>
@@ -487,14 +488,14 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onChangeText={setOpenTime}
               style={[styles.input, styles.halfInput]}
               placeholder="Открытие 09:00"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
             />
             <TextInput
               value={closeTime}
               onChangeText={setCloseTime}
               style={[styles.input, styles.halfInput]}
               placeholder="Закрытие 23:00"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
             />
           </View>
           <View style={styles.row}>
@@ -503,7 +504,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onChangeText={setDeliveryFee}
               style={[styles.input, styles.halfInput]}
               placeholder="Доставка, ₸"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               keyboardType="numeric"
             />
             <TextInput
@@ -511,7 +512,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onChangeText={setDeliveryRadiusKm}
               style={[styles.input, styles.halfInput]}
               placeholder="Радиус, км"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               keyboardType="numeric"
             />
           </View>
@@ -527,7 +528,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
           <PrimaryButton
             title={saving ? 'Сохраняем...' : 'Сохранить изменения'}
             onPress={() => saveProfile().catch(() => null)}
-            accentColor="#FB923C"
+            accentColor={colors.food}
           />
           <LegalLinks />
           <TouchableOpacity
@@ -600,7 +601,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   flex: {
     flex: 1,
@@ -609,7 +610,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   topBar: {
     flexDirection: 'row',
@@ -623,14 +624,14 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   burgerIcon: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 22,
   },
   topBarCenter: {
@@ -638,7 +639,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 14,
   },
   topBarTitle: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -646,7 +647,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
   },
   topBarSubtitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
   },
@@ -660,10 +661,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   topBarToggleTextActive: {
-    color: '#86EFAC',
+    color: colors.successText,
   },
   topBarToggleTextMuted: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
   },
   content: {
     paddingHorizontal: 20,
@@ -674,7 +675,7 @@ const styles = StyleSheet.create({
     minHeight: 240,
     marginBottom: 18,
     overflow: 'hidden',
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     justifyContent: 'flex-end',
   },
   coverPreviewImage: {
@@ -701,7 +702,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.14)',
   },
   heroMetaChipText: {
-    color: '#FFF7ED',
+    color: colors.foodTextSoft,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -709,13 +710,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   coverTitle: {
-    color: '#FFF7ED',
+    color: colors.foodTextSoft,
     fontSize: 30,
     fontWeight: '900',
     marginBottom: 6,
   },
   coverSubtitle: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -732,28 +733,28 @@ const styles = StyleSheet.create({
     minHeight: 92,
     borderRadius: 22,
     padding: 16,
-    backgroundColor: '#151518',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     justifyContent: 'space-between',
   },
   quickActionTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '900',
   },
   quickActionText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 17,
   },
   metricsStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#151518',
+    backgroundColor: colors.surface,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     marginBottom: 16,
     paddingVertical: 14,
   },
@@ -765,25 +766,25 @@ const styles = StyleSheet.create({
   metricDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
   },
   metricValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 4,
   },
   metricLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   section: {
-    backgroundColor: '#151518',
+    backgroundColor: colors.surface,
     borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 18,
     marginBottom: 16,
   },
@@ -801,7 +802,7 @@ const styles = StyleSheet.create({
     width: 110,
   },
   sectionEyebrow: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -809,16 +810,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
   },
   sectionTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '900',
   },
   input: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
-    color: '#F4F4F5',
+    borderColor: colors.border,
+    color: colors.text,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
@@ -837,20 +838,20 @@ const styles = StyleSheet.create({
   },
   whatsappPanel: {
     marginTop: 2,
-    backgroundColor: '#143124',
+    backgroundColor: colors.successSurface,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
   whatsappPanelLabel: {
-    color: '#86EFAC',
+    color: colors.successText,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   whatsappPanelValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -859,15 +860,15 @@ const styles = StyleSheet.create({
   },
   deleteAccountButton: {
     marginTop: 12,
-    backgroundColor: '#2B1114',
+    backgroundColor: colors.dangerSurface,
     borderWidth: 1,
-    borderColor: '#7F1D1D',
+    borderColor: colors.dangerBorder,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
   },
   deleteAccountButtonText: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
     fontSize: 15,
     fontWeight: '900',
   },

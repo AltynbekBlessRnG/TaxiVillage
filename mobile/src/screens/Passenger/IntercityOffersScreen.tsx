@@ -6,6 +6,7 @@ import { apiClient } from '../../api/client';
 import { OptionPickerModal } from '../../components/OptionPickerModal';
 import { SecondaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
 import { buildIntercityDateOptions, formatIntercityDateTime } from '../../constants/intercity';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityOffers'>;
 
@@ -43,14 +44,14 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#38BDF8" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#38BDF8"
+      accentColor={colors.accent}
       title={`${route.params.fromCity} → ${route.params.toCity}`}
       subtitle=""
       backLabel="Назад"
@@ -71,7 +72,7 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
               value={seats}
               onChangeText={setSeats}
               keyboardType="number-pad"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
             />
           </View>
           <View style={styles.filterField}>
@@ -82,7 +83,7 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
               onChangeText={setMaxPriceDraft}
               keyboardType="number-pad"
               placeholder="тг"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
             />
           </View>
         </View>
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   filterRow: {
     flexDirection: 'row',
@@ -173,9 +174,9 @@ const styles = StyleSheet.create({
   },
   filterField: {
     flex: 1,
-    backgroundColor: '#0B0B0E',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -184,39 +185,39 @@ const styles = StyleSheet.create({
     flex: 2,
   },
   filterLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '800',
     marginBottom: 6,
     textTransform: 'uppercase',
   },
   filterValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
   filterInput: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
     padding: 0,
   },
   emptyTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '900',
     marginBottom: 8,
   },
   emptyText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
   offerCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 16,
     marginBottom: 12,
   },
@@ -231,28 +232,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 4,
   },
   departureText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
   },
   priceText: {
-    color: '#38BDF8',
+    color: colors.accent,
     fontSize: 18,
     fontWeight: '900',
   },
   driverText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
   carText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     marginTop: 4,
   },
@@ -271,12 +272,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   metaPill: {
-    color: '#CBE7FF',
+    color: colors.accentTextSoft,
     fontSize: 12,
     fontWeight: '700',
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 7,

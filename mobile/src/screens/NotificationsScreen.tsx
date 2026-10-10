@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useNotificationsInbox } from '../hooks/useNotificationsInbox';
 import type { AppNotificationItem } from '../storage/notificationsInbox';
+import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 type NotificationFilter = 'ALL' | 'CHAT' | 'ORDERS';
@@ -237,7 +238,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090B' },
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -248,25 +249,25 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   backButton: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
+  backButtonText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   title: {
     flex: 1,
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '800',
     textAlign: 'center',
   },
   markAllButton: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
   markAllButtonDisabled: {
     opacity: 0.45,
   },
-  markAllText: { color: '#E4E4E7', fontSize: 12, fontWeight: '700' },
+  markAllText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   toolbar: {
     paddingHorizontal: 16,
     paddingBottom: 12,
@@ -285,37 +286,37 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   filterChipActive: {
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
   },
   filterText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '800',
   },
   filterTextActive: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
   clearReadBtn: {
     alignSelf: 'flex-start',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  clearReadText: { color: '#A1A1AA', fontSize: 12, fontWeight: '700' },
+  clearReadText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   listContent: { paddingHorizontal: 16, paddingBottom: 24 },
   sectionTitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -324,9 +325,9 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   item: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 18,
     padding: 16,
     marginBottom: 12,
@@ -343,17 +344,17 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
     marginRight: 8,
   },
-  itemTitle: { color: '#F4F4F5', fontSize: 15, fontWeight: '800', flexShrink: 1 },
-  date: { color: '#71717A', fontSize: 11, fontWeight: '500' },
-  itemBody: { color: '#A1A1AA', fontSize: 14, lineHeight: 20 },
+  itemTitle: { color: colors.text, fontSize: 15, fontWeight: '800', flexShrink: 1 },
+  date: { color: colors.textTertiary, fontSize: 11, fontWeight: '500' },
+  itemBody: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
   emptyBox: {
     marginTop: 48,
     alignItems: 'center',
     paddingHorizontal: 32,
   },
-  emptyTitle: { color: '#F4F4F5', fontSize: 20, fontWeight: '800', marginBottom: 8 },
-  emptyText: { color: '#71717A', fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '800', marginBottom: 8 },
+  emptyText: { color: colors.textTertiary, fontSize: 14, textAlign: 'center', lineHeight: 20 },
 });

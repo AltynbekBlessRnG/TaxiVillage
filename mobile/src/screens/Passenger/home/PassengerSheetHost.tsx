@@ -8,6 +8,7 @@ import { ActiveOrderSheet } from '../../../components/Passenger/ActiveOrderSheet
 import type { PassengerCoordinates, PassengerScreenState, PassengerStop } from './usePassengerFlowStore';
 import type { RideQuote } from './useRideQuote';
 import { showAlert } from '../../../components/AppAlert';
+import { colors } from '../../../theme/colors';
 
 interface Props {
   screenState: PassengerScreenState;
@@ -304,13 +305,13 @@ export const PassengerSheetHost: React.FC<Props> = ({
 const styles = StyleSheet.create({
   confirmMapPick: { position: 'absolute', bottom: 50, left: 20, right: 20, zIndex: 100 },
   zincMainBtn: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     height: 60,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  zincMainBtnText: { color: '#000', fontSize: 18, fontWeight: '800' },
+  zincMainBtnText: { color: colors.textInverse, fontSize: 18, fontWeight: '800' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.72)',
@@ -318,20 +319,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   modalCard: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 20,
   },
   modalTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 10,
   },
   modalBody: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 18,
@@ -345,13 +346,13 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
-    backgroundColor: '#18181B',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalSecondaryText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -359,24 +360,24 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#991B1B',
+    backgroundColor: colors.dangerDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalDangerText: {
-    color: '#FEE2E2',
+    color: colors.white,
     fontSize: 15,
     fontWeight: '800',
   },
   modalPrimary: {
     height: 50,
     borderRadius: 16,
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalPrimaryText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontSize: 15,
     fontWeight: '800',
   },

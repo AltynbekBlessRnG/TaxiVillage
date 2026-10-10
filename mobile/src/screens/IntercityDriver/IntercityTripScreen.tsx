@@ -18,6 +18,7 @@ import {
 } from '../../constants/intercity';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
 import { loadAuth } from '../../storage/authStorage';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityTrip'>;
 
@@ -207,14 +208,14 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#38BDF8" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   if (isCreateMode) {
     return (
-      <ServiceScreen accentColor="#38BDF8" title="Создать свой рейс" subtitle="" backLabel="Назад" onBack={() => navigation.goBack()}>
+      <ServiceScreen accentColor={colors.accent} title="Создать свой рейс" subtitle="" backLabel="Назад" onBack={() => navigation.goBack()}>
         <ServiceCard>
           <TouchableOpacity style={styles.selectField} activeOpacity={0.9} onPress={() => setPicker('from')}>
             <Text style={styles.fieldLabel}>Откуда</Text>
@@ -242,7 +243,7 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
             onChangeText={setPricePerSeat}
             keyboardType="number-pad"
             placeholder="Цена за место"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
           />
           <TextInput
             style={styles.input}
@@ -250,16 +251,16 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
             onChangeText={setSeatCapacity}
             keyboardType="number-pad"
             placeholder="Сколько мест"
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
           />
-          <TextInput style={[styles.input, styles.commentInput]} value={comment} onChangeText={setComment} placeholder="Комментарий" placeholderTextColor="#71717A" multiline />
+          <TextInput style={[styles.input, styles.commentInput]} value={comment} onChangeText={setComment} placeholder="Комментарий" placeholderTextColor={colors.textTertiary} multiline />
           <View style={styles.preferenceRow}>
             <SecondaryButton title={womenOnly ? 'Женский салон: Да' : 'Женский салон: Нет'} onPress={() => setWomenOnly((value) => !value)} />
             <SecondaryButton title={baggageSpace ? 'Есть багаж' : 'Без багажа'} onPress={() => setBaggageSpace((value) => !value)} />
             <SecondaryButton title={allowAnimals ? 'Животные можно' : 'Без животных'} onPress={() => setAllowAnimals((value) => !value)} />
           </View>
         </ServiceCard>
-        <PrimaryButton title={saving ? 'Создаем...' : 'Создать рейс'} onPress={createTrip} accentColor="#38BDF8" />
+        <PrimaryButton title={saving ? 'Создаем...' : 'Создать рейс'} onPress={createTrip} accentColor={colors.accent} />
 
         <OptionPickerModal
           visible={picker === 'from'}
@@ -305,14 +306,14 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
   }
 
   return (
-    <ServiceScreen accentColor="#38BDF8" title="Мой рейс" subtitle="" backLabel="Назад" onBack={() => navigation.goBack()}>
+    <ServiceScreen accentColor={colors.accent} title="Мой рейс" subtitle="" backLabel="Назад" onBack={() => navigation.goBack()}>
       <View style={styles.heroBlock}>
         <Text style={styles.heroRoute}>{`${trip?.fromCity || '-'} → ${trip?.toCity || '-'}`}</Text>
         <Text style={styles.heroText}>{statusLabels[trip?.status] || 'Рейс обновляется'}</Text>
       </View>
 
       <ServiceCard>
-        <InlineLabel label="Статус" value={statusLabels[trip?.status] || 'Рейс'} accentColor="#38BDF8" />
+        <InlineLabel label="Статус" value={statusLabels[trip?.status] || 'Рейс'} accentColor={colors.accent} />
         <InlineLabel label="Выезд" value={formatIntercityDateTime(trip?.departureAt)} />
         <InlineLabel label="Цена за место" value={`${Math.round(Number(trip?.pricePerSeat || 0))} тг`} />
         <InlineLabel label="Занято мест" value={`${bookedSeats} из ${trip?.seatCapacity || 0}`} />
@@ -359,7 +360,7 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
       </ServiceCard>
 
       {nextStatusMap[trip?.status] ? (
-        <PrimaryButton title={nextStatusMap[trip?.status]?.label || 'Следующий этап'} onPress={advanceStatus} accentColor="#38BDF8" />
+        <PrimaryButton title={nextStatusMap[trip?.status]?.label || 'Следующий этап'} onPress={advanceStatus} accentColor={colors.accent} />
       ) : null}
       {trip?.status && trip.status !== 'COMPLETED' && trip.status !== 'CANCELED' ? (
         <SecondaryButton title="Отменить рейс" onPress={confirmCancel} />
@@ -393,48 +394,48 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   heroBlock: {
     marginBottom: 12,
     paddingHorizontal: 4,
   },
   heroRoute: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '900',
     marginBottom: 8,
   },
   heroText: {
-    color: '#7DD3FC',
+    color: colors.accentText,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '700',
   },
   selectField: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 14,
     marginBottom: 10,
   },
   fieldLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
     marginBottom: 6,
   },
   fieldValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
   },
   fieldValueSmall: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -446,11 +447,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   input: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
-    color: '#F4F4F5',
+    borderColor: colors.border,
+    color: colors.text,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
@@ -468,15 +469,15 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   tripChatButton: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#1D4ED8',
+    borderColor: colors.infoBorder,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   tripChatButtonText: {
-    color: '#DBEAFE',
+    color: colors.infoTextSoft,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -484,32 +485,32 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '900',
     marginBottom: 12,
   },
   bookingCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
   },
   bookingName: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
   bookingMeta: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     marginBottom: 2,
   },
   emptyText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
   },
 });

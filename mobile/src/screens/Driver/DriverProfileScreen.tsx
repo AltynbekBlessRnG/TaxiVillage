@@ -11,6 +11,7 @@ import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { LegalLinks } from '../../components/LegalLinks';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { showAlert } from '../../components/AppAlert';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverProfile'>;
 
@@ -61,7 +62,7 @@ const ReadinessCard: React.FC<{
     style={[
       styles.readinessCard,
       ready ? styles.readinessCardReady : styles.readinessCardPending,
-      { borderColor: ready ? '#27272A' : accent },
+      { borderColor: ready ? colors.border : accent },
     ]}
   >
     {!ready ? <View style={[styles.readinessAccentBar, { backgroundColor: accent }]} /> : null}
@@ -99,7 +100,7 @@ const ReadinessCard: React.FC<{
 const StatCard: React.FC<{ label: string; value: string; accent?: string }> = ({
   label,
   value,
-  accent = '#F4F4F5',
+  accent = colors.text,
 }) => (
   <View style={styles.statCard}>
     <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
@@ -223,7 +224,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       return {
         title: 'Что нужно для такси',
         step: taxiSteps[0],
-        accent: '#60A5FA',
+        accent: colors.infoText,
       };
     }
 
@@ -231,7 +232,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       return {
         title: 'Что нужно для курьера',
         step: courierSteps[0],
-        accent: '#F59E0B',
+        accent: colors.warning,
       };
     }
 
@@ -239,14 +240,14 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
       return {
         title: 'Что нужно для межгорода',
         step: intercitySteps[0],
-        accent: '#38BDF8',
+        accent: colors.accent,
       };
     }
 
     return {
       title: 'Профиль готов',
       step: 'Все готово к работе.',
-      accent: '#22C55E',
+      accent: colors.successBright,
     };
   }, [courierSteps, intercitySteps, taxiSteps]);
   const readinessScore = useMemo(() => {
@@ -444,18 +445,18 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
   const getStatusTone = (status?: string) => {
     switch (status) {
       case 'APPROVED':
-        return { bg: '#0F2A1C', fg: '#86EFAC', border: '#14532D' };
+        return { bg: colors.successSurface, fg: colors.successText, border: colors.successBorder };
       case 'REJECTED':
-        return { bg: '#2A1215', fg: '#FDA4AF', border: '#7F1D1D' };
+        return { bg: colors.dangerSurface, fg: colors.dangerText, border: colors.dangerBorder };
       default:
-        return { bg: '#18181B', fg: '#FCD34D', border: '#3F3F46' };
+        return { bg: colors.surface, fg: colors.warningText, border: colors.borderStrong };
     }
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#F4F4F5" />
+        <ActivityIndicator size="large" color={colors.text} />
       </View>
     );
   }
@@ -500,9 +501,9 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
                 <View style={styles.avatarEditBadge}>
                   {uploadingAvatar ? (
-                    <ActivityIndicator size="small" color="#09090B" />
+                    <ActivityIndicator size="small" color={colors.textInverse} />
                   ) : (
-                    <Ionicons name="camera-outline" size={16} color="#09090B" />
+                    <Ionicons name="camera-outline" size={16} color={colors.textInverse} />
                   )}
                 </View>
               </TouchableOpacity>
@@ -532,12 +533,12 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               <StatCard
                 label="Баланс"
                 value={`${Math.round(Number(profile?.balance || 0))} ₸`}
-                accent="#F4F4F5"
+                accent={colors.text}
               />
               <StatCard
                 label="Рейтинг"
                 value={`${profile?.rating?.toFixed(1) || '5.0'} ★`}
-                accent="#FBBF24"
+                accent={colors.warningText}
               />
               <StatCard
                 label="Текущий режим"
@@ -548,7 +549,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                       ? 'Курьер'
                       : 'Такси'
                 }
-                accent="#60A5FA"
+                accent={colors.infoText}
               />
             </View>
             <View style={styles.progressBlock}>
@@ -615,7 +616,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               title="Такси"
               subtitle="Права, СТС и автомобиль"
               ready={taxiReady}
-              accent="#22C55E"
+              accent={colors.successBright}
               steps={taxiSteps}
               badge={taxiReady ? 'Готов' : 'Не готов'}
             />
@@ -628,7 +629,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                   : `${TRANSPORT_LABELS[courierTransportType]} • авто и документы`
               }
               ready={courierReady}
-              accent="#F59E0B"
+              accent={colors.warning}
               steps={courierSteps}
               badge={courierReady ? 'Готов' : 'Не готов'}
             />
@@ -637,7 +638,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
               title="Межгород"
               subtitle="Публикация рейсов и заявки пассажиров"
               ready={intercityReady}
-              accent="#38BDF8"
+              accent={colors.accent}
               steps={intercitySteps}
               badge={intercityReady ? 'Готов' : 'Не готов'}
             />
@@ -778,11 +779,11 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   content: {
     paddingHorizontal: 16,
@@ -792,7 +793,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   headerRow: {
     paddingTop: 12,
@@ -800,23 +801,23 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   backButtonText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   heroCard: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 20,
     marginBottom: 16,
   },
@@ -833,9 +834,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -845,7 +846,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 24,
     fontWeight: '900',
   },
@@ -856,9 +857,9 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderWidth: 2,
-    borderColor: '#111113',
+    borderColor: colors.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -866,13 +867,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '900',
     marginBottom: 4,
   },
   heroSubtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 10,
   },
@@ -889,11 +890,11 @@ const styles = StyleSheet.create({
   },
   heroDivider: {
     height: 1,
-    backgroundColor: '#202024',
+    backgroundColor: colors.surfaceElevated,
     marginBottom: 16,
   },
   avatarHint: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     lineHeight: 18,
     marginBottom: 14,
@@ -911,25 +912,25 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   progressLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
   },
   progressValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '900',
   },
   progressTrack: {
     height: 10,
     borderRadius: 999,
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.successBright,
   },
   balanceStatusRow: {
     marginTop: 16,
@@ -940,28 +941,28 @@ const styles = StyleSheet.create({
   },
   balanceStatusText: {
     flex: 1,
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
   },
   balanceButton: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   balanceButtonText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontSize: 13,
     fontWeight: '900',
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 14,
   },
   statValue: {
@@ -970,33 +971,33 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   section: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 16,
     marginBottom: 16,
   },
   sectionTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 19,
     fontWeight: '900',
     marginBottom: 6,
   },
   sectionSubtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 14,
   },
   urgentCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     borderWidth: 1,
     padding: 16,
@@ -1007,7 +1008,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   urgentStep: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1020,10 +1021,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   readinessCardReady: {
-    backgroundColor: '#0D1510',
+    backgroundColor: colors.successSurface,
   },
   readinessCardPending: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
   },
   readinessHeader: {
     flexDirection: 'row',
@@ -1044,13 +1045,13 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   readinessTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 2,
   },
   readinessSubtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
   },
   readinessBadge: {
@@ -1061,15 +1062,15 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   readinessBadgeText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '800',
   },
   readinessBadgeTextReady: {
-    color: '#04130A',
+    color: colors.onSuccess,
   },
   readyText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1079,22 +1080,22 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   stepDot: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 16,
     lineHeight: 20,
     marginRight: 8,
   },
   stepText: {
     flex: 1,
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 20,
   },
   modeCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 14,
     marginBottom: 12,
   },
@@ -1105,13 +1106,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   modeTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 4,
   },
   modeValue: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
     maxWidth: 180,
@@ -1123,66 +1124,66 @@ const styles = StyleSheet.create({
   },
   pillButton: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
   pillButtonActive: {
-    backgroundColor: '#F4F4F5',
-    borderColor: '#FFFFFF',
+    backgroundColor: colors.surfaceInverse,
+    borderColor: colors.white,
   },
   pillButtonText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '800',
   },
   pillButtonTextActive: {
-    color: '#09090B',
+    color: colors.textInverse,
   },
   primaryButton: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 4,
   },
   primaryButtonText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontSize: 16,
     fontWeight: '900',
   },
   secondaryWideButton: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingVertical: 16,
     alignItems: 'center',
   },
   secondaryWideButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
   documentsSummaryCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 14,
   },
   documentsSummaryTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
   documentsSummaryText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -1190,16 +1191,16 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   deleteAccountButton: {
-    backgroundColor: '#2B1114',
+    backgroundColor: colors.dangerSurface,
     borderWidth: 1,
-    borderColor: '#7F1D1D',
+    borderColor: colors.dangerBorder,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 8,
   },
   deleteAccountButtonText: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
     fontSize: 15,
     fontWeight: '900',
   },

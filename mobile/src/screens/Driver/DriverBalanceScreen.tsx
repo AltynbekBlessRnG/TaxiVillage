@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverBalance'>;
 
@@ -54,7 +55,7 @@ export const DriverBalanceScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#F4F4F5" />
+          <ActivityIndicator size="large" color={colors.text} />
         </View>
       </SafeAreaView>
     );
@@ -112,7 +113,7 @@ export const DriverBalanceScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   loadingWrap: {
     flex: 1,
@@ -127,35 +128,35 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 12,
     marginBottom: 16,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   backButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
   heroCard: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 28,
     padding: 22,
     marginBottom: 16,
   },
   heroEyebrow: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 10,
     textTransform: 'uppercase',
   },
   heroValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 34,
     fontWeight: '900',
     marginBottom: 12,
@@ -168,38 +169,38 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusPillReady: {
-    backgroundColor: '#0F2A1C',
-    borderColor: '#14532D',
+    backgroundColor: colors.successSurface,
+    borderColor: colors.successBorder,
   },
   statusPillBlocked: {
-    backgroundColor: '#2A1215',
-    borderColor: '#7F1D1D',
+    backgroundColor: colors.dangerSurface,
+    borderColor: colors.dangerBorder,
   },
   statusPillText: {
     fontSize: 12,
     fontWeight: '900',
   },
   statusPillTextReady: {
-    color: '#86EFAC',
+    color: colors.successText,
   },
   statusPillTextBlocked: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
   },
   card: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 24,
     padding: 18,
   },
   cardTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '900',
     marginBottom: 14,
   },
   label: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -207,13 +208,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   value: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     lineHeight: 24,
     fontWeight: '700',
   },
   note: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 21,
     marginTop: 16,

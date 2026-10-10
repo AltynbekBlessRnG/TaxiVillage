@@ -10,6 +10,7 @@ import { resolveAddressForPoint, searchPlaces } from '../../api/places';
 import { loadRecentAddresses, saveRecentAddress, type RecentAddress } from '../../storage/recentAddresses';
 import { showAlert } from '../../components/AppAlert';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../theme/colors';
 
 interface GooglePlacePrediction {
   place_id: string;
@@ -330,7 +331,7 @@ export const SearchSheet: React.FC<Props> = ({
     return (
       <TouchableOpacity style={styles.currentLocationButton} onPress={() => void handleUseCurrentLocation()}>
         <View style={styles.currentLocationTitleRow}>
-          <Ionicons name="locate" size={16} color="#F4F4F5" />
+          <Ionicons name="locate" size={16} color={colors.text} />
           <Text style={styles.currentLocationTitle}>Текущее местоположение</Text>
         </View>
         <Text style={styles.currentLocationSubtitle}>Определить адрес по вашей геопозиции</Text>
@@ -434,7 +435,7 @@ export const SearchSheet: React.FC<Props> = ({
                         setSearchQuery(fromInputValue);
                       }}
                       placeholder={fromPlaceholder}
-                      placeholderTextColor="#52525B"
+                      placeholderTextColor={colors.textTertiary}
                       returnKeyType={toAddress.trim() ? 'done' : 'next'}
                       onSubmitEditing={handleFromSubmit}
                       blurOnSubmit={false}
@@ -452,7 +453,7 @@ export const SearchSheet: React.FC<Props> = ({
                   ref={toInputRef}
                   style={[styles.inputField, styles.inputFieldFlex]}
                   placeholder={mode === 'stop' ? 'Адрес заезда...' : toPlaceholder}
-                  placeholderTextColor="#52525B"
+                  placeholderTextColor={colors.textTertiary}
                   value={mode === 'stop' ? stopAddress : toInputValue}
                   onChangeText={(text) => {
                     if (isStopSelectionMode) {
@@ -480,7 +481,7 @@ export const SearchSheet: React.FC<Props> = ({
               <View style={styles.suggestionsContainer}>
                 {loading ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator color="#3B82F6" size="small" />
+                    <ActivityIndicator color={colors.info} size="small" />
                     <Text style={styles.loadingText}>Поиск адресов...</Text>
                   </View>
                 ) : shouldShowRecent ? (
@@ -529,14 +530,14 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   sheetBackground: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   handle: {
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     width: 42,
   },
   sheetContent: {
@@ -545,71 +546,71 @@ const styles = StyleSheet.create({
   },
   sheetFlex: { flex: 1 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
-  sheetTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
-  closeBtn: { color: '#71717A', fontSize: 24 },
+  sheetTitle: { color: colors.white, fontSize: 20, fontWeight: '800' },
+  closeBtn: { color: colors.textTertiary, fontSize: 24 },
   inputContainer: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   inputFieldFlex: { flex: 1 },
-  inputField: { height: 50, color: '#fff', fontSize: 16 },
+  inputField: { height: 50, color: colors.white, fontSize: 16 },
   mapPickButton: {
     minWidth: 74,
     height: 38,
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 14,
   },
-  mapPickButtonText: { color: '#09090B', fontSize: 13, fontWeight: '800' },
-  divider: { height: 1, backgroundColor: '#27272A', marginVertical: 4 },
+  mapPickButtonText: { color: colors.textInverse, fontSize: 13, fontWeight: '800' },
+  divider: { height: 1, backgroundColor: colors.surfaceRaised, marginVertical: 4 },
   suggestionsContainer: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     maxHeight: 320,
   },
   suggestionsList: { paddingHorizontal: 12 },
-  suggestionItem: { paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#27272A' },
+  suggestionItem: { paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
   currentLocationButton: {
     paddingVertical: 14,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272A',
+    borderBottomColor: colors.border,
   },
   currentLocationTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  currentLocationTitle: { color: '#F4F4F5', fontSize: 15, fontWeight: '700' },
-  currentLocationSubtitle: { color: '#71717A', fontSize: 12, marginTop: 4 },
-  suggestionText: { color: '#E4E4E7', fontSize: 15, fontWeight: '500' },
-  suggestionSubText: { color: '#71717A', fontSize: 12, marginTop: 4 },
+  currentLocationTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  currentLocationSubtitle: { color: colors.textTertiary, fontSize: 12, marginTop: 4 },
+  suggestionText: { color: colors.textMuted, fontSize: 15, fontWeight: '500' },
+  suggestionSubText: { color: colors.textTertiary, fontSize: 12, marginTop: 4 },
   loadingContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  loadingText: { color: '#71717A', fontSize: 14, marginLeft: 8 },
-  noResultsText: { color: '#71717A', fontSize: 14, textAlign: 'center', padding: 20 },
+  loadingText: { color: colors.textTertiary, fontSize: 14, marginLeft: 8 },
+  noResultsText: { color: colors.textTertiary, fontSize: 14, textAlign: 'center', padding: 20 },
   landmarkButton: {
     marginHorizontal: 12,
     marginBottom: 14,
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   landmarkTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 6,
   },
   landmarkValue: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },

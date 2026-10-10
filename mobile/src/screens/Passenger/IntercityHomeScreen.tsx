@@ -14,6 +14,7 @@ import {
   INTERCITY_CITIES,
   INTERCITY_TIME_OPTIONS,
 } from '../../constants/intercity';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityHome'>;
 
@@ -149,7 +150,7 @@ export const IntercityHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <ServiceScreen
-      accentColor="#38BDF8"
+      accentColor={colors.accent}
       title="Межгород"
       subtitle=""
       backLabel="К такси"
@@ -256,14 +257,14 @@ export const IntercityHomeScreen: React.FC<Props> = ({ navigation }) => {
           onChangeText={setPrice}
           keyboardType="number-pad"
           placeholder="Цена"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
         />
         <TextInput
           style={[styles.input, styles.commentInput]}
           value={comment}
           onChangeText={setComment}
           placeholder="Комментарий"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           multiline
         />
       </ServiceCard>
@@ -334,10 +335,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   selectField: {
-    backgroundColor: '#0B0B0E',
+    backgroundColor: colors.bg,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 15,
   },
@@ -345,19 +346,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 6,
     textTransform: 'uppercase',
   },
   fieldValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
   },
   fieldValueSmall: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -374,18 +375,18 @@ const styles = StyleSheet.create({
     marginBottom: -6,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: '#1E293B',
-    backgroundColor: '#0F172A',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSunken,
     justifyContent: 'center',
     alignItems: 'center',
   },
   swapButtonText: {
-    color: '#CBE7FF',
+    color: colors.accentTextSoft,
     fontSize: 18,
     fontWeight: '900',
   },
   sectionLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 10,
@@ -398,42 +399,42 @@ const styles = StyleSheet.create({
   },
   choiceChip: {
     minWidth: 52,
-    backgroundColor: '#0B0B0E',
+    backgroundColor: colors.bg,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   choiceWideChip: {
-    backgroundColor: '#0B0B0E',
+    backgroundColor: colors.bg,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   choiceChipActive: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#0F172A',
+    borderColor: colors.accent,
+    backgroundColor: colors.surfaceSunken,
   },
   choiceText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '700',
   },
   choiceTextActive: {
-    color: '#DBF0FF',
+    color: colors.accentTextSoft,
   },
   input: {
-    backgroundColor: '#0B0B0E',
+    backgroundColor: colors.bg,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 15,
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     marginBottom: 12,
   },
@@ -455,40 +456,40 @@ const styles = StyleSheet.create({
   },
   ctaGhost: {
     borderWidth: 1,
-    borderColor: '#27272A',
-    backgroundColor: '#121216',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSunken,
   },
   ctaGhostText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
   ctaPrimary: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.accent,
   },
   ctaPrimaryDisabled: {
     opacity: 0.72,
   },
   ctaPrimaryText: {
-    color: '#04131A',
+    color: colors.onAccent,
     fontSize: 15,
     fontWeight: '900',
   },
   activeEyebrow: {
-    color: '#7DD3FC',
+    color: colors.accentText,
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
     marginBottom: 8,
   },
   activeRoute: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 6,
   },
   activeMeta: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 12,
@@ -497,13 +498,13 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1E293B',
-    backgroundColor: '#0F172A',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
   openActiveButtonText: {
-    color: '#DBF0FF',
+    color: colors.accentTextSoft,
     fontSize: 14,
     fontWeight: '800',
   },

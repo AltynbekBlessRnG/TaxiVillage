@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '../../theme/colors';
 
 type Props = {
   visible: boolean;
@@ -127,17 +128,17 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     zIndex: 1000,
     elevation: 1000,
     borderRightWidth: 1,
-    borderColor: '#1F1F24',
+    borderColor: colors.border,
   },
   drawerHeader: {
-    backgroundColor: '#131316',
+    backgroundColor: colors.surfaceSunken,
     padding: 28,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272A',
+    borderBottomColor: colors.border,
   },
   closeButton: {
     position: 'absolute',
@@ -148,13 +149,13 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1F1F24',
+    backgroundColor: colors.border,
     borderWidth: 1,
-    borderColor: '#2F2F35',
+    borderColor: colors.borderStrong,
     zIndex: 2,
   },
   closeButtonText: {
-    color: '#E4E4E7',
+    color: colors.textMuted,
     fontSize: 15,
     fontWeight: '900',
   },
@@ -164,18 +165,18 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2D160B',
+    backgroundColor: colors.foodSurface,
     borderWidth: 1,
-    borderColor: '#7C2D12',
+    borderColor: colors.foodBorder,
     marginBottom: 14,
   },
   avatarText: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontSize: 22,
     fontWeight: '900',
   },
-  drName: { color: '#F4F4F5', fontSize: 22, fontWeight: '900' },
-  drPhone: { color: '#A1A1AA', fontSize: 14, marginTop: 6 },
+  drName: { color: colors.text, fontSize: 22, fontWeight: '900' },
+  drPhone: { color: colors.textSecondary, fontSize: 14, marginTop: 6 },
   statusPill: {
     alignSelf: 'flex-start',
     marginTop: 14,
@@ -185,26 +186,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusPillOpen: {
-    backgroundColor: '#143124',
-    borderColor: '#166534',
+    backgroundColor: colors.successSurface,
+    borderColor: colors.successBorder,
   },
   statusPillClosed: {
-    backgroundColor: '#2A1515',
-    borderColor: '#7F1D1D',
+    backgroundColor: colors.dangerSurface,
+    borderColor: colors.dangerBorder,
   },
   statusPillText: {
     fontSize: 12,
     fontWeight: '800',
   },
-  statusPillTextOpen: { color: '#86EFAC' },
-  statusPillTextClosed: { color: '#FCA5A5' },
+  statusPillTextOpen: { color: colors.successText },
+  statusPillTextClosed: { color: colors.dangerText },
   drawerBody: { padding: 20 },
   drawerItem: {
     paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#18181B',
+    borderBottomColor: colors.surface,
   },
-  drawerText: { color: '#E4E4E7', fontSize: 17, fontWeight: '600' },
+  drawerText: { color: colors.textMuted, fontSize: 17, fontWeight: '600' },
   logoutItem: { marginTop: 16 },
-  logoutText: { color: '#FCA5A5' },
+  logoutText: { color: colors.dangerText },
 });

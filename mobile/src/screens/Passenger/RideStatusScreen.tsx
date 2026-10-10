@@ -17,6 +17,7 @@ import { apiClient } from '../../api/client';
 import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideDetails'>;
 
@@ -99,7 +100,7 @@ export const RideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#F4F4F5" />
+        <ActivityIndicator size="large" color={colors.text} />
       </View>
     );
   }
@@ -119,7 +120,7 @@ export const RideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         customMapStyle={darkMinimalMapStyle}
       >
         {ride?.fromLat && ride?.fromLng ? (
-          <Marker coordinate={{ latitude: ride.fromLat, longitude: ride.fromLng }} title="Подача" pinColor="#2563EB" />
+          <Marker coordinate={{ latitude: ride.fromLat, longitude: ride.fromLng }} title="Подача" pinColor={colors.infoStrong} />
         ) : null}
 
         {ride?.stops?.map((stop, index) => (
@@ -127,16 +128,16 @@ export const RideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
             key={`${ride.id}-stop-${index}`}
             coordinate={{ latitude: stop.lat, longitude: stop.lng }}
             title={stop.address}
-            pinColor="#F97316"
+            pinColor={colors.foodStrong}
           />
         ))}
 
         {ride?.toLat && ride?.toLng ? (
-          <Marker coordinate={{ latitude: ride.toLat, longitude: ride.toLng }} title="Назначение" pinColor="#DC2626" />
+          <Marker coordinate={{ latitude: ride.toLat, longitude: ride.toLng }} title="Назначение" pinColor={colors.dangerStrong} />
         ) : null}
 
         {routeCoordinates.length >= 2 ? (
-          <Polyline coordinates={routeCoordinates} strokeColor="#3B82F6" strokeWidth={4} />
+          <Polyline coordinates={routeCoordinates} strokeColor={colors.info} strokeWidth={4} />
         ) : null}
       </MapView>
 
@@ -167,19 +168,19 @@ export const RideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
 
         <View style={styles.card}>
           <View style={styles.routePoint}>
-            <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
+            <View style={[styles.dot, { backgroundColor: colors.info }]} />
             <Text style={styles.addressText} numberOfLines={1}>{ride?.fromAddress}</Text>
           </View>
 
           {ride?.stops?.map((stop, index) => (
             <View key={`${stop.address}-${index}`} style={styles.routePoint}>
-              <View style={[styles.dot, { backgroundColor: '#F97316' }]} />
+              <View style={[styles.dot, { backgroundColor: colors.foodStrong }]} />
               <Text style={styles.addressText} numberOfLines={1}>{`Заезд: ${stop.address}`}</Text>
             </View>
           ))}
 
           <View style={styles.routePoint}>
-            <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
+            <View style={[styles.dot, { backgroundColor: colors.danger }]} />
             <Text style={styles.addressText} numberOfLines={1}>{ride?.toAddress}</Text>
           </View>
 
@@ -217,48 +218,48 @@ function translateStatus(status: string): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: colors.shadow },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   backBtn: {
     position: 'absolute',
     left: 20,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     zIndex: 10,
   },
-  backBtnText: { color: '#F4F4F5', fontSize: 14, fontWeight: '600' },
+  backBtnText: { color: colors.text, fontSize: 14, fontWeight: '600' },
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 24,
     paddingBottom: 40,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   handleBar: {
     width: 40,
     height: 4,
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 18,
   },
   eyebrow: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -267,53 +268,53 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 24,
     fontWeight: '900',
     marginBottom: 14,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   cardLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
     marginBottom: 6,
   },
   cardValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 4,
   },
   cardMeta: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
   },
   routePoint: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  addressText: { color: '#E4E4E7', fontSize: 15, fontWeight: '500', flex: 1 },
-  divider: { height: 1, backgroundColor: '#27272A', marginVertical: 12 },
+  addressText: { color: colors.textMuted, fontSize: 15, fontWeight: '500', flex: 1 },
+  divider: { height: 1, backgroundColor: colors.surfaceRaised, marginVertical: 12 },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  priceLabel: { color: '#A1A1AA', fontSize: 14, fontWeight: '500' },
-  priceValue: { color: '#3B82F6', fontSize: 22, fontWeight: '800' },
+  priceLabel: { color: colors.textSecondary, fontSize: 14, fontWeight: '500' },
+  priceValue: { color: colors.info, fontSize: 22, fontWeight: '800' },
   commentLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
     marginBottom: 6,
   },
   commentText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },

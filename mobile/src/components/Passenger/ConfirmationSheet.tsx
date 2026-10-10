@@ -6,6 +6,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import type { RideQuote } from '../../screens/Passenger/home/useRideQuote';
 import { showAlert } from '../../components/AppAlert';
+import { colors } from '../../theme/colors';
 
 /** Steps the passenger can nudge the price by, in tenge. */
 const PRICE_STEP = 100;
@@ -234,7 +235,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                 <BottomSheetTextInput
                   style={styles.courierInput}
                   placeholder="Что доставить?"
-                  placeholderTextColor="#71717A"
+                  placeholderTextColor={colors.textTertiary}
                   value={itemDescription}
                   onChangeText={(text) => setItemDescription?.(text)}
                 />
@@ -242,14 +243,14 @@ export const ConfirmationSheet: React.FC<Props> = ({
                   <BottomSheetTextInput
                     style={[styles.courierInput, styles.courierInputHalf]}
                     placeholder="Вес"
-                    placeholderTextColor="#71717A"
+                    placeholderTextColor={colors.textTertiary}
                     value={packageWeight}
                     onChangeText={(text) => setPackageWeight?.(text)}
                   />
                   <BottomSheetTextInput
                     style={[styles.courierInput, styles.courierInputHalf]}
                     placeholder="Размер"
-                    placeholderTextColor="#71717A"
+                    placeholderTextColor={colors.textTertiary}
                     value={packageSize}
                     onChangeText={(text) => setPackageSize?.(text)}
                   />
@@ -263,7 +264,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                 <BottomSheetTextInput
                   style={styles.priceInput}
                   placeholder={serviceType === 'courier' ? 'Цена доставки' : 'Ваша цена'}
-                  placeholderTextColor="#71717A"
+                  placeholderTextColor={colors.textTertiary}
                   keyboardType="numeric"
                   value={price}
                   onChangeText={(text) => setPrice(text.replace(/\D/g, ''))}
@@ -301,7 +302,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
 
             <TouchableOpacity style={styles.finalBtn} onPress={onOrder} disabled={loading}>
               {loading ? (
-                <ActivityIndicator color="#09090B" />
+                <ActivityIndicator color={colors.textInverse} />
               ) : (
                 <Text style={styles.finalBtnText}>
                   {serviceType === 'courier' ? 'Подтвердить доставку' : 'Подтвердить поездку'}
@@ -322,7 +323,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
             <TextInput
               style={styles.modalInput}
               placeholder="Например: черный забор, подъезд 3"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               value={tempComment}
               onChangeText={setTempComment}
               multiline
@@ -350,14 +351,14 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   sheetBackground: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.surfaceSunken,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   handle: {
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     width: 42,
   },
   sheetContent: {
@@ -365,44 +366,44 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   addressBox: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   routeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 10 },
-  routeLabel: { color: '#71717A', fontSize: 10, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase' },
+  routeLabel: { color: colors.textTertiary, fontSize: 10, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase' },
   addressContainer: { flex: 1 },
-  dotBlueSmall: { width: 8, height: 8, backgroundColor: '#3B82F6', borderRadius: 4, marginRight: 15 },
-  squareRedSmall: { width: 8, height: 8, backgroundColor: '#EF4444', marginRight: 15 },
-  addressText: { color: '#F4F4F5', fontSize: 16, fontWeight: '600' },
+  dotBlueSmall: { width: 8, height: 8, backgroundColor: colors.info, borderRadius: 4, marginRight: 15 },
+  squareRedSmall: { width: 8, height: 8, backgroundColor: colors.danger, marginRight: 15 },
+  addressText: { color: colors.text, fontSize: 16, fontWeight: '600' },
   precisionBadge: {
     alignSelf: 'flex-start',
     marginTop: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   precisionBadgeText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
-  commentText: { color: '#71717A', fontSize: 11, marginTop: 3 },
+  commentText: { color: colors.textTertiary, fontSize: 11, marginTop: 3 },
   stopRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
-  stopsText: { color: '#71717A', fontSize: 11, flex: 1 },
+  stopsText: { color: colors.textTertiary, fontSize: 11, flex: 1 },
   stopRemoveBtn: { paddingHorizontal: 6 },
-  stopRemoveText: { color: '#71717A', fontSize: 12, fontWeight: '800' },
+  stopRemoveText: { color: colors.textTertiary, fontSize: 12, fontWeight: '800' },
   actionBtnDisabled: { opacity: 0.4 },
   sideActionBtn: {
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     minWidth: 72,
     height: 40,
     borderRadius: 14,
@@ -411,67 +412,67 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  sideActionText: { color: '#F4F4F5', fontSize: 12, fontWeight: '800' },
+  sideActionText: { color: colors.text, fontSize: 12, fontWeight: '800' },
   plusBtn: { minWidth: 40, width: 40 },
-  plusText: { color: '#F4F4F5', fontSize: 20, fontWeight: '700', marginTop: -1 },
+  plusText: { color: colors.text, fontSize: 20, fontWeight: '700', marginTop: -1 },
   stepperRow: { flexDirection: 'row', gap: 8, marginLeft: 8 },
   stepperBtn: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepperText: { color: '#F4F4F5', fontSize: 19, fontWeight: '800', marginTop: -2 },
+  stepperText: { color: colors.text, fontSize: 19, fontWeight: '800', marginTop: -2 },
   priceHint: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
     marginBottom: 2,
   },
-  divider: { height: 1, backgroundColor: '#27272A', marginHorizontal: 10 },
+  divider: { height: 1, backgroundColor: colors.surfaceRaised, marginHorizontal: 10 },
   courierFields: { marginTop: 14, gap: 10 },
   courierRow: { flexDirection: 'row', gap: 10 },
   courierInput: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
-    color: '#fff',
+    borderColor: colors.border,
+    color: colors.white,
     fontSize: 15,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   courierInputHalf: { flex: 1 },
   priceCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     marginTop: 14,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 44,
   },
-  currencyIcon: { color: '#F4F4F5', fontSize: 20, fontWeight: '900', marginRight: 10 },
-  priceInput: { flex: 1, color: '#F4F4F5', fontSize: 22, fontWeight: '700', paddingVertical: 0 },
+  currencyIcon: { color: colors.text, fontSize: 20, fontWeight: '900', marginRight: 10 },
+  priceInput: { flex: 1, color: colors.text, fontSize: 22, fontWeight: '700', paddingVertical: 0 },
   finalBtn: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     height: 54,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
   },
-  finalBtnText: { color: '#09090B', fontSize: 16, fontWeight: '900' },
+  finalBtnText: { color: colors.textInverse, fontSize: 16, fontWeight: '900' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -480,29 +481,29 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     width: '100%',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
-  modalTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 15 },
+  modalTitle: { color: colors.white, fontSize: 18, fontWeight: '700', marginBottom: 15 },
   modalInput: {
-    backgroundColor: '#09090B',
-    color: '#fff',
+    backgroundColor: colors.bg,
+    color: colors.white,
     borderRadius: 12,
     padding: 15,
     fontSize: 16,
     minHeight: 80,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     marginBottom: 20,
   },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
   modalBtnCancel: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 10 },
-  modalBtnCancelText: { color: '#71717A', fontSize: 16, fontWeight: '600' },
-  modalBtnSave: { backgroundColor: '#3B82F6', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
-  modalBtnSaveText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  modalBtnCancelText: { color: colors.textTertiary, fontSize: 16, fontWeight: '600' },
+  modalBtnSave: { backgroundColor: colors.infoStrong, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
+  modalBtnSaveText: { color: colors.white, fontSize: 16, fontWeight: '600' },
 });

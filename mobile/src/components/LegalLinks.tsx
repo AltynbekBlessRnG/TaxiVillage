@@ -1,5 +1,6 @@
 import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '../theme/colors';
 
 const legalBaseUrl = (
   process.env.EXPO_PUBLIC_LEGAL_BASE_URL || 'https://taxivillage-docs-xp2f.onrender.com'
@@ -36,12 +37,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 18,
     borderRadius: 18,
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   title: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -55,6 +56,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  linkText: { color: '#F4F4F5', fontSize: 14, fontWeight: '600' },
-  arrow: { color: '#71717A', fontSize: 16 },
+  linkText: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  arrow: { color: colors.textTertiary, fontSize: 16 },
 });

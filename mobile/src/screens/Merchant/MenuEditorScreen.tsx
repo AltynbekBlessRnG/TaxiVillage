@@ -15,6 +15,7 @@ import {
 } from '../../components/ServiceScreen';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { showAlert } from '../../components/AppAlert';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MenuEditor'>;
 
@@ -279,14 +280,14 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FB923C" />
+        <ActivityIndicator size="large" color={colors.food} />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       title="Редактор меню"
       backLabel="К кабинету"
       onBack={() => navigation.goBack()}
@@ -298,7 +299,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
           onChangeText={setCategoryName}
           style={styles.input}
           placeholder="Например, Донеры"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
         />
         <PrimaryButton
           title={creatingCategory ? 'Создаем категорию...' : 'Создать категорию'}
@@ -312,7 +313,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
               onChangeText={setEditingCategoryName}
               style={styles.input}
               placeholder="Название категории"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
             />
             <PrimaryButton
               title={savingCategoryId === editingCategoryId ? 'Сохраняем категорию...' : 'Сохранить категорию'}
@@ -392,14 +393,14 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
           onChangeText={setItemName}
           style={styles.input}
           placeholder="Название блюда"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
         />
         <TextInput
           value={itemDescription}
           onChangeText={setItemDescription}
           style={[styles.input, styles.multilineInput]}
           placeholder="Короткое описание"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           multiline
         />
         <TextInput
@@ -407,7 +408,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
           onChangeText={setItemPrice}
           style={styles.input}
           placeholder="Цена"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           keyboardType="numeric"
         />
 
@@ -452,7 +453,7 @@ export const MenuEditorScreen: React.FC<Props> = ({ navigation }) => {
             <InlineLabel
               label={category.name}
               value={`${category.items?.length || 0} блюд`}
-              accentColor="#FB923C"
+              accentColor={colors.food}
             />
             {category.items?.map((item: any) => (
               <View key={item.id} style={styles.itemSummaryCard}>
@@ -532,14 +533,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   input: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
-    color: '#F4F4F5',
+    borderColor: colors.border,
+    color: colors.text,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
@@ -564,59 +565,59 @@ const styles = StyleSheet.create({
   categoryChip: {
     flex: 1,
     minWidth: 120,
-    backgroundColor: '#111827',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   categoryChipActive: {
-    backgroundColor: '#2D160B',
-    borderColor: '#FB923C',
+    backgroundColor: colors.foodSurface,
+    borderColor: colors.food,
   },
   categoryChipText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '800',
   },
   categoryChipTextActive: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
   },
   categoryMiniAction: {
     paddingHorizontal: 10,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3F3F46',
-    backgroundColor: '#18181B',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
   },
   categoryMiniActionText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '800',
   },
   categoryMiniDeleteAction: {
-    backgroundColor: '#2A1515',
-    borderColor: '#7F1D1D',
+    backgroundColor: colors.dangerSurface,
+    borderColor: colors.dangerBorder,
   },
   categoryMiniDeleteActionText: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
   },
   categoryEditorCard: {
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#27272A',
+    borderTopColor: colors.border,
   },
   categoryEditorTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 10,
   },
   emptyText: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 14,
     marginTop: 10,
   },
@@ -630,9 +631,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   itemSummaryCard: {
-    backgroundColor: '#111318',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 12,
     marginBottom: 10,
@@ -654,10 +655,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2D160B',
+    backgroundColor: colors.foodSurface,
   },
   itemSummaryImageFallbackText: {
-    color: '#FED7AA',
+    color: colors.foodTextSoft,
     fontSize: 18,
     fontWeight: '900',
   },
@@ -665,17 +666,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemSummaryName: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
     marginBottom: 4,
   },
   itemSummaryMeta: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 12,
   },
   itemSummaryPrice: {
-    color: '#FB923C',
+    color: colors.food,
     fontSize: 13,
     fontWeight: '900',
     marginBottom: 10,
@@ -687,16 +688,16 @@ const styles = StyleSheet.create({
   },
   itemActionButton: {
     flex: 1,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
   },
   itemActionButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -705,10 +706,10 @@ const styles = StyleSheet.create({
     width: 48,
   },
   itemDeleteButton: {
-    backgroundColor: '#2A1515',
-    borderColor: '#7F1D1D',
+    backgroundColor: colors.dangerSurface,
+    borderColor: colors.dangerBorder,
   },
   itemDeleteButtonText: {
-    color: '#FCA5A5',
+    color: colors.dangerText,
   },
 });

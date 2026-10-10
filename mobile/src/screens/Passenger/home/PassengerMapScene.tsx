@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { darkMinimalMapStyle } from '../../../utils/mapStyle';
+import { colors } from '../../../theme/colors';
 
 type Props = {
   mapRef: React.RefObject<MapView | null>;
@@ -119,7 +120,7 @@ export const PassengerMapScene: React.FC<Props> = React.memo(({
       onRegionChangeComplete={onRegionChangeComplete}
     >
       {userLocation ? (
-        <Marker identifier="user" coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }} title="Вы" pinColor="#2563EB" />
+        <Marker identifier="user" coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }} title="Вы" pinColor={colors.infoStrong} />
       ) : null}
 
       {showSearchingRadar && userLocation ? (
@@ -128,14 +129,14 @@ export const PassengerMapScene: React.FC<Props> = React.memo(({
 
       {!activeRide && !activeCourierOrder
         ? nearbyDrivers.map((driver) => (
-            <Marker key={driver.id} coordinate={{ latitude: driver.lat, longitude: driver.lng }} title={driver.fullName} pinColor="#EF4444" />
+            <Marker key={driver.id} coordinate={{ latitude: driver.lat, longitude: driver.lng }} title={driver.fullName} pinColor={colors.danger} />
           ))
         : null}
 
       {routeCoordinates.length >= 2 ? (
         <Polyline
           coordinates={routeCoordinates}
-          strokeColor={activeService === 'Курьер' || activeCourierOrder ? '#F59E0B' : '#3B82F6'}
+          strokeColor={activeService === 'Курьер' || activeCourierOrder ? colors.warning : colors.info}
           strokeWidth={4}
           lineDashPattern={
             activeRide?.status === 'SEARCHING_DRIVER' ||
@@ -148,26 +149,26 @@ export const PassengerMapScene: React.FC<Props> = React.memo(({
       ) : null}
 
       {activeRide?.fromLat && activeRide?.fromLng ? (
-        <Marker coordinate={{ latitude: activeRide.fromLat, longitude: activeRide.fromLng }} title="Подача" pinColor="#2563EB" />
+        <Marker coordinate={{ latitude: activeRide.fromLat, longitude: activeRide.fromLng }} title="Подача" pinColor={colors.infoStrong} />
       ) : null}
       {activeRide?.stops?.map((stop: any, index: number) => (
-        <Marker key={`${activeRide.id}-stop-${index}`} coordinate={{ latitude: stop.lat, longitude: stop.lng }} title={stop.address} pinColor="#F97316" />
+        <Marker key={`${activeRide.id}-stop-${index}`} coordinate={{ latitude: stop.lat, longitude: stop.lng }} title={stop.address} pinColor={colors.foodStrong} />
       ))}
       {activeRide?.toLat && activeRide?.toLng ? (
-        <Marker coordinate={{ latitude: activeRide.toLat, longitude: activeRide.toLng }} title="Назначение" pinColor="#DC2626" />
+        <Marker coordinate={{ latitude: activeRide.toLat, longitude: activeRide.toLng }} title="Назначение" pinColor={colors.dangerStrong} />
       ) : null}
       {driverLocation ? (
-        <Marker coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }} title="Водитель" pinColor="#F59E0B" />
+        <Marker coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }} title="Водитель" pinColor={colors.warning} />
       ) : null}
 
       {activeCourierOrder?.pickupLat && activeCourierOrder?.pickupLng ? (
-        <Marker coordinate={{ latitude: activeCourierOrder.pickupLat, longitude: activeCourierOrder.pickupLng }} title="Забор" pinColor="#2563EB" />
+        <Marker coordinate={{ latitude: activeCourierOrder.pickupLat, longitude: activeCourierOrder.pickupLng }} title="Забор" pinColor={colors.infoStrong} />
       ) : null}
       {activeCourierOrder?.dropoffLat && activeCourierOrder?.dropoffLng ? (
-        <Marker coordinate={{ latitude: activeCourierOrder.dropoffLat, longitude: activeCourierOrder.dropoffLng }} title="Доставка" pinColor="#DC2626" />
+        <Marker coordinate={{ latitude: activeCourierOrder.dropoffLat, longitude: activeCourierOrder.dropoffLng }} title="Доставка" pinColor={colors.dangerStrong} />
       ) : null}
       {courierLocation ? (
-        <Marker coordinate={{ latitude: courierLocation.lat, longitude: courierLocation.lng }} title="Курьер" pinColor="#F59E0B" />
+        <Marker coordinate={{ latitude: courierLocation.lat, longitude: courierLocation.lng }} title="Курьер" pinColor={colors.warning} />
       ) : null}
     </MapView>
 
@@ -192,12 +193,12 @@ const styles = StyleSheet.create({
   ashenPin: {
     width: 22,
     height: 22,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 11,
     borderBottomLeftRadius: 0,
     transform: [{ rotate: '45deg' }],
     borderWidth: 4,
-    borderColor: '#000',
+    borderColor: colors.shadow,
   },
   radarContainer: {
     width: 120,
@@ -218,8 +219,8 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.info,
     borderWidth: 3,
-    borderColor: '#DBEAFE',
+    borderColor: colors.infoTextSoft,
   },
 });

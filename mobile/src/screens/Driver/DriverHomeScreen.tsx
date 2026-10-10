@@ -45,6 +45,7 @@ import { resolveRideRoute } from '../../utils/rideRoute';
 import { ensureNotificationPermission } from '../../utils/notifications';
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
 import { useMessagesSummary } from '../../hooks/useMessagesSummary';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
 type SocketState = 'connected' | 'reconnecting' | 'disconnected';
@@ -1124,7 +1125,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   if (!profileReady || !profile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#F4F4F5" />
+        <ActivityIndicator size="large" color={colors.text} />
       </View>
     );
   }
@@ -1161,7 +1162,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         {renderedRouteCoordinates.length >= 2 && (
           <Polyline
             coordinates={renderedRouteCoordinates}
-            strokeColor={currentModeIsCourier ? '#F59E0B' : '#3B82F6'}
+            strokeColor={currentModeIsCourier ? colors.warning : colors.info}
             strokeWidth={4}
             lineDashPattern={currentModeIsCourier ? undefined : [10, 6]}
           />
@@ -1171,7 +1172,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           <Marker
             coordinate={{ latitude: currentRide.fromLat, longitude: currentRide.fromLng }}
             title="Подача"
-            pinColor="#2563EB"
+            pinColor={colors.infoStrong}
           />
         ) : null}
 
@@ -1179,7 +1180,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           <Marker
             coordinate={{ latitude: incomingOffer.fromLat, longitude: incomingOffer.fromLng }}
             title="Подача"
-            pinColor="#2563EB"
+            pinColor={colors.infoStrong}
           />
         )}
 
@@ -1188,7 +1189,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             key={`${currentRide.id}-stop-${index}`}
             coordinate={{ latitude: stop.lat, longitude: stop.lng }}
             title={stop.address}
-            pinColor="#F97316"
+            pinColor={colors.foodStrong}
           />
         ))}
 
@@ -1197,7 +1198,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             key={`${incomingOffer.id}-stop-${index}`}
             coordinate={{ latitude: stop.lat, longitude: stop.lng }}
             title={stop.address}
-            pinColor="#F97316"
+            pinColor={colors.foodStrong}
           />
         ))}
 
@@ -1205,7 +1206,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           <Marker
             coordinate={{ latitude: currentRide.toLat, longitude: currentRide.toLng }}
             title="Назначение"
-            pinColor="#DC2626"
+            pinColor={colors.dangerStrong}
           />
         ) : null}
 
@@ -1213,7 +1214,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           <Marker
             coordinate={{ latitude: incomingOffer.toLat, longitude: incomingOffer.toLng }}
             title="Назначение"
-            pinColor="#DC2626"
+            pinColor={colors.dangerStrong}
           />
         )}
 
@@ -1221,7 +1222,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           <Marker
             coordinate={{ latitude: currentCourierOrder.pickupLat, longitude: currentCourierOrder.pickupLng }}
             title="Забор"
-            pinColor="#2563EB"
+            pinColor={colors.infoStrong}
           />
         ) : null}
 
@@ -1229,7 +1230,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           <Marker
             coordinate={{ latitude: currentCourierOrder.dropoffLat, longitude: currentCourierOrder.dropoffLng }}
             title="Получатель"
-            pinColor="#DC2626"
+            pinColor={colors.dangerStrong}
           />
         ) : null}
 
@@ -1239,13 +1240,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
                 key={order.id}
                 coordinate={{ latitude: order.pickupLat, longitude: order.pickupLng }}
                 title={order.pickupAddress}
-                pinColor="#F59E0B"
+                pinColor={colors.warning}
               />
             ))
           : null}
 
         {activeLocation && (
-          <Marker coordinate={{ latitude: activeLocation.lat, longitude: activeLocation.lng }} title="Вы" pinColor="#10B981" />
+          <Marker coordinate={{ latitude: activeLocation.lat, longitude: activeLocation.lng }} title="Вы" pinColor={colors.success} />
         )}
       </MapView>
 
@@ -1402,24 +1403,24 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: colors.shadow },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   burgerBtn: {
     position: 'absolute',
     left: 20,
     width: 46,
     height: 46,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     zIndex: 10,
     elevation: 20,
   },
@@ -1431,11 +1432,11 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     paddingHorizontal: 5,
-    backgroundColor: '#DC2626',
+    backgroundColor: colors.dangerStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  burgerBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  burgerBadgeText: { color: colors.white, fontSize: 11, fontWeight: '900' },
   statusPill: {
     position: 'absolute',
     right: 20,
@@ -1447,7 +1448,7 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     zIndex: 10,
     elevation: 20,
   },
@@ -1455,12 +1456,12 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#71717A',
+    backgroundColor: colors.textTertiary,
   },
   statusDotOnline: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
   },
-  statusPillText: { color: '#F4F4F5', fontSize: 14, fontWeight: '700' },
+  statusPillText: { color: colors.text, fontSize: 14, fontWeight: '700' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(9,9,11,0.72)',
@@ -1468,52 +1469,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   modalCard: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 20,
   },
   modalTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '900',
     marginBottom: 8,
   },
   modalText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 16,
   },
   modalPrimaryButton: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 18,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 10,
   },
   modalPrimaryButtonText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontSize: 15,
     fontWeight: '900',
   },
   modalPrimaryButtonDanger: {
-    backgroundColor: '#7F1D1D',
+    backgroundColor: colors.dangerBorder,
   },
   modalPrimaryButtonTextDanger: {
-    color: '#FECACA',
+    color: colors.dangerText,
   },
   modalSecondaryButton: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingVertical: 14,
     alignItems: 'center',
   },
   modalSecondaryButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -1522,7 +1523,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#F4F4F5',
+    borderColor: colors.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1530,54 +1531,54 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
   },
   recenterBtn: {
     position: 'absolute',
     right: 20,
     width: 50,
     height: 50,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     zIndex: 10,
     elevation: 20,
   },
   modeChip: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
   modeChipActive: {
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
   },
   modeChipActiveBlue: {
-    backgroundColor: '#082F49',
-    borderColor: '#0EA5E9',
+    backgroundColor: colors.accentSurface,
+    borderColor: colors.accentStrong,
   },
   modeChipActiveCourier: {
-    backgroundColor: '#3F2B05',
-    borderColor: '#F59E0B',
+    backgroundColor: colors.warningSurface,
+    borderColor: colors.warning,
   },
   modeChipText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '800',
   },
   modeChipTextActive: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
   modeButtons: {
     gap: 10,
   },
   intercityTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '900',
     marginBottom: 12,
@@ -1587,43 +1588,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   intercityHeroTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '900',
     marginBottom: 8,
   },
   intercityHeroText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
   courierTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 12,
   },
   intercityEmpty: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
   },
   intercityTripCard: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 18,
     padding: 14,
     marginBottom: 10,
   },
   intercityTripRoute: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
   intercityTripMeta: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
   },
   courierBottomSheet: {
@@ -1634,27 +1635,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 24,
     borderTopWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   handleBar: {
     width: 44,
     height: 5,
     borderRadius: 999,
-    backgroundColor: '#3F3F46',
+    backgroundColor: colors.borderStrong,
     alignSelf: 'center',
     marginBottom: 14,
   },
   routeCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 18,
     padding: 14,
     gap: 12,
@@ -1672,16 +1673,16 @@ const styles = StyleSheet.create({
   },
   routeText: {
     flex: 1,
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
   courierModeTabs: {
     flexDirection: 'row',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 6,
     gap: 6,
     marginBottom: 14,
@@ -1694,20 +1695,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   courierModeTabActive: {
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
   },
   courierModeTabActiveCourier: {
-    backgroundColor: '#3F2B05',
+    backgroundColor: colors.warningSurface,
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderColor: colors.warning,
   },
   courierModeTabText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '800',
   },
   courierModeTabTextActive: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
-  iconText: { fontSize: 24, color: '#fff' },
+  iconText: { fontSize: 24, color: colors.white },
 });

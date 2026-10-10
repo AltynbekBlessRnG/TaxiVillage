@@ -16,6 +16,7 @@ import { apiClient, setAuthToken } from '../../api/client';
 import { saveAuth } from '../../storage/authStorage';
 import { registerPushToken } from '../../utils/notifications';
 import { extractApiError } from '../../utils/apiError';
+import { colors } from '../../theme/colors';
 
 /** Matches the backend rate limit of 5 resend requests per minute. */
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -218,7 +219,7 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
             ) : null}
 
             <View style={styles.waitingRow}>
-              <ActivityIndicator size="small" color="#71717A" />
+              <ActivityIndicator size="small" color={colors.textTertiary} />
               <Text style={styles.waitingText}>
                 {submitting || checkingStatus
                   ? 'Проверяем подтверждение...'
@@ -253,11 +254,11 @@ export const VerifyPhoneScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   content: {
     flexGrow: 1,
@@ -267,16 +268,16 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 24,
   },
   backButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -284,25 +285,25 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   eyebrow: {
-    color: '#60A5FA',
+    color: colors.infoText,
     fontSize: 13,
     fontWeight: '800',
     textTransform: 'uppercase',
     marginBottom: 8,
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 28,
     fontWeight: '900',
     marginBottom: 8,
   },
   subtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
   },
   phoneValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '800',
     marginTop: 12,
@@ -315,69 +316,69 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   waitingText: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 13,
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 24,
     padding: 18,
   },
   label: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 10,
   },
   instructions: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 6,
   },
   debugText: {
-    color: '#FCD34D',
+    color: colors.warningText,
     fontSize: 13,
     marginTop: 8,
     marginBottom: 10,
     fontWeight: '700',
   },
   error: {
-    color: '#F87171',
+    color: colors.dangerTextStrong,
     fontSize: 14,
     marginBottom: 12,
   },
   primaryButton: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 10,
   },
   primaryButtonText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontSize: 16,
     fontWeight: '900',
   },
   secondaryButton: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 10,
   },
   secondaryButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
   linkText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',

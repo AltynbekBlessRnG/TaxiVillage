@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { apiClient } from '../api/client';
 import { showAlert } from '../components/AppAlert';
+import { colors } from '../theme/colors';
 
 interface RideCompletionModalProps {
   visible: boolean;
@@ -89,7 +90,7 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
                 >
                   <Text style={[
                     styles.starIcon, 
-                    { color: star <= rating ? '#F59E0B' : '#27272A' }
+                    { color: star <= rating ? colors.warning : colors.border }
                   ]}>
                     ★
                   </Text>
@@ -106,7 +107,7 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
               disabled={rating === 0 || submitting}
             >
               {submitting ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color={colors.textInverse} />
               ) : (
                 <Text style={styles.submitButtonText}>Отправить оценку</Text>
               )}
@@ -136,15 +137,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 32,
     padding: 32,
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: '#27272A',
-    shadowColor: '#000',
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.5,
     shadowRadius: 30,
@@ -161,44 +162,44 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   successIcon: {
-    color: '#10B981',
+    color: colors.success,
     fontSize: 32,
     fontWeight: '900',
   },
   modalTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#F4F4F5',
+    color: colors.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   priceText: {
     fontSize: 36,
     fontWeight: '900',
-    color: '#10B981',
+    color: colors.success,
     marginBottom: 24,
   },
   driverBox: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 16,
     alignItems: 'center',
     marginBottom: 32,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     width: '100%',
   },
   driverLabel: {
     fontSize: 12,
-    color: '#71717A',
+    color: colors.textTertiary,
     textTransform: 'uppercase',
     fontWeight: '700',
     marginBottom: 4,
   },
   driverText: {
     fontSize: 16,
-    color: '#F4F4F5',
+    color: colors.text,
     fontWeight: '600',
   },
   ratingSection: {
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
   ratingTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     marginBottom: 16,
   },
   starsContainer: {
@@ -228,17 +229,17 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   submitButton: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 20,
     paddingVertical: 18,
     alignItems: 'center',
     width: '100%',
   },
   disabledButton: {
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
   },
   submitButtonText: {
-    color: '#000',
+    color: colors.textInverse,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -247,7 +248,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   skipButtonText: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 16,
     fontWeight: '600',
   },

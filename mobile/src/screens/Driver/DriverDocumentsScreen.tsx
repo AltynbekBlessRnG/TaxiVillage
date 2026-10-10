@@ -7,6 +7,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { showAlert } from '../../components/AppAlert';
 import { OptionPickerModal } from '../../components/OptionPickerModal';
+import { colors } from '../../theme/colors';
 
 type UploadableDocumentType = 'DRIVER_LICENSE' | 'CAR_REGISTRATION' | 'COURIER_ID';
 type DocumentSource = 'camera' | 'library';
@@ -198,7 +199,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#F4F4F5" />
+        <ActivityIndicator size="large" color={colors.text} />
       </View>
     );
   }
@@ -233,7 +234,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.heroStatLabel}>Загружено</Text>
               </View>
               <View style={styles.heroStat}>
-                <Text style={[styles.heroStatValue, { color: '#86EFAC' }]}>{approvedCount}</Text>
+                <Text style={[styles.heroStatValue, { color: colors.successText }]}>{approvedCount}</Text>
                 <Text style={styles.heroStatLabel}>Одобрено</Text>
               </View>
             </View>
@@ -248,7 +249,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Как тебя показать в профиле"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               value={fullName}
               onChangeText={setFullName}
             />
@@ -275,28 +276,28 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Марка"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               value={carMake}
               onChangeText={setCarMake}
             />
             <TextInput
               style={styles.input}
               placeholder="Модель"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               value={carModel}
               onChangeText={setCarModel}
             />
             <TextInput
               style={styles.input}
               placeholder="Цвет"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               value={carColor}
               onChangeText={setCarColor}
             />
             <TextInput
               style={styles.input}
               placeholder="Номер"
-              placeholderTextColor="#71717A"
+              placeholderTextColor={colors.textTertiary}
               value={carPlate}
               onChangeText={setCarPlate}
               autoCapitalize="characters"
@@ -412,11 +413,11 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   content: {
     paddingHorizontal: 16,
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   headerRow: {
     paddingTop: 12,
@@ -434,34 +435,34 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   backButtonText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   heroCard: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 20,
     marginBottom: 16,
   },
   heroTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '900',
     marginBottom: 6,
   },
   heroSubtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -472,40 +473,40 @@ const styles = StyleSheet.create({
   },
   heroStat: {
     flex: 1,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 14,
   },
   heroStatValue: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '900',
     marginBottom: 4,
   },
   heroStatLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   section: {
-    backgroundColor: '#111113',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 16,
     marginBottom: 16,
   },
   sectionTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 19,
     fontWeight: '900',
     marginBottom: 6,
   },
   sectionSubtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 14,
@@ -514,69 +515,69 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   label: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 8,
   },
   staticMetaLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
     marginTop: 4,
     marginBottom: 8,
   },
   staticMetaCard: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 15,
     marginBottom: 12,
   },
   staticMetaText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
   },
   input: {
-    backgroundColor: '#09090B',
-    color: '#F4F4F5',
+    backgroundColor: colors.bg,
+    color: colors.text,
     paddingHorizontal: 16,
     paddingVertical: 15,
     borderRadius: 16,
     marginBottom: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   primaryButton: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 4,
   },
   primaryButtonText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontSize: 16,
     fontWeight: '900',
   },
   uploadAction: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 14,
   },
   uploadActionTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
   uploadActionSubtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -584,10 +585,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   documentRow: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -604,9 +605,9 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     marginRight: 12,
   },
   documentImage: {
@@ -617,13 +618,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   documentName: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 4,
   },
   documentUrl: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     maxWidth: 200,
   },
@@ -634,31 +635,31 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   documentStatusApproved: {
-    backgroundColor: '#0F2A1C',
-    borderColor: '#14532D',
+    backgroundColor: colors.successSurface,
+    borderColor: colors.successBorder,
   },
   documentStatusPending: {
-    backgroundColor: '#18181B',
-    borderColor: '#3F3F46',
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
   },
   documentStatusText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '800',
   },
   documentStatusTextApproved: {
-    color: '#86EFAC',
+    color: colors.successText,
   },
   emptyCard: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 18,
     alignItems: 'center',
   },
   emptyText: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 14,
   },
   disabledButton: {

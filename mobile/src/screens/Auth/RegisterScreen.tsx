@@ -6,6 +6,7 @@ import { apiClient } from '../../api/client';
 import { AuthScreenLayout } from '../../components/AuthScreenLayout';
 import { formatPhoneInput, isCompletePhone, toE164 } from '../../utils/phone';
 import { extractApiError } from '../../utils/apiError';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 type FieldName = 'fullName' | 'phone' | 'password' | null;
@@ -110,7 +111,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         <TextInput
           style={[styles.input, focusedField === 'fullName' && styles.inputFocused]}
           placeholder="Имя и фамилия"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           value={fullName}
           onChangeText={setFullName}
           autoComplete="name"
@@ -125,7 +126,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           ref={phoneInputRef}
           style={[styles.input, focusedField === 'phone' && styles.inputFocused]}
           placeholder="+7 700 000 00 00"
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           keyboardType="phone-pad"
           autoComplete="tel"
           textContentType="telephoneNumber"
@@ -147,7 +148,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             ref={passwordInputRef}
             style={styles.passwordInput}
             placeholder={`Пароль, минимум ${MIN_PASSWORD_LENGTH} символов`}
-            placeholderTextColor="#71717A"
+            placeholderTextColor={colors.textTertiary}
             secureTextEntry={!showPassword}
             autoComplete="new-password"
             textContentType="newPassword"
@@ -203,25 +204,25 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   eyebrow: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -1,
     marginBottom: 14,
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '700',
     marginBottom: 8,
   },
   subtitle: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 15,
     lineHeight: 22,
   },
   formCard: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   roleList: {
     gap: 8,
@@ -230,50 +231,50 @@ const styles = StyleSheet.create({
   roleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 15,
   },
   roleRowActive: {
-    borderColor: '#F4F4F5',
-    backgroundColor: '#1F1F23',
+    borderColor: colors.text,
+    backgroundColor: colors.surfaceElevated,
   },
   radio: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     marginRight: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioActive: {
-    borderColor: '#F4F4F5',
+    borderColor: colors.text,
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
   },
   roleLabel: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },
   roleLabelActive: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
   passwordWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingLeft: 18,
     paddingRight: 8,
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     paddingVertical: 16,
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
   },
   revealButton: {
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   revealText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -298,40 +299,40 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   input: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 16,
     marginBottom: 14,
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
   },
   inputFocused: {
-    borderColor: '#3B82F6',
+    borderColor: colors.info,
   },
   error: {
-    color: '#EF4444',
+    color: colors.dangerTextStrong,
     marginBottom: 14,
     fontSize: 14,
   },
   helperText: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 13,
     lineHeight: 19,
     marginTop: 2,
     marginBottom: 14,
   },
   button: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 18,
     paddingVertical: 18,
     alignItems: 'center',
     marginTop: 6,
   },
   buttonText: {
-    color: '#000000',
+    color: colors.textInverse,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -342,11 +343,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   linkText: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 15,
   },
   link: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },

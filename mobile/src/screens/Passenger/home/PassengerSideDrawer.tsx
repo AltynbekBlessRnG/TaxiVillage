@@ -2,6 +2,7 @@ import React from 'react';
 import { Animated, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { resolveApiAssetUrl } from '../../../utils/assets';
+import { colors } from '../../../theme/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -143,12 +144,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: width * 0.8,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     zIndex: 1000,
     borderRightWidth: 1,
-    borderColor: '#18181B',
+    borderColor: colors.surface,
   },
-  drawerHeader: { backgroundColor: '#18181B', padding: 28 },
+  drawerHeader: { backgroundColor: colors.surface, padding: 28 },
   avatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -158,14 +159,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#E2E8F0',
+    color: colors.textMuted,
     fontSize: 20,
     fontWeight: '900',
   },
@@ -177,22 +178,22 @@ const styles = StyleSheet.create({
   headerTextWrap: {
     flex: 1,
   },
-  drName: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  drPhone: { color: '#71717A', fontSize: 15, marginTop: 6 },
+  drName: { color: colors.white, fontSize: 22, fontWeight: '800' },
+  drPhone: { color: colors.textTertiary, fontSize: 15, marginTop: 6 },
   drawerScroll: { padding: 20 },
-  drawerItem: { paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: '#18181B' },
+  drawerItem: { paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: colors.surface },
   drawerItemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  drawerText: { color: '#E4E4E7', fontSize: 17, fontWeight: '500' },
+  drawerText: { color: colors.textMuted, fontSize: 17, fontWeight: '500' },
   drawerBadge: {
     minWidth: 28,
     height: 28,
     borderRadius: 14,
     paddingHorizontal: 8,
-    backgroundColor: '#DC2626',
+    backgroundColor: colors.dangerStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  drawerBadgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  drawerBadgeText: { color: colors.white, fontSize: 12, fontWeight: '800' },
   logoutItem: { marginTop: 20 },
-  logoutText: { color: '#EF4444' },
+  logoutText: { color: colors.dangerTextStrong },
 });

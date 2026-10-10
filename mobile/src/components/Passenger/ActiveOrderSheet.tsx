@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../theme/colors';
 
 interface Props {
   activeRide?: any | null;
@@ -145,7 +146,7 @@ export const ActiveOrderSheet: React.FC<Props> = ({
                       : 'Чат с водителем'
                   }
                 >
-                  <Ionicons name="chatbubble-ellipses-outline" size={20} color="#09090B" />
+                  <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.textInverse} />
                   {rideUnreadCount > 0 ? (
                     <View style={styles.chatBadge}>
                       <Text style={styles.chatBadgeText}>{rideUnreadCount > 99 ? '99+' : rideUnreadCount}</Text>
@@ -162,7 +163,7 @@ export const ActiveOrderSheet: React.FC<Props> = ({
                   accessibilityRole="button"
                   accessibilityLabel={isCourier ? 'Отменить доставку' : 'Отменить поездку'}
                 >
-                  <Ionicons name="close-outline" size={20} color="#F87171" />
+                  <Ionicons name="close-outline" size={20} color={colors.dangerTextStrong} />
                   <Text style={styles.secondaryButtonText}>Отменить</Text>
                 </TouchableOpacity>
               ) : null}
@@ -224,17 +225,17 @@ const styles = StyleSheet.create({
     elevation: 24,
   },
   background: {
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
   },
   handle: {
     paddingTop: 10,
   },
   handleIndicator: {
-    backgroundColor: '#3A3A40',
+    backgroundColor: colors.surfacePressed,
     width: 42,
     height: 4,
   },
@@ -244,22 +245,22 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   headlineCard: {
-    backgroundColor: '#161618',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#232329',
+    borderColor: colors.border,
   },
   headlineText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '800',
     lineHeight: 22,
   },
   driverCard: {
-    backgroundColor: '#121214',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
@@ -267,45 +268,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#232329',
+    borderColor: colors.border,
   },
   driverMeta: {
     flex: 1,
     marginRight: 12,
   },
   driverName: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '900',
     marginBottom: 2,
   },
   driverCar: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   plateBox: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   plateText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontSize: 16,
     fontWeight: '900',
     textTransform: 'uppercase',
   },
   routeCard: {
-    backgroundColor: '#121214',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#232329',
+    borderColor: colors.border,
   },
   sectionLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 8,
@@ -321,39 +322,39 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     marginRight: 12,
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.info,
   },
   routeDotStop: {
     width: 10,
     height: 10,
     borderRadius: 5,
     marginRight: 12,
-    backgroundColor: '#F97316',
+    backgroundColor: colors.foodStrong,
   },
   routeDotRed: {
     width: 10,
     height: 10,
     borderRadius: 5,
     marginRight: 12,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
   },
   addressText: {
-    color: '#E4E4E7',
+    color: colors.textMuted,
     fontSize: 15,
     fontWeight: '600',
     flex: 1,
   },
   routeDivider: {
     height: 1,
-    backgroundColor: '#27272A',
+    backgroundColor: colors.surfaceRaised,
     marginVertical: 10,
   },
   bottomBar: {
-    backgroundColor: '#121214',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 20,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#232329',
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -363,14 +364,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   priceLabel: {
-    color: '#71717A',
+    color: colors.textTertiary,
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   priceValue: {
-    color: '#60A5FA',
+    color: colors.infoText,
     fontSize: 24,
     fontWeight: '900',
   },
@@ -383,22 +384,22 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 16,
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.surfaceInverse,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: '#3F3F46',
+    borderColor: colors.borderStrong,
     borderRadius: 16,
     paddingHorizontal: 14,
     height: 52,
   },
   secondaryButtonText: {
-    color: '#F87171',
+    color: colors.dangerTextStrong,
     fontSize: 14,
     fontWeight: '800',
     marginLeft: 8,
@@ -411,12 +412,12 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     paddingHorizontal: 6,
-    backgroundColor: '#DC2626',
+    backgroundColor: colors.dangerStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chatBadgeText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 10,
     fontWeight: '900',
   },

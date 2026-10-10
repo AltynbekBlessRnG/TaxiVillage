@@ -41,6 +41,7 @@ import {
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
 import { useMessagesSummary } from '../../hooks/useMessagesSummary';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
+import { colors } from '../../theme/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -513,7 +514,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   if (!profileReady || !userProfile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#F4F4F5" />
+        <ActivityIndicator size="large" color={colors.text} />
       </View>
     );
   }
@@ -779,25 +780,25 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: colors.shadow },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   chatToast: {
     position: 'absolute',
     left: 16,
     right: 16,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     zIndex: 120,
   },
-  chatToastTitle: { color: '#F4F4F5', fontSize: 13, fontWeight: '800', marginBottom: 4 },
-  chatToastBody: { color: '#D4D4D8', fontSize: 14, fontWeight: '500' },
+  chatToastTitle: { color: colors.text, fontSize: 13, fontWeight: '800', marginBottom: 4 },
+  chatToastBody: { color: colors.textMuted, fontSize: 14, fontWeight: '500' },
 });

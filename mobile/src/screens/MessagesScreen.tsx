@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useMessagesSummary } from '../hooks/useMessagesSummary';
+import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Messages'>;
 
@@ -47,7 +48,7 @@ export const MessagesScreen: React.FC<Props> = ({ navigation }) => {
 
       {loading && sections.length === 0 ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#F4F4F5" />
+          <ActivityIndicator size="large" color={colors.text} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent}>
@@ -110,7 +111,7 @@ export const MessagesScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090B' },
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -120,20 +121,20 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   backButton: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
-  title: { color: '#F4F4F5', fontSize: 22, fontWeight: '800' },
+  backButtonText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  title: { color: colors.text, fontSize: 22, fontWeight: '800' },
   headerSpacer: { width: 72 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { paddingHorizontal: 16, paddingBottom: 24 },
   sectionTitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -142,29 +143,29 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   item: {
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 18,
     padding: 16,
     marginBottom: 12,
   },
   itemHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 },
-  itemTitle: { color: '#F4F4F5', fontSize: 16, fontWeight: '800', flex: 1 },
-  itemSubtitle: { color: '#A1A1AA', fontSize: 13, marginBottom: 8 },
-  itemMessage: { color: '#E4E4E7', fontSize: 14, lineHeight: 19, marginBottom: 8 },
-  itemDate: { color: '#71717A', fontSize: 11, fontWeight: '500' },
+  itemTitle: { color: colors.text, fontSize: 16, fontWeight: '800', flex: 1 },
+  itemSubtitle: { color: colors.textSecondary, fontSize: 13, marginBottom: 8 },
+  itemMessage: { color: colors.textMuted, fontSize: 14, lineHeight: 19, marginBottom: 8 },
+  itemDate: { color: colors.textTertiary, fontSize: 11, fontWeight: '500' },
   badge: {
     minWidth: 28,
     height: 28,
     borderRadius: 14,
     paddingHorizontal: 8,
-    backgroundColor: '#DC2626',
+    backgroundColor: colors.dangerStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  badgeText: { color: colors.white, fontSize: 12, fontWeight: '800' },
   emptyBox: { marginTop: 48, alignItems: 'center', paddingHorizontal: 32 },
-  emptyTitle: { color: '#F4F4F5', fontSize: 20, fontWeight: '800', marginBottom: 8 },
-  emptyText: { color: '#71717A', fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '800', marginBottom: 8 },
+  emptyText: { color: colors.textTertiary, fontSize: 14, textAlign: 'center', lineHeight: 20 },
 });

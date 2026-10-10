@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { InlineLabel, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodOrderHistory'>;
 
@@ -45,7 +46,7 @@ export const FoodOrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <ServiceScreen
-      accentColor="#FB923C"
+      accentColor={colors.food}
       eyebrow="Еда"
       title="Мои заказы"
       subtitle="История заказов и текущие доставки."
@@ -54,7 +55,7 @@ export const FoodOrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
     >
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FB923C" />
+          <ActivityIndicator color={colors.food} />
         </View>
       ) : null}
       {!loading && orders.length === 0 ? (
@@ -85,7 +86,7 @@ export const FoodOrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
             <InlineLabel
               label={new Date(order.createdAt).toLocaleDateString('ru-RU')}
               value={`${Math.round(Number(order.totalPrice || 0))} ₸`}
-              accentColor="#FDBA74"
+              accentColor={colors.foodText}
             />
             <Text style={styles.items}>
               {(order.items || [])
@@ -101,15 +102,15 @@ export const FoodOrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   loading: { paddingVertical: 30 },
-  empty: { color: '#A1A1AA', fontSize: 15 },
+  empty: { color: colors.textSecondary, fontSize: 15 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
     marginBottom: 8,
   },
-  name: { color: '#F4F4F5', fontWeight: '900', fontSize: 17, flex: 1 },
-  status: { color: '#86EFAC', fontWeight: '800', fontSize: 12 },
-  statusCanceled: { color: '#FCA5A5' },
-  items: { color: '#A1A1AA', fontSize: 12, lineHeight: 18, marginTop: 8 },
+  name: { color: colors.text, fontWeight: '900', fontSize: 17, flex: 1 },
+  status: { color: colors.successText, fontWeight: '800', fontSize: 12 },
+  statusCanceled: { color: colors.dangerText },
+  items: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 8 },
 });

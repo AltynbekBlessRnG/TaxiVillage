@@ -16,6 +16,7 @@ import {
 import { formatIntercityDateTime } from '../../constants/intercity';
 import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityTripStatus'>;
 
@@ -92,14 +93,14 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#38BDF8" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
     <ServiceScreen
-      accentColor="#38BDF8"
+      accentColor={colors.accent}
       title="Статус бронирования"
       subtitle=""
       backLabel="На главную"
@@ -117,7 +118,7 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
         <InlineLabel label="Маршрут" value={`${order?.trip?.fromCity || '-'} → ${order?.trip?.toCity || '-'}`} />
         <InlineLabel label="Водитель" value={order?.trip?.driver?.fullName || order?.trip?.driver?.user?.phone || 'Водитель'} />
         <InlineLabel label="Телефон" value={order?.trip?.driver?.user?.phone || '-'} />
-        <InlineLabel label="Выезд" value={formatIntercityDateTime(order?.trip?.departureAt)} accentColor="#38BDF8" />
+        <InlineLabel label="Выезд" value={formatIntercityDateTime(order?.trip?.departureAt)} accentColor={colors.accent} />
         <InlineLabel label="Мест" value={String(order?.seatsBooked || 1)} />
         <InlineLabel label="Сумма" value={`${Math.round(Number(order?.totalPrice || 0))} тг`} />
       </ServiceCard>
@@ -165,35 +166,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   heroBlock: {
     marginBottom: 12,
     paddingHorizontal: 4,
   },
   heroRoute: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '900',
     marginBottom: 8,
   },
   heroText: {
-    color: '#7DD3FC',
+    color: colors.accentText,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '700',
   },
   pill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#082F49',
+    backgroundColor: colors.accentSurface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     marginBottom: 12,
   },
   pillText: {
-    color: '#7DD3FC',
+    color: colors.accentText,
     fontWeight: '800',
   },
   timeline: {
@@ -207,18 +208,18 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 6,
-    backgroundColor: '#334155',
+    backgroundColor: colors.borderStrong,
     marginRight: 12,
   },
   timelineDotActive: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.accent,
   },
   timelineText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   timelineTextActive: {
-    color: '#F4F4F5',
+    color: colors.text,
   },
 });

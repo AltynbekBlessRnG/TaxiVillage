@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '../theme/colors';
 
 type ServiceScreenProps = {
   accentColor: string;
@@ -78,7 +79,7 @@ export const PrimaryButton: React.FC<{
   onPress: () => void;
   accentColor?: string;
   disabled?: boolean;
-}> = ({ title, onPress, accentColor = '#F4F4F5', disabled = false }) => (
+}> = ({ title, onPress, accentColor = colors.text, disabled = false }) => (
   <TouchableOpacity
     style={[
       styles.primaryButton,
@@ -105,7 +106,7 @@ export const SecondaryButton: React.FC<{
 export const InlineLabel: React.FC<{ label: string; value: string; accentColor?: string }> = ({
   label,
   value,
-  accentColor = '#F4F4F5',
+  accentColor = colors.text,
 }) => (
   <View style={styles.inlineLabel}>
     <Text style={styles.inlineLabelText}>{label}</Text>
@@ -128,7 +129,7 @@ export const ChipRow: React.FC<{ items: string[] }> = ({ items }) => (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   flex: {
     flex: 1,
@@ -143,16 +144,16 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 18,
   },
   backText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -173,27 +174,27 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 32,
     lineHeight: 38,
     fontWeight: '900',
     marginBottom: 10,
   },
   subtitle: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
   },
   headerDivider: {
     height: 1,
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     marginTop: 18,
   },
   card: {
-    backgroundColor: '#16161A',
+    backgroundColor: colors.surface,
     borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     padding: 20,
     marginBottom: 16,
   },
@@ -202,7 +203,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   sectionTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 12,
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   primaryButtonText: {
-    color: '#09090B',
+    color: colors.textInverse,
     fontSize: 17,
     fontWeight: '900',
   },
@@ -226,11 +227,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#27272A',
-    backgroundColor: '#121216',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSunken,
   },
   secondaryButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   inlineLabelText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     flex: 1,
   },
@@ -258,15 +259,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chip: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: colors.border,
     paddingHorizontal: 13,
     paddingVertical: 9,
   },
   chipText: {
-    color: '#CBD5E1',
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },

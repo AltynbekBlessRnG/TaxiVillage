@@ -8,6 +8,7 @@ import { createChatSocket, Message as ChatSocketMessage } from '../../api/chatSo
 import { loadAuth } from '../../storage/authStorage';
 import { showChatSafetyActions } from '../../utils/chatSafety';
 import { showAlert } from '../../components/AppAlert';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatScreen'>;
 
@@ -244,7 +245,7 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
           value={newMessage}
           onChangeText={setNewMessage}
           placeholder="Введите сообщение..."
-          placeholderTextColor="#71717A"
+          placeholderTextColor={colors.textTertiary}
           multiline
           maxLength={500}
           editable={!loading}
@@ -258,20 +259,20 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090B' },
+  container: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
-  backButton: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: '#18181B', borderWidth: 1, borderColor: '#27272A' },
-  backButtonText: { color: '#A1A1AA', fontSize: 14, fontWeight: '600' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#F4F4F5' },
+  backButton: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  backButtonText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
   headerSpacer: { width: 72 },
   messagesList: { flex: 1 },
   messagesContainer: { paddingHorizontal: 20, paddingBottom: 20 },
   loadMoreButton: {
     alignSelf: 'center',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 12,
@@ -281,22 +282,22 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   loadMoreButtonText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
   },
   messageContainer: { marginVertical: 8, maxWidth: '84%', alignSelf: 'flex-start' },
   ownMessage: { alignSelf: 'flex-end' },
   messageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  senderName: { fontSize: 12, color: '#71717A', fontWeight: '500' },
-  timestamp: { fontSize: 10, color: '#71717A' },
-  messageContent: { backgroundColor: '#18181B', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#27272A', maxWidth: '100%' },
-  ownBubble: { backgroundColor: '#27272A' },
-  messageText: { fontSize: 14, color: '#F4F4F5', lineHeight: 18 },
-  inputContainer: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#09090B', borderTopWidth: 1, borderTopColor: '#18181B' },
-  blockedNotice: { position: 'absolute', top: -22, left: 20, color: '#A1A1AA', fontSize: 12 },
-  textInput: { flex: 1, backgroundColor: '#18181B', color: '#F4F4F5', borderRadius: 16, borderWidth: 1, borderColor: '#27272A', paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, maxHeight: 100 },
-  sendButton: { backgroundColor: '#F4F4F5', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 18, marginLeft: 12 },
+  senderName: { fontSize: 12, color: colors.textTertiary, fontWeight: '500' },
+  timestamp: { fontSize: 10, color: colors.textTertiary },
+  messageContent: { backgroundColor: colors.surface, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border, maxWidth: '100%' },
+  ownBubble: { backgroundColor: colors.surfaceRaised },
+  messageText: { fontSize: 14, color: colors.text, lineHeight: 18 },
+  inputContainer: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.surface },
+  blockedNotice: { position: 'absolute', top: -22, left: 20, color: colors.textSecondary, fontSize: 12 },
+  textInput: { flex: 1, backgroundColor: colors.surface, color: colors.text, borderRadius: 16, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, maxHeight: 100 },
+  sendButton: { backgroundColor: colors.surfaceInverse, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 18, marginLeft: 12 },
   sendButtonDisabled: { opacity: 0.55 },
-  sendButtonText: { color: '#000000', fontSize: 15, fontWeight: '800' },
+  sendButtonText: { color: colors.textInverse, fontSize: 15, fontWeight: '800' },
 });

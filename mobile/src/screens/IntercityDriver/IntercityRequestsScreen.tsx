@@ -18,6 +18,7 @@ import { loadAuth } from '../../storage/authStorage';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { formatIntercityDateTime } from '../../constants/intercity';
 import { OptionPickerModal } from '../../components/OptionPickerModal';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityRequests'>;
 
@@ -149,7 +150,7 @@ export const IntercityRequestsScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#38BDF8" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -276,13 +277,13 @@ export const IntercityRequestsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
   },
   header: {
     paddingHorizontal: 20,
@@ -291,21 +292,21 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#18181B',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 18,
   },
   backText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
   title: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 30,
     lineHeight: 36,
     fontWeight: '900',
@@ -316,49 +317,49 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   emptyCard: {
-    backgroundColor: '#16161A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 24,
     padding: 18,
   },
   emptyTitle: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '900',
   },
   orderCard: {
-    backgroundColor: '#16161A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     borderRadius: 24,
     padding: 18,
   },
   activeOrderCard: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#0C1420',
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSurface,
   },
   activeEyebrow: {
-    color: '#7DD3FC',
+    color: colors.accentText,
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
     marginBottom: 8,
   },
   routeText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 8,
   },
   metaText: {
-    color: '#A1A1AA',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 4,
   },
   commentText: {
-    color: '#D4D4D8',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 4,
@@ -376,23 +377,23 @@ const styles = StyleSheet.create({
   takeButton: {
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: '#121216',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   takeButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
   inviteButton: {
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#1D4ED8',
+    borderColor: colors.infoBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -400,7 +401,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   inviteButtonText: {
-    color: '#DBEAFE',
+    color: colors.infoTextSoft,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -412,9 +413,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 20,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: '#18181B',
+    borderTopColor: colors.surface,
     flexDirection: 'row',
     gap: 10,
   },
@@ -423,13 +424,13 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272A',
-    backgroundColor: '#121216',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButtonText: {
-    color: '#F4F4F5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -437,12 +438,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 56,
     borderRadius: 18,
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonText: {
-    color: '#04131A',
+    color: colors.onAccent,
     fontSize: 14,
     fontWeight: '900',
   },

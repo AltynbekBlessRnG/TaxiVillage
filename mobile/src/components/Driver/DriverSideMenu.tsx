@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { showAlert } from '../AppAlert';
 import { resolveApiAssetUrl } from '../../utils/assets';
+import { colors } from '../../theme/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -169,7 +170,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
               accessibilityLabel={entry.label}
             >
               <View style={styles.menuItemRow}>
-                <Ionicons name={entry.icon} size={20} color="#A1A1AA" style={styles.menuItemIcon} />
+                <Ionicons name={entry.icon} size={20} color={colors.textSecondary} style={styles.menuItemIcon} />
                 <Text style={styles.menuItemText}>{entry.label}</Text>
                 {entry.badge ? (
                   <View style={styles.badge}>
@@ -191,16 +192,16 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
 
 const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 900 },
-  drawer: { position: 'absolute', top: 0, bottom: 0, left: 0, width: width * 0.8, backgroundColor: '#09090B', zIndex: 1000, borderRightWidth: 1, borderColor: '#18181B' },
-  header: { backgroundColor: '#18181B', padding: 24, borderBottomWidth: 1, borderBottomColor: '#27272A' },
+  drawer: { position: 'absolute', top: 0, bottom: 0, left: 0, width: width * 0.8, backgroundColor: colors.bg, zIndex: 1000, borderRightWidth: 1, borderColor: colors.surface },
+  header: { backgroundColor: colors.surface, padding: 24, borderBottomWidth: 1, borderBottomColor: colors.border },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatarCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -209,30 +210,30 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  avatarText: { color: '#E2E8F0', fontSize: 20, fontWeight: '900' },
+  avatarText: { color: colors.textMuted, fontSize: 20, fontWeight: '900' },
   headerTextWrap: { flex: 1 },
-  name: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  phone: { color: '#94A3B8', fontSize: 14, marginTop: 4 },
+  name: { color: colors.white, fontSize: 22, fontWeight: '800' },
+  phone: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
   statsRow: { flexDirection: 'row', marginTop: 20, gap: 15 },
-  statBox: { flex: 1, backgroundColor: '#0F172A', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#334155' },
-  statLabel: { color: '#64748B', fontSize: 11, textTransform: 'uppercase', marginBottom: 4 },
-  statValueGreen: { color: '#10B981', fontSize: 18, fontWeight: '700' },
-  statValueYellow: { color: '#F59E0B', fontSize: 18, fontWeight: '700' },
+  statBox: { flex: 1, backgroundColor: colors.surfaceSunken, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.borderStrong },
+  statLabel: { color: colors.textTertiary, fontSize: 11, textTransform: 'uppercase', marginBottom: 4 },
+  statValueGreen: { color: colors.success, fontSize: 18, fontWeight: '700' },
+  statValueYellow: { color: colors.warning, fontSize: 18, fontWeight: '700' },
   menuItems: { padding: 20, flex: 1 },
-  menuItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#18181B' },
+  menuItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.surface },
   menuItemRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   menuItemIcon: { width: 22, textAlign: 'center' },
-  menuItemText: { color: '#E2E8F0', fontSize: 16, fontWeight: '500', flex: 1 },
+  menuItemText: { color: colors.textMuted, fontSize: 16, fontWeight: '500', flex: 1 },
   badge: {
     minWidth: 26,
     height: 26,
     borderRadius: 13,
     paddingHorizontal: 8,
-    backgroundColor: '#DC2626',
+    backgroundColor: colors.dangerStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  logoutBtn: { margin: 20, marginBottom: 40, padding: 16, backgroundColor: '#7F1D1D', borderRadius: 12, alignItems: 'center' },
-  logoutText: { color: '#FCA5A5', fontSize: 16, fontWeight: '600' },
+  badgeText: { color: colors.white, fontSize: 12, fontWeight: '800' },
+  logoutBtn: { margin: 20, marginBottom: 40, padding: 16, backgroundColor: colors.dangerBorder, borderRadius: 12, alignItems: 'center' },
+  logoutText: { color: colors.dangerText, fontSize: 16, fontWeight: '600' },
 });
