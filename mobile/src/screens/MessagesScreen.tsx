@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,6 +15,10 @@ import { useMessagesSummary } from '../hooks/useMessagesSummary';
 import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Messages'>;
+type MessagesSummary = ReturnType<typeof useMessagesSummary>;
+type Thread =
+  | (MessagesSummary['rideThreads'][number] & { kind: 'ride' })
+  | (MessagesSummary['intercityThreads'][number] & { kind: 'intercity' });
 
 export const MessagesScreen: React.FC<Props> = ({ navigation }) => {
   const { rideThreads, intercityThreads, loading, refresh } = useMessagesSummary({ autoRefresh: false });
@@ -25,7 +29,7 @@ export const MessagesScreen: React.FC<Props> = ({ navigation }) => {
     }, [refresh]),
   );
 
-  const sections = [
+  const sections: Array<{ title: string; data: Thread[] }> = [
     {
       title: 'Такси',
       data: rideThreads.map((item) => ({ ...item, kind: 'ride' as const })),
@@ -51,60 +55,62 @@ export const MessagesScreen: React.FC<Props> = ({ navigation }) => {
           <ActivityIndicator size="large" color={colors.text} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.listContent}>
-          {sections.length === 0 ? (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) =>
+            item.kind === 'ride' ? `ride:${item.rideId}` : `intercity:${item.threadType}:${item.threadId}`
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.item}
+              activeOpacity={0.85}
+              onPress={() => {
+                if (item.kind === 'ride') {
+                  navigation.navigate('ChatScreen', { rideId: item.rideId });
+                  return;
+                }
+
+                navigation.navigate('IntercityChat', {
+                  threadType: item.threadType,
+                  threadId: item.threadId,
+                  title: item.title,
+                });
+              }}
+            >
+              <View style={styles.itemHeader}>
+                <Text style={styles.itemTitle}>{item.title}</Text>
+                {item.unreadCount > 0 ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
+              <Text style={styles.itemMessage} numberOfLines={2}>
+                {item.lastMessage}
+              </Text>
+              <Text style={styles.itemDate}>
+                {new Date(item.lastMessageAt).toLocaleString('ru-RU', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+            </TouchableOpacity>
+          )}
+          renderSectionHeader={({ section }) => (
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+          )}
+          stickySectionHeadersEnabled={false}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Text style={styles.emptyTitle}>Пока нет диалогов</Text>
               <Text style={styles.emptyText}>Как только появятся сообщения по поездкам или межгороду, они будут здесь.</Text>
             </View>
-          ) : (
-            sections.map((section) => (
-              <View key={section.title}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                {section.data.map((item) => (
-                  <TouchableOpacity
-                    key={item.kind === 'ride' ? `ride:${item.rideId}` : `intercity:${item.threadType}:${item.threadId}`}
-                    style={styles.item}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      if (item.kind === 'ride') {
-                        navigation.navigate('ChatScreen', { rideId: item.rideId });
-                        return;
-                      }
-
-                      navigation.navigate('IntercityChat', {
-                        threadType: item.threadType,
-                        threadId: item.threadId,
-                        title: item.title,
-                      });
-                    }}
-                  >
-                    <View style={styles.itemHeader}>
-                      <Text style={styles.itemTitle}>{item.title}</Text>
-                      {item.unreadCount > 0 ? (
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeText}>{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
-                    <Text style={styles.itemMessage} numberOfLines={2}>
-                      {item.lastMessage}
-                    </Text>
-                    <Text style={styles.itemDate}>
-                      {new Date(item.lastMessageAt).toLocaleString('ru-RU', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))
-          )}
-        </ScrollView>
+          }
+        />
       )}
     </SafeAreaView>
   );

@@ -36,7 +36,7 @@ import {
   sendDriverLocationUpdate,
 } from '../../location/driverLiveTracking';
 import { resetCourierLocationTrackingState, sendCourierLocationUpdate } from '../../location/courierLiveTracking';
-import { buildRegion, buildRouteCoordinates } from '../../utils/map';
+import { buildRegion, buildRouteCoordinates, distanceMeters } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { getGoogleDirections } from '../../utils/googleMaps';
@@ -53,6 +53,8 @@ type SocketState = 'connected' | 'reconnecting' | 'disconnected';
 
 /** How far the driver must move before the drawn route is fetched again. */
 const ROUTE_REFRESH_METERS = 50;
+/** Moves smaller than this are GPS noise, not the driver moving. */
+const LOCATION_JITTER_METERS = 5;
 
 interface RideOffer {
   id: string;
@@ -1048,8 +1050,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       lng: coordinate.longitude,
     };
 
-    setLocation(nextLocation);
-    setCourierLocation(nextLocation);
+    // Standing still, GPS jitter still reports a new point every second;
+    // keeping the old one lets React skip re-rendering the whole screen.
+    const keepIfStill = (previous: { lat: number; lng: number } | null) =>
+      previous && distanceMeters(previous, nextLocation) < LOCATION_JITTER_METERS
+        ? previous
+        : nextLocation;
+    setLocation(keepIfStill);
+    setCourierLocation(keepIfStill);
     if (isOnline && isFocused && profile?.driverMode !== 'COURIER') {
       sendDriverLocationUpdate(nextLocation).catch(() => {});
     }

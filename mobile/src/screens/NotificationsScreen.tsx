@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -161,15 +161,15 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   }, [filter, notifications]);
 
   const groupedNotifications = useMemo(() => {
-    const groups: Array<{ title: string; items: AppNotificationItem[] }> = [];
+    const groups: Array<{ title: string; data: AppNotificationItem[] }> = [];
 
     for (const item of filteredNotifications) {
       const title = getDateSectionLabel(item.createdAt);
       const existing = groups.find((group) => group.title === title);
       if (existing) {
-        existing.items.push(item);
+        existing.data.push(item);
       } else {
-        groups.push({ title, items: [item] });
+        groups.push({ title, data: [item] });
       }
     }
 
@@ -202,6 +202,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
               key={item.key}
               style={[styles.filterChip, filter === item.key && styles.filterChipActive]}
               onPress={() => setFilter(item.key as NotificationFilter)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: filter === item.key }}
             >
               <Text style={[styles.filterText, filter === item.key && styles.filterTextActive]}>
                 {item.label}
@@ -214,25 +216,24 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.listContent}>
-        {groupedNotifications.length === 0 ? (
+      <SectionList
+        sections={groupedNotifications}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        )}
+        stickySectionHeadersEnabled={false}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>Пока пусто</Text>
             <Text style={styles.emptyText}>
               Новые события по заказам, чатам и еде появятся здесь.
             </Text>
           </View>
-        ) : (
-          groupedNotifications.map((group) => (
-            <View key={group.title}>
-              <Text style={styles.sectionTitle}>{group.title}</Text>
-              {group.items.map((item) => (
-                <View key={item.id}>{renderItem({ item })}</View>
-              ))}
-            </View>
-          ))
-        )}
-      </ScrollView>
+        }
+      />
     </SafeAreaView>
   );
 };
