@@ -45,10 +45,14 @@ import { resolveRideRoute } from '../../utils/rideRoute';
 import { ensureNotificationPermission } from '../../utils/notifications';
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
 import { useMessagesSummary } from '../../hooks/useMessagesSummary';
+import { useSettledLocation } from '../../hooks/useSettledLocation';
 import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverHome'>;
 type SocketState = 'connected' | 'reconnecting' | 'disconnected';
+
+/** How far the driver must move before the drawn route is fetched again. */
+const ROUTE_REFRESH_METERS = 50;
 
 interface RideOffer {
   id: string;
@@ -99,6 +103,10 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [currentCourierOrder, setCurrentCourierOrder] = useState<any>(null);
   const [availableCourierOrders, setAvailableCourierOrders] = useState<any[]>([]);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // Routes are fetched from Google per call, so redraw them only once the
+  // driver has actually moved, not on every location tick.
+  const routeLocation = useSettledLocation(location, ROUTE_REFRESH_METERS);
+  const courierRouteLocation = useSettledLocation(courierLocation, ROUTE_REFRESH_METERS);
   const [courierRoute, setCourierRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [driverRoute, setDriverRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [metrics, setMetrics] = useState<any>(null);
@@ -1057,10 +1065,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    const origin =
-      order.status === 'TO_RECIPIENT' || order.status === 'PICKED_UP' || order.status === 'DELIVERING'
-        ? courierLocation
-        : courierLocation;
+    const origin = courierRouteLocation;
     const destination =
       order.status === 'TO_RECIPIENT' || order.status === 'PICKED_UP' || order.status === 'DELIVERING'
         ? { lat: order.dropoffLat, lng: order.dropoffLng }
@@ -1093,7 +1098,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           }),
         ),
       );
-  }, [courierLocation, currentCourierOrder]);
+  }, [courierRouteLocation, currentCourierOrder]);
 
   useEffect(() => {
     if (!currentRide) {
@@ -1106,7 +1111,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         status: currentRide.status,
         fromCoord: currentRide.fromLat && currentRide.fromLng ? { lat: currentRide.fromLat, lng: currentRide.fromLng } : null,
         toCoord: currentRide.toLat && currentRide.toLng ? { lat: currentRide.toLat, lng: currentRide.toLng } : null,
-        driverCoord: location,
+        driverCoord: routeLocation,
         stops: (currentRide.stops ?? [])
           .filter((stop: any) => typeof stop.lat === 'number' && typeof stop.lng === 'number')
           .map((stop: any) => ({
@@ -1120,7 +1125,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     }, 250);
 
     return () => clearTimeout(timeoutId);
-  }, [currentRide, location, routeCoordinates]);
+  }, [currentRide, routeLocation, routeCoordinates]);
 
   if (!profileReady || !profile) {
     return (
