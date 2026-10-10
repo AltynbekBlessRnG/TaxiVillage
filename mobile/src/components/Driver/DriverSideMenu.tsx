@@ -13,7 +13,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
-import { showAlert } from '../AppAlert';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { colors } from '../../theme/colors';
 
@@ -76,11 +75,6 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
       { label: 'Мой профиль', icon: 'person-outline', onPress: () => onNavigate('DriverProfile') },
       { label: 'Баланс', icon: 'wallet-outline', onPress: () => onNavigate('DriverBalance') },
       { label: 'История поездок', icon: 'time-outline', onPress: () => onNavigate('RideHistory') },
-      {
-        label: 'Настройки',
-        icon: 'settings-outline',
-        onPress: () => showAlert('Настройки', 'Раздел ещё в разработке.'),
-      },
     ],
     [onNavigate, unreadMessagesCount, unreadNotificationsCount],
   );
