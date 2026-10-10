@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   confirmMapPick: { position: 'absolute', bottom: 50, left: 20, right: 20, zIndex: 100 },
   zincMainBtn: {
     backgroundColor: colors.surfaceInverse,
-    height: 60,
+    minHeight: 60,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   modalSecondary: {
     flex: 1,
-    height: 48,
+    minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   },
   modalDanger: {
     flex: 1,
-    height: 48,
+    minHeight: 48,
     borderRadius: 16,
     backgroundColor: colors.dangerDeep,
     alignItems: 'center',
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   modalPrimary: {
-    height: 50,
+    minHeight: 50,
     borderRadius: 16,
     backgroundColor: colors.surfaceInverse,
     alignItems: 'center',

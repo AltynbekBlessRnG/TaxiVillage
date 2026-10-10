@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   priceLabel: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
   priceValue: { color: colors.text, fontSize: 17, fontWeight: '800' },
   closeBtn: {
-    height: 48,
+    minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,

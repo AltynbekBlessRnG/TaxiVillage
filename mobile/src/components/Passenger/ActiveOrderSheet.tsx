@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
     borderRadius: 16,
     paddingHorizontal: 14,
-    height: 52,
+    minHeight: 52,
   },
   secondaryButtonText: {
     color: colors.dangerTextStrong,
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   },
   chatBadgeText: {
     color: colors.white,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '900',
   },
 });

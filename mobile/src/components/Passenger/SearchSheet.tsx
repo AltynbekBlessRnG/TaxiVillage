@@ -440,7 +440,7 @@ export const SearchSheet: React.FC<Props> = ({
                       onSubmitEditing={handleFromSubmit}
                       blurOnSubmit={false}
                     />
-                    <TouchableOpacity style={styles.mapPickButton} onPress={() => onMapPick('from')}>
+                    <TouchableOpacity hitSlop={3} style={styles.mapPickButton} onPress={() => onMapPick('from')}>
                       <Text style={styles.mapPickButtonText}>Карта</Text>
                     </TouchableOpacity>
                   </View>
@@ -471,7 +471,7 @@ export const SearchSheet: React.FC<Props> = ({
                   returnKeyType="done"
                   onSubmitEditing={handleToSubmit}
                 />
-                <TouchableOpacity style={styles.mapPickButton} onPress={() => onMapPick(mode === 'stop' ? 'stop' : 'to')}>
+                <TouchableOpacity hitSlop={3} style={styles.mapPickButton} onPress={() => onMapPick(mode === 'stop' ? 'stop' : 'to')}>
                   <Text style={styles.mapPickButtonText}>Карта</Text>
                 </TouchableOpacity>
               </View>
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   inputField: { height: 50, color: colors.white, fontSize: 16 },
   mapPickButton: {
     minWidth: 74,
-    height: 38,
+    minHeight: 38,
     backgroundColor: colors.surfaceInverse,
     borderRadius: 12,
     justifyContent: 'center',

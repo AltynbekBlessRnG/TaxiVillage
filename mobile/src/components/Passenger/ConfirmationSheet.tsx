@@ -154,6 +154,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                   ) : null}
                 </TouchableOpacity>
                 <TouchableOpacity
+                  hitSlop={2}
                   style={styles.sideActionBtn}
                   onPress={() => {
                     setTempComment(comment);
@@ -217,6 +218,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
 
                 {serviceType === 'taxi' && stops.length < 3 ? (
                   <TouchableOpacity
+                    hitSlop={2}
                     style={[styles.sideActionBtn, styles.plusBtn, isAddStopDisabled && styles.actionBtnDisabled]}
                     onPress={onAddStop}
                     disabled={isAddStopDisabled}
@@ -272,6 +274,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                 {serviceType === 'taxi' ? (
                   <View style={styles.stepperRow}>
                     <TouchableOpacity
+                      hitSlop={3}
                       style={styles.stepperBtn}
                       onPress={() => adjustPrice(-PRICE_STEP)}
                       accessibilityRole="button"
@@ -280,6 +283,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                       <Text style={styles.stepperText}>−</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
+                      hitSlop={3}
                       style={styles.stepperBtn}
                       onPress={() => adjustPrice(PRICE_STEP)}
                       accessibilityRole="button"
@@ -373,7 +377,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   routeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 10 },
-  routeLabel: { color: colors.textTertiary, fontSize: 10, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase' },
+  routeLabel: { color: colors.textTertiary, fontSize: 11, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase' },
   addressContainer: { flex: 1 },
   dotBlueSmall: { width: 8, height: 8, backgroundColor: colors.info, borderRadius: 4, marginRight: 15 },
   squareRedSmall: { width: 8, height: 8, backgroundColor: colors.danger, marginRight: 15 },
@@ -390,7 +394,7 @@ const styles = StyleSheet.create({
   },
   precisionBadgeText: {
     color: colors.textSecondary,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
@@ -405,7 +409,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderStrong,
     minWidth: 72,
-    height: 40,
+    minHeight: 40,
     borderRadius: 14,
     marginLeft: 10,
     alignItems: 'center',
@@ -466,7 +470,7 @@ const styles = StyleSheet.create({
   priceInput: { flex: 1, color: colors.text, fontSize: 22, fontWeight: '700', paddingVertical: 0 },
   finalBtn: {
     backgroundColor: colors.surfaceInverse,
-    height: 54,
+    minHeight: 54,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',

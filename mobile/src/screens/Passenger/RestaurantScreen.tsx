@@ -364,6 +364,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                       <View style={styles.quantityActions}>
                         {qty > 0 ? (
                           <TouchableOpacity
+                            hitSlop={3}
                             style={[styles.quantityButton, styles.quantityButtonGhost]}
                             onPress={() => removeFromCart(item.id)}
                             accessibilityRole="button"
@@ -373,6 +374,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                           </TouchableOpacity>
                         ) : null}
                         <TouchableOpacity
+                          hitSlop={3}
                           style={styles.quantityButton}
                           onPress={() => addToCart(item)}
                           accessibilityRole="button"

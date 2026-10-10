@@ -192,7 +192,7 @@ export const IntercityHomeScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.fieldLabel}>Откуда</Text>
             <Text style={styles.fieldValue}>{fromCity}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.swapButton} activeOpacity={0.9} onPress={() => {
+          <TouchableOpacity hitSlop={1} style={styles.swapButton} activeOpacity={0.9} onPress={() => {
             const nextFrom = toCity;
             const nextTo = fromCity;
             setFromCity(nextFrom);

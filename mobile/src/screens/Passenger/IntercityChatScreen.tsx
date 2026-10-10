@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   senderName: { fontSize: 12, color: colors.textSecondary, fontWeight: '700' },
-  timestamp: { fontSize: 10, color: colors.textTertiary, marginTop: 2 },
+  timestamp: { fontSize: 11, color: colors.textTertiary, marginTop: 2 },
   messageContent: {
     backgroundColor: colors.surface,
     padding: 12,

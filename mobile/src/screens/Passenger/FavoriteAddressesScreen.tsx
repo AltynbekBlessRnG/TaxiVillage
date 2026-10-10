@@ -222,6 +222,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
               <View style={styles.addressActions}>
                 <TouchableOpacity
+                  hitSlop={3}
                   style={styles.iconButton}
                   onPress={() => handleEdit(address)}
                   accessibilityRole="button"
@@ -230,6 +231,7 @@ export const FavoriteAddressesScreen: React.FC<Props> = ({ navigation }) => {
                   <Ionicons name="pencil" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity
+                  hitSlop={3}
                   style={[styles.iconButton, styles.deleteButton]}
                   onPress={() => handleDelete(address)}
                   accessibilityRole="button"

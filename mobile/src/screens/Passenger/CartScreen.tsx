@@ -52,6 +52,7 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
               </View>
               <View style={styles.stepper}>
                 <TouchableOpacity
+                  hitSlop={5}
                   style={[styles.stepperButton, styles.stepperButtonGhost]}
                   onPress={() => updateQty(item.menuItemId, -1)}
                   accessibilityRole="button"
@@ -61,6 +62,7 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                 </TouchableOpacity>
                 <Text style={styles.stepperValue}>{item.qty}</Text>
                 <TouchableOpacity
+                  hitSlop={5}
                   style={styles.stepperButton}
                   onPress={() => updateQty(item.menuItemId, 1)}
                   accessibilityRole="button"

@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     elevation: 15,
   },
-  ashenRow: { flexDirection: 'row', alignItems: 'center', height: 44 },
+  ashenRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
   ashenInputText: { flex: 1, color: colors.text, fontSize: 16, fontWeight: '500' },
   placeholderZinc: { color: colors.textTertiary, fontSize: 16, flex: 1 },
   zincDivider: { height: 1, backgroundColor: colors.surfaceRaised, marginVertical: 4, marginLeft: 28 },

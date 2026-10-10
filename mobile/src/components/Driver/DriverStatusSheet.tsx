@@ -901,13 +901,13 @@ const styles = StyleSheet.create({
   },
   chartValue: {
     color: colors.text,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     marginBottom: 2,
   },
   chartLabel: {
     color: colors.textTertiary,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
@@ -1089,7 +1089,7 @@ const styles = StyleSheet.create({
   },
   precisionBadgeText: {
     color: colors.textSecondary,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
   },

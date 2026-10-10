@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   },
   precisionBadgeText: {
     color: colors.textSecondary,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
   },

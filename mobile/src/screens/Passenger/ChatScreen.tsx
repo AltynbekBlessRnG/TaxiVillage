@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   ownMessage: { alignSelf: 'flex-end' },
   messageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   senderName: { fontSize: 12, color: colors.textTertiary, fontWeight: '500' },
-  timestamp: { fontSize: 10, color: colors.textTertiary },
+  timestamp: { fontSize: 11, color: colors.textTertiary },
   messageContent: { backgroundColor: colors.surface, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border, maxWidth: '100%' },
   ownBubble: { backgroundColor: colors.surfaceRaised },
   messageText: { fontSize: 14, color: colors.text, lineHeight: 18 },
