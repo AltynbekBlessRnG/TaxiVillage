@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import {
@@ -58,7 +59,7 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                   accessibilityRole="button"
                   accessibilityLabel={`Убрать одну порцию: ${item.name}`}
                 >
-                  <Text style={styles.stepperButtonGhostText}>−</Text>
+                  <Ionicons name="remove" size={19} color={colors.text} style={styles.stepperButtonGhostText} />
                 </TouchableOpacity>
                 <Text style={styles.stepperValue}>{item.qty}</Text>
                 <TouchableOpacity
@@ -68,7 +69,7 @@ export const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                   accessibilityRole="button"
                   accessibilityLabel={`Добавить ещё одну порцию: ${item.name}`}
                 >
-                  <Text style={styles.stepperButtonText}>+</Text>
+                  <Ionicons name="add" size={17} color={colors.foodTextSoft} style={styles.stepperButtonText} />
                 </TouchableOpacity>
               </View>
             </View>

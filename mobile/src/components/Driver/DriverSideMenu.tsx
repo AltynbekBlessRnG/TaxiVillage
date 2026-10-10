@@ -157,7 +157,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>Рейтинг</Text>
-              <Text style={styles.statValueYellow}>{(profile?.rating ?? 5).toFixed(1)} ⭐</Text>
+              <Text style={styles.statValueYellow}>{(profile?.rating ?? 5).toFixed(1)} ★</Text>
             </View>
           </View>
         </View>

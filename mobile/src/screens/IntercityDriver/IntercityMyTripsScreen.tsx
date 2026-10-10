@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -146,7 +147,7 @@ export const IntercityMyTripsScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
                 <View style={styles.openRow}>
                   <Text style={styles.openLabel}>Открыть рейс</Text>
-                  <Text style={styles.openArrow}>›</Text>
+                  <Ionicons name="chevron-forward" size={22} color={colors.accentText} style={styles.openArrow} />
                 </View>
               </TouchableOpacity>
             );

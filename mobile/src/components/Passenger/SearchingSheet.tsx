@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { colors } from '../../theme/colors';
@@ -149,7 +150,7 @@ export const SearchingSheet: React.FC<Props> = ({
               accessibilityLabel={cancelLabel.replace(/\s+/g, ' ')}
             >
               <View style={styles.circleBtn}>
-                <Text style={styles.btnIcon}>✕</Text>
+                <Ionicons name="close" size={18} color={colors.white} style={styles.btnIcon} />
               </View>
               <Text style={styles.btnLabel}>{cancelLabel}</Text>
             </TouchableOpacity>
@@ -161,7 +162,7 @@ export const SearchingSheet: React.FC<Props> = ({
               accessibilityLabel="Детали заказа"
             >
               <View style={styles.circleBtn}>
-                <Text style={styles.btnIcon}>☰</Text>
+                <Ionicons name="menu" size={18} color={colors.white} style={styles.btnIcon} />
               </View>
               <Text style={styles.btnLabel}>Детали</Text>
             </TouchableOpacity>

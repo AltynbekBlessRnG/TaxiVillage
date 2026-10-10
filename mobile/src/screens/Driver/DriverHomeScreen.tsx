@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, {
   Marker,
@@ -1275,7 +1276,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
             : 'Меню'
         }
       >
-        <Text style={styles.iconText}>☰</Text>
+        <Ionicons name="menu" size={24} color={colors.white} style={styles.iconText} />
         {unreadNotificationsCount > 0 ? (
           <View style={styles.burgerBadge}>
             <Text style={styles.burgerBadgeText}>

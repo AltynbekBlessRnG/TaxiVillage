@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 
@@ -69,7 +70,7 @@ export const MerchantSideDrawer: React.FC<Props> = ({
             accessibilityRole="button"
             accessibilityLabel="Закрыть меню"
           >
-            <Text style={styles.closeButtonText}>✕</Text>
+            <Ionicons name="close" size={15} color={colors.textMuted} style={styles.closeButtonText} />
           </TouchableOpacity>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>

@@ -546,7 +546,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
               accessibilityLabel="Доставка еды"
             >
               <Text style={styles.sectionLinkText}>Доставка еды</Text>
-              <Text style={styles.sectionLinkChevron}>›</Text>
+              <Ionicons name="chevron-forward" size={22} color={colors.textTertiary} style={styles.sectionLinkChevron} />
             </TouchableOpacity>
               <View style={styles.infoCardCompact}>
                 <TouchableOpacity

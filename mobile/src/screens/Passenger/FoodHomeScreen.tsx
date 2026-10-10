@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -177,7 +178,7 @@ export const FoodHomeScreen: React.FC<Props> = ({ navigation }) => {
         onPress={() => navigation.navigate('FoodOrderHistory')}
       >
         <Text style={styles.historyButtonText}>Мои заказы</Text>
-        <Text style={styles.historyButtonArrow}>›</Text>
+        <Ionicons name="chevron-forward" size={25} color={colors.food} style={styles.historyButtonArrow} />
       </TouchableOpacity>
       {featuredRestaurant ? (
         <TouchableOpacity

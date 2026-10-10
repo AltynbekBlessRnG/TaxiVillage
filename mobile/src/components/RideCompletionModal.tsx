@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../api/client';
 import { showAlert } from '../components/AppAlert';
 import { colors } from '../theme/colors';
@@ -63,7 +64,7 @@ export const RideCompletionModal: React.FC<RideCompletionModalProps> = ({
           
           {/* Иконка успеха */}
           <View style={styles.successIconBox}>
-            <Text style={styles.successIcon}>✓</Text>
+            <Ionicons name="checkmark" size={32} color={colors.success} style={styles.successIcon} />
           </View>
 
           {/* Заголовок и Цена */}

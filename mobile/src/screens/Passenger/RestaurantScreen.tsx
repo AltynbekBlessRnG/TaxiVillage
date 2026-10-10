@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -370,7 +371,7 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                             accessibilityRole="button"
                             accessibilityLabel={`Убрать одну порцию: ${item.name}`}
                           >
-                            <Text style={styles.quantityButtonGhostText}>−</Text>
+                            <Ionicons name="remove" size={18} color={colors.text} style={styles.quantityButtonGhostText} />
                           </TouchableOpacity>
                         ) : null}
                         <TouchableOpacity
@@ -384,7 +385,11 @@ export const RestaurantScreen: React.FC<Props> = ({ navigation, route }) => {
                               : `Добавить в корзину: ${item.name}`
                           }
                         >
-                          <Text style={styles.quantityButtonText}>{qty > 0 ? `+ ${qty}` : '+'}</Text>
+                          {qty > 0 ? (
+                            <Text style={styles.quantityButtonText}>{`+ ${qty}`}</Text>
+                          ) : (
+                            <Ionicons name="add" size={18} color={colors.foodTextSoft} />
+                          )}
                         </TouchableOpacity>
                       </View>
                     </View>

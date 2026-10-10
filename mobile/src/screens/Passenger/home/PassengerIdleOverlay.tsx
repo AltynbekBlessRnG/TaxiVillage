@@ -116,7 +116,7 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
         >
           <View style={styles.dotGreen} />
           <Text style={styles.activeRideText}>У вас есть активная поездка</Text>
-          <Text style={styles.activeRideArrow}>›</Text>
+          <Ionicons name="chevron-forward" size={24} color={colors.white} style={styles.activeRideArrow} />
         </TouchableOpacity>
       ) : null}
 
@@ -133,7 +133,7 @@ export const PassengerIdleOverlay: React.FC<Props> = ({
         >
           <View style={styles.dotGreen} />
           <Text style={styles.activeRideText}>У вас есть активная доставка</Text>
-          <Text style={styles.activeRideArrow}>›</Text>
+          <Ionicons name="chevron-forward" size={24} color={colors.white} style={styles.activeRideArrow} />
         </TouchableOpacity>
       ) : null}
 
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   },
   dotGreen: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.white, marginRight: 12 },
   activeRideText: { color: colors.white, fontSize: 16, fontWeight: '700', flex: 1 },
-  activeRideArrow: { color: colors.white, fontSize: 24, fontWeight: '300', marginTop: -4 },
+  activeRideArrow: { color: colors.white, fontSize: 24, fontWeight: '300' },
   bottomAshenBar: {
     position: 'absolute',
     left: 20,

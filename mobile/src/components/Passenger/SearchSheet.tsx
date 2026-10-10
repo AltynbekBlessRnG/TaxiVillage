@@ -407,7 +407,7 @@ export const SearchSheet: React.FC<Props> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Закрыть"
               >
-                <Text style={styles.closeBtn}>✕</Text>
+                <Ionicons name="close" size={24} color={colors.textTertiary} style={styles.closeBtn} />
               </TouchableOpacity>
               <Text style={styles.sheetTitle}>
                 {title ?? (mode === 'stop' ? 'Добавить заезд' : 'Маршрут')}

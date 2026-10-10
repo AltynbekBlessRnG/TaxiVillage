@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -318,7 +319,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
           accessibilityRole="button"
           accessibilityLabel="Меню"
         >
-          <Text style={styles.burgerIcon}>☰</Text>
+          <Ionicons name="menu" size={22} color={colors.text} style={styles.burgerIcon} />
         </TouchableOpacity>
 
         <View style={styles.topBarCenter}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, {
   BottomSheetTextInput,
   BottomSheetView,
@@ -210,7 +211,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                           onPress={() => handleStopPress(index, stop.address)}
                           hitSlop={10}
                         >
-                          <Text style={styles.stopRemoveText}>✕</Text>
+                          <Ionicons name="close" size={12} color={colors.textTertiary} style={styles.stopRemoveText} />
                         </TouchableOpacity>
                       </View>
                     ))}
@@ -226,7 +227,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                     accessibilityLabel="Добавить заезд"
                     accessibilityState={{ disabled: isAddStopDisabled }}
                   >
-                    <Text style={styles.plusText}>+</Text>
+                    <Ionicons name="add" size={20} color={colors.text} style={styles.plusText} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -280,7 +281,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                       accessibilityRole="button"
                       accessibilityLabel={`Уменьшить цену на ${PRICE_STEP} тенге`}
                     >
-                      <Text style={styles.stepperText}>−</Text>
+                      <Ionicons name="remove" size={19} color={colors.text} style={styles.stepperText} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       hitSlop={3}
@@ -289,7 +290,7 @@ export const ConfirmationSheet: React.FC<Props> = ({
                       accessibilityRole="button"
                       accessibilityLabel={`Увеличить цену на ${PRICE_STEP} тенге`}
                     >
-                      <Text style={styles.stepperText}>+</Text>
+                      <Ionicons name="add" size={19} color={colors.text} style={styles.stepperText} />
                     </TouchableOpacity>
                   </View>
                 ) : null}
@@ -418,7 +419,7 @@ const styles = StyleSheet.create({
   },
   sideActionText: { color: colors.text, fontSize: 12, fontWeight: '800' },
   plusBtn: { minWidth: 40, width: 40 },
-  plusText: { color: colors.text, fontSize: 20, fontWeight: '700', marginTop: -1 },
+  plusText: { color: colors.text, fontSize: 20, fontWeight: '700' },
   stepperRow: { flexDirection: 'row', gap: 8, marginLeft: 8 },
   stepperBtn: {
     width: 38,
@@ -430,7 +431,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepperText: { color: colors.text, fontSize: 19, fontWeight: '800', marginTop: -2 },
+  stepperText: { color: colors.text, fontSize: 19, fontWeight: '800' },
   priceHint: {
     color: colors.textTertiary,
     fontSize: 12,
