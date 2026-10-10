@@ -3,6 +3,7 @@ import { Animated, Platform, StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { darkMinimalMapStyle } from '../../../utils/mapStyle';
 import { colors } from '../../../theme/colors';
+import { useReduceMotion } from '../../../hooks/useReduceMotion';
 
 type Props = {
   mapRef: React.RefObject<MapView | null>;
@@ -24,8 +25,16 @@ type Props = {
 const SearchingRadarMarker: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
   const pulseA = useRef(new Animated.Value(0)).current;
   const pulseB = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
+    if (reduceMotion) {
+      // Two still rings mark the search area without pulsing.
+      pulseA.setValue(0.35);
+      pulseB.setValue(0.7);
+      return undefined;
+    }
+
     const makePulse = (value: Animated.Value, delay: number) =>
       Animated.loop(
         Animated.sequence([
@@ -52,7 +61,7 @@ const SearchingRadarMarker: React.FC<{ lat: number; lng: number }> = ({ lat, lng
       animationA.stop();
       animationB.stop();
     };
-  }, [pulseA, pulseB]);
+  }, [pulseA, pulseB, reduceMotion]);
 
   const buildRingStyle = (value: Animated.Value) => ({
     transform: [

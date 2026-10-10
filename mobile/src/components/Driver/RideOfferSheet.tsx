@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { colors } from '../../theme/colors';
 
 const { height } = Dimensions.get('window');
@@ -40,12 +41,15 @@ export const RideOfferSheet: React.FC<Props> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(height)).current;
+  const reduceMotion = useReduceMotion();
   const totalSeconds = offer?.offerExpiresInSeconds ?? DEFAULT_OFFER_SECONDS;
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const offerId = offer?.id ?? null;
 
   useEffect(() => {
-    if (offer) {
+    if (reduceMotion) {
+      slideAnim.setValue(offer ? 0 : height);
+    } else if (offer) {
       Animated.spring(slideAnim, {
         toValue: 0,
         tension: 50,
@@ -55,7 +59,7 @@ export const RideOfferSheet: React.FC<Props> = ({
     } else {
       Animated.timing(slideAnim, { toValue: height, duration: 300, useNativeDriver: true }).start();
     }
-  }, [offer, slideAnim]);
+  }, [offer, reduceMotion, slideAnim]);
 
   // The server moves the offer to the next driver on its own timer; this just
   // shows the driver how much of it is left instead of letting the card vanish.

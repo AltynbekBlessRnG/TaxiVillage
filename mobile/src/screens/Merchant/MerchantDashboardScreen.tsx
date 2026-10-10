@@ -27,6 +27,7 @@ import { PrimaryButton, SecondaryButton } from '../../components/ServiceScreen';
 import { MerchantSideDrawer } from './MerchantSideDrawer';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { colors } from '../../theme/colors';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MerchantDashboard'>;
 
@@ -67,6 +68,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
     message: '',
   });
   const sideMenuAnim = useRef(new Animated.Value(-320)).current;
+  const reduceMotion = useReduceMotion();
   const menuBackdropOpacity = useRef(new Animated.Value(0)).current;
 
   const closeModal = () =>
@@ -128,7 +130,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
     Animated.parallel([
       Animated.timing(sideMenuAnim, {
         toValue: isMenuOpen ? 0 : -320,
-        duration: 260,
+        duration: reduceMotion ? 0 : 260,
         useNativeDriver: true,
       }),
       Animated.timing(menuBackdropOpacity, {
@@ -137,7 +139,7 @@ export const MerchantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [isMenuOpen, sideMenuAnim, menuBackdropOpacity]);
+  }, [isMenuOpen, reduceMotion, sideMenuAnim, menuBackdropOpacity]);
 
   const pickAndUploadCover = useCallback(async () => {
     try {

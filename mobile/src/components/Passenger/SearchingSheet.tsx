@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { colors } from '../../theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -31,6 +32,7 @@ export const SearchingSheet: React.FC<Props> = ({
   const [raiseError, setRaiseError] = useState<string | null>(null);
   const animValue = useRef(new Animated.Value(0)).current;
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const reduceMotion = useReduceMotion();
 
   const canRaisePrice =
     Boolean(onRaisePrice) && typeof currentPrice === 'number' && currentPrice > 0;
@@ -39,6 +41,15 @@ export const SearchingSheet: React.FC<Props> = ({
 
   useEffect(() => {
     const interval = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      // A still segment of the bar instead of an endless sweep.
+      animValue.setValue(0.35);
+      return undefined;
+    }
 
     const animation = Animated.loop(
       Animated.timing(animValue, {
@@ -51,11 +62,10 @@ export const SearchingSheet: React.FC<Props> = ({
 
     animation.start();
     return () => {
-      clearInterval(interval);
       animation.stop();
       animValue.setValue(0);
     };
-  }, [animValue]);
+  }, [animValue, reduceMotion]);
 
   useEffect(() => {
     requestAnimationFrame(() => {

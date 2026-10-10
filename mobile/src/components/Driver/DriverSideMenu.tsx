@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { showAlert } from '../AppAlert';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { colors } from '../../theme/colors';
@@ -40,6 +41,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(-width)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReduceMotion();
   const avatarUri = useMemo(() => resolveApiAssetUrl(profile?.user?.avatarUrl), [profile?.user?.avatarUrl]);
   const initials = useMemo(
     () =>
@@ -87,7 +89,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: isOpen ? 0 : -width,
-        duration: 300,
+        duration: reduceMotion ? 0 : 300,
         useNativeDriver: true,
       }),
       Animated.timing(fadeAnim, {
@@ -96,7 +98,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
         useNativeDriver: true,
       })
     ]).start();
-  }, [fadeAnim, isOpen, slideAnim]);
+  }, [fadeAnim, isOpen, reduceMotion, slideAnim]);
 
   // The menu is a plain overlay, not a Modal, so Android Back would leave the
   // screen instead of closing it.

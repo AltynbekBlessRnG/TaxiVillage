@@ -41,6 +41,7 @@ import {
 import { useNotificationsInbox } from '../../hooks/useNotificationsInbox';
 import { useMessagesSummary } from '../../hooks/useMessagesSummary';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { colors } from '../../theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -105,6 +106,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { rideUnreadById, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const sideMenuAnim = useRef(new Animated.Value(-width)).current;
+  const reduceMotion = useReduceMotion();
   const menuBackdropOpacity = useRef(new Animated.Value(0)).current;
   const mapRef = useRef<MapView>(null);
 
@@ -136,11 +138,13 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
   ]);
 
   const changeState = useCallback((newState: PassengerScreenState) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (!reduceMotion) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
 
     setScreenState(newState);
     Keyboard.dismiss();
-  }, [setScreenState]);
+  }, [reduceMotion, setScreenState]);
 
   const {
     userProfile,
@@ -458,7 +462,7 @@ export const PassengerHomeScreen: React.FC<Props> = ({ navigation, route }) => {
     Animated.parallel([
       Animated.timing(sideMenuAnim, {
         toValue: show ? 0 : -width,
-        duration: 300,
+        duration: reduceMotion ? 0 : 300,
         useNativeDriver: true,
       }),
       Animated.timing(menuBackdropOpacity, {
