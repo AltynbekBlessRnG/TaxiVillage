@@ -24,13 +24,12 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
   }
 
   try {
-    await sendDriverLocationUpdate(
-      {
-        lat: latestLocation.coords.latitude,
-        lng: latestLocation.coords.longitude,
-      },
-      { force: true },
-    );
+    // Not forced: while the app is open the map reports the same position,
+    // and sharing the throttle keeps the two from both waking the radio.
+    await sendDriverLocationUpdate({
+      lat: latestLocation.coords.latitude,
+      lng: latestLocation.coords.longitude,
+    });
   } catch (error) {
     console.log('Background location update failed', error);
   }
@@ -47,7 +46,7 @@ export async function startDriverBackgroundTracking() {
   await Location.startLocationUpdatesAsync(LOCATION_TRACKING_TASK, {
     accuracy: Location.Accuracy.Balanced,
     timeInterval: 10000,
-    distanceInterval: 25,
+    distanceInterval: 30,
     showsBackgroundLocationIndicator: true,
     foregroundService: {
       notificationTitle: 'Zhetysu Go',

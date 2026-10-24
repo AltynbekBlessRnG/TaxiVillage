@@ -56,6 +56,13 @@ type SocketState = 'connected' | 'reconnecting' | 'disconnected';
 const ROUTE_REFRESH_METERS = 50;
 /** Moves smaller than this are GPS noise, not the driver moving. */
 const LOCATION_JITTER_METERS = 5;
+/**
+ * The map's own GPS (Android) while the driver waits for an order: Wi-Fi and
+ * cell fixes every 15 s are plenty to show the dot and be found by dispatch.
+ * Full GPS every 5 s is kept for a trip, when the pickup point matters.
+ */
+const IDLE_LOCATION_INTERVAL_MS = 15000;
+const TRIP_LOCATION_INTERVAL_MS = 5000;
 
 interface RideOffer {
   id: string;
@@ -106,6 +113,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [currentCourierOrder, setCurrentCourierOrder] = useState<any>(null);
   const [availableCourierOrders, setAvailableCourierOrders] = useState<any[]>([]);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const hasActiveTrip = Boolean(currentRideId || currentCourierOrder || currentIntercityTrip);
   // Routes are fetched from Google per call, so redraw them only once the
   // driver has actually moved, not on every location tick.
   const routeLocation = useSettledLocation(location, ROUTE_REFRESH_METERS);
@@ -1160,6 +1168,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
         customMapStyle={darkMinimalMapStyle}
         onUserLocationChange={handleUserLocationChange}
         showsUserLocation
+        userLocationPriority={hasActiveTrip ? 'high' : 'balanced'}
+        userLocationUpdateInterval={
+          hasActiveTrip ? TRIP_LOCATION_INTERVAL_MS : IDLE_LOCATION_INTERVAL_MS
+        }
+        userLocationFastestInterval={
+          hasActiveTrip ? TRIP_LOCATION_INTERVAL_MS : IDLE_LOCATION_INTERVAL_MS
+        }
         // Google's own recenter button ships enabled alongside showsUserLocation
         // and lands in the corner, duplicating the one that tracks the sheet.
         showsMyLocationButton={false}
