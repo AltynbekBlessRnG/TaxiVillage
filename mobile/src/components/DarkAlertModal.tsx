@@ -24,7 +24,9 @@ export const DarkAlertModal: React.FC<Props> = ({
   onSecondary,
 }) => {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onPrimary}>
+    // Back means "never mind": on a confirmation it must take the safe
+    // choice, never the destructive primary one.
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onSecondary ?? onPrimary}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
