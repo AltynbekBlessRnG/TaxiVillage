@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { Socket } from 'socket.io-client';
@@ -30,6 +31,10 @@ const nextStatusMap: Record<string, { status: string; label: string } | null> = 
   CANCELED: null,
 };
 
+/** Until the car leaves, seats can change and passengers can be taken out. */
+const EDITABLE_TRIP_STATUSES = ['PLANNED', 'BOARDING'];
+const REMOVABLE_BOOKING_STATUSES = ['CONFIRMED', 'BOARDING'];
+
 const statusLabels: Record<string, string> = {
   PLANNED: 'Запланирован',
   BOARDING: 'Посадка',
@@ -55,11 +60,18 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
   const [baggageSpace, setBaggageSpace] = useState(true);
   const [allowAnimals, setAllowAnimals] = useState(true);
   const [picker, setPicker] = useState<'from' | 'to' | 'date' | 'time' | null>(null);
-  const [modal, setModal] = useState<{ visible: boolean; title: string; message: string; primaryMode?: 'cancel-trip' }>({
+  const [modal, setModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    primaryMode?: 'cancel-trip' | 'remove-booking';
+    bookingId?: string;
+  }>({
     visible: false,
     title: '',
     message: '',
   });
+  const [savingSeats, setSavingSeats] = useState(false);
   const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const isCreateMode = !route.params?.tripId;
@@ -197,13 +209,60 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  const bookedSeats = useMemo(
+  const confirmRemoveBooking = (booking: any) => {
+    const name = booking.passenger?.fullName || booking.passenger?.user?.phone || 'Пассажир';
+    setModal({
+      visible: true,
+      title: 'Убрать пассажира?',
+      message: `${name} получит уведомление, что бронь снята, а места снова станут свободными.`,
+      primaryMode: 'remove-booking',
+      bookingId: booking.id,
+    });
+  };
+
+  const removeBooking = async (bookingId: string) => {
+    try {
+      const response = await apiClient.post(`/intercity-trips/${trip.id}/bookings/${bookingId}/remove`);
+      setTrip(response.data);
+      setModal({ visible: false, title: '', message: '' });
+    } catch (error: any) {
+      showError(error, 'Не удалось убрать пассажира');
+    }
+  };
+
+  const activeBookings = useMemo(
     () =>
       Array.isArray(trip?.bookings)
-        ? trip.bookings.reduce((sum: number, booking: any) => sum + Number(booking.seatsBooked || 0), 0)
-        : 0,
+        ? trip.bookings.filter((booking: any) => booking.status !== 'CANCELED')
+        : [],
     [trip?.bookings],
   );
+  const bookedSeats = activeBookings.reduce(
+    (sum: number, booking: any) => sum + Number(booking.seatsBooked || 0),
+    0,
+  );
+  const seatCapacityTotal = Number(trip?.seatCapacity || 0);
+  const offlineSeats = Number(trip?.offlineSeats || 0);
+  const maxOfflineSeats = Math.max(seatCapacityTotal - bookedSeats, 0);
+  const freeSeatsLeft = Math.max(seatCapacityTotal - bookedSeats - offlineSeats, 0);
+  const canEditTrip = EDITABLE_TRIP_STATUSES.includes(trip?.status);
+
+  const saveOfflineSeats = async (next: number) => {
+    if (savingSeats || next < 0 || next > maxOfflineSeats || next === offlineSeats) {
+      return;
+    }
+    setSavingSeats(true);
+    try {
+      const response = await apiClient.patch(`/intercity-trips/${trip.id}/offline-seats`, {
+        offlineSeats: next,
+      });
+      setTrip(response.data);
+    } catch (error: any) {
+      showError(error, 'Не удалось обновить места');
+    } finally {
+      setSavingSeats(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -316,12 +375,52 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
         <InlineLabel label="Статус" value={statusLabels[trip?.status] || 'Рейс'} accentColor={colors.accent} />
         <InlineLabel label="Выезд" value={formatIntercityDateTime(trip?.departureAt)} />
         <InlineLabel label="Цена за место" value={`${Math.round(Number(trip?.pricePerSeat || 0))} тг`} />
-        <InlineLabel label="Занято мест" value={`${bookedSeats} из ${trip?.seatCapacity || 0}`} />
+        <InlineLabel label="Свободно мест" value={`${freeSeatsLeft} из ${seatCapacityTotal}`} accentColor={colors.accent} />
         <InlineLabel label="Салон" value={trip?.womenOnly ? 'Женский' : 'Любой'} />
         <InlineLabel label="Багаж" value={trip?.baggageSpace ? 'Есть место' : 'Без багажа'} />
         <InlineLabel label="Животные" value={trip?.allowAnimals ? 'Можно' : 'Нельзя'} />
         {trip?.comment ? <InlineLabel label="Комментарий" value={trip.comment} /> : null}
       </ServiceCard>
+
+      {canEditTrip ? (
+        <ServiceCard compact>
+          <Text style={styles.sectionTitle}>Места вне приложения</Text>
+          <Text style={styles.seatsHint}>
+            Взяли кого-то на вокзале или по звонку? Отметьте здесь, чтобы в приложении никто не забронировал занятое место.
+          </Text>
+          <View style={styles.seatsRow}>
+            <TouchableOpacity
+              style={[styles.stepperBtn, (offlineSeats <= 0 || savingSeats) && styles.stepperBtnDisabled]}
+              onPress={() => saveOfflineSeats(offlineSeats - 1)}
+              disabled={offlineSeats <= 0 || savingSeats}
+              accessibilityRole="button"
+              accessibilityLabel="Освободить одно место"
+              hitSlop={4}
+            >
+              <Ionicons name="remove" size={22} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.seatsValueBox}>
+              <Text style={styles.seatsValue}>{offlineSeats}</Text>
+              <Text style={styles.seatsValueLabel}>занято вне приложения</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.stepperBtn, (offlineSeats >= maxOfflineSeats || savingSeats) && styles.stepperBtnDisabled]}
+              onPress={() => saveOfflineSeats(offlineSeats + 1)}
+              disabled={offlineSeats >= maxOfflineSeats || savingSeats}
+              accessibilityRole="button"
+              accessibilityLabel="Занять одно место"
+              hitSlop={4}
+            >
+              <Ionicons name="add" size={22} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          {freeSeatsLeft > 0 ? (
+            <SecondaryButton title="Машина заполнена" onPress={() => saveOfflineSeats(maxOfflineSeats)} />
+          ) : (
+            <Text style={styles.fullText}>Свободных мест нет — забронировать рейс в приложении больше нельзя.</Text>
+          )}
+        </ServiceCard>
+      ) : null}
 
       <ServiceCard compact>
         <View style={styles.passengersHeader}>
@@ -344,14 +443,26 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
             </Text>
           </TouchableOpacity>
         </View>
-        {trip?.bookings?.length ? (
-          trip.bookings.map((booking: any) => (
+        {activeBookings.length ? (
+          activeBookings.map((booking: any) => (
             <View key={booking.id} style={styles.bookingCard}>
-              <Text style={styles.bookingName}>{booking.passenger?.fullName || booking.passenger?.user?.phone || 'Пассажир'}</Text>
-              <Text style={styles.bookingMeta}>
-                {booking.seatsBooked} мест • {Math.round(Number(booking.totalPrice || 0))} тг
-              </Text>
-              <Text style={styles.bookingMeta}>Телефон: {booking.passenger?.user?.phone || '-'}</Text>
+              <View style={styles.bookingInfo}>
+                <Text style={styles.bookingName}>{booking.passenger?.fullName || booking.passenger?.user?.phone || 'Пассажир'}</Text>
+                <Text style={styles.bookingMeta}>
+                  {booking.seatsBooked} мест • {Math.round(Number(booking.totalPrice || 0))} тг
+                </Text>
+                <Text style={styles.bookingMeta}>Телефон: {booking.passenger?.user?.phone || '-'}</Text>
+              </View>
+              {canEditTrip && REMOVABLE_BOOKING_STATUSES.includes(booking.status) ? (
+                <TouchableOpacity
+                  style={styles.removeBtn}
+                  onPress={() => confirmRemoveBooking(booking)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Убрать пассажира ${booking.passenger?.fullName || ''}`.trim()}
+                >
+                  <Text style={styles.removeBtnText}>Убрать</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))
         ) : (
@@ -370,17 +481,28 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
         visible={modal.visible}
         title={modal.title}
         message={modal.message}
-        primaryLabel={modal.primaryMode === 'cancel-trip' ? 'Отменить рейс' : 'Понятно'}
-        secondaryLabel={modal.primaryMode === 'cancel-trip' ? 'Не сейчас' : undefined}
+        primaryLabel={
+          modal.primaryMode === 'cancel-trip'
+            ? 'Отменить рейс'
+            : modal.primaryMode === 'remove-booking'
+              ? 'Убрать'
+              : 'Понятно'
+        }
+        secondaryLabel={modal.primaryMode ? 'Не сейчас' : undefined}
+        primaryVariant={modal.primaryMode ? 'danger' : 'default'}
         onPrimary={() => {
           if (modal.primaryMode === 'cancel-trip') {
             cancelTrip().catch(() => null);
             return;
           }
+          if (modal.primaryMode === 'remove-booking' && modal.bookingId) {
+            removeBooking(modal.bookingId).catch(() => null);
+            return;
+          }
           setModal({ visible: false, title: '', message: '' });
         }}
         onSecondary={
-          modal.primaryMode === 'cancel-trip'
+          modal.primaryMode
             ? () => setModal({ visible: false, title: '', message: '' })
             : undefined
         }
@@ -491,12 +613,74 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   bookingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
+  },
+  bookingInfo: {
+    flex: 1,
+  },
+  removeBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+    backgroundColor: colors.dangerSurface,
+  },
+  removeBtnText: {
+    color: colors.dangerText,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  seatsHint: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: -4,
+    marginBottom: 14,
+  },
+  seatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  stepperBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceRaised,
+  },
+  stepperBtnDisabled: {
+    opacity: 0.4,
+  },
+  seatsValueBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  seatsValue: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  seatsValueLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  fullText: {
+    color: colors.accentText,
+    fontSize: 13,
+    fontWeight: '700',
   },
   bookingName: {
     color: colors.text,

@@ -120,9 +120,10 @@ export const IntercityMyTripsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           orderedTrips.map((trip, index) => {
-            const bookedSeats = Array.isArray(trip.bookings)
-              ? trip.bookings.reduce((sum: number, booking: any) => sum + Number(booking.seatsBooked || 0), 0)
-              : 0;
+            const bookings = Array.isArray(trip.bookings) ? trip.bookings : [];
+            const bookedSeats =
+              bookings.reduce((sum: number, booking: any) => sum + Number(booking.seatsBooked || 0), 0) +
+              Number(trip.offlineSeats || 0);
             const isCurrent = currentTrip?.id === trip.id && index === 0;
 
             return (
@@ -143,7 +144,7 @@ export const IntercityMyTripsScreen: React.FC<Props> = ({ navigation }) => {
                   {statusLabels[trip.status] || trip.status} • {Math.round(Number(trip.pricePerSeat || 0))} ₸ за место
                 </Text>
                 <Text style={styles.metaText}>
-                  Пассажиров: {Array.isArray(trip.bookings) ? trip.bookings.length : 0} • Мест занято: {bookedSeats} из {trip.seatCapacity || 0}
+                  Пассажиров: {bookings.length} • Мест занято: {bookedSeats} из {trip.seatCapacity || 0}
                 </Text>
                 <View style={styles.openRow}>
                   <Text style={styles.openLabel}>Открыть рейс</Text>

@@ -361,6 +361,12 @@ enum IntercityTripInviteStatus {
   CANCELED
 }
 
+enum IntercityBookingCancelSource {
+  PASSENGER
+  DRIVER
+  TRIP_CANCELED
+}
+
 enum IntercityBookingType {
   SEAT
   FULL_CABIN
@@ -728,6 +734,9 @@ model IntercityTrip {
   departureAt       DateTime
   pricePerSeat      Decimal              @db.Decimal(10, 2)
   seatCapacity      Int
+  /// Seats the driver filled outside the app (bus station, friends), so
+  /// passengers are never offered a seat that is already taken.
+  offlineSeats      Int                  @default(0)
   comment           String?
   stops             Json?
   womenOnly         Boolean              @default(false)
@@ -763,11 +772,16 @@ model IntercityBooking {
   totalPrice        Decimal               @db.Decimal(10, 2)
   comment           String?
   status            IntercityBookingStatus @default(CONFIRMED)
+  canceledAt        DateTime?
+  canceledBy        IntercityBookingCancelSource?
   messages          ChatMessage[]         @relation("IntercityBookingMessages")
 
+  // No unique key on (trip, passenger, status): a passenger may cancel and
+  // rebook the same trip more than once. Booking locks the trip row, which
+  // keeps a passenger to one active booking per trip.
   @@index([tripId, status])
   @@index([passengerId, status])
-  @@unique([tripId, passengerId, status])
+  @@index([tripId, passengerId])
 }
 
 model IntercityTripInvite {

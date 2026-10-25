@@ -84,6 +84,13 @@ class UpdateIntercityTripStatusDto {
   status!: IntercityTripStatus;
 }
 
+class SetOfflineSeatsDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offlineSeats!: number;
+}
+
 class InviteOrderToTripDto {
   @IsString()
   orderId!: string;
@@ -206,6 +213,24 @@ export class IntercityTripsController {
   @UseGuards(AuthGuard('jwt'))
   declineInvite(@Param('id') id: string, @Req() req: any) {
     return this.intercityTripsService.declineInvite(req.user.userId, id);
+  }
+
+  @Patch(':id/offline-seats')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  setOfflineSeats(@Param('id') id: string, @Body() dto: SetOfflineSeatsDto, @Req() req: any) {
+    return this.intercityTripsService.setOfflineSeats(req.user.userId, id, dto.offlineSeats);
+  }
+
+  @Post(':id/bookings/:bookingId/remove')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER)
+  removeBooking(
+    @Param('id') id: string,
+    @Param('bookingId') bookingId: string,
+    @Req() req: any,
+  ) {
+    return this.intercityTripsService.removeBookingByDriver(req.user.userId, id, bookingId);
   }
 
   @Patch(':id/status')

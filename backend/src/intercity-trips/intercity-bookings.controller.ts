@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { IntercityTripsService } from './intercity-trips.service';
 
@@ -16,5 +16,11 @@ export class IntercityBookingsController {
   @UseGuards(AuthGuard('jwt'))
   getById(@Param('id') id: string, @Req() req: any) {
     return this.intercityTripsService.getBookingForPassenger(req.user.userId, id);
+  }
+
+  @Post(':id/cancel')
+  @UseGuards(AuthGuard('jwt'))
+  cancel(@Param('id') id: string, @Req() req: any) {
+    return this.intercityTripsService.cancelBookingByPassenger(req.user.userId, id);
   }
 }

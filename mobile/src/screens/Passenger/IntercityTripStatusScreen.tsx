@@ -6,9 +6,11 @@ import type { Socket } from 'socket.io-client';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { createIntercitySocket } from '../../api/intercitySocket';
+import { DarkAlertModal } from '../../components/DarkAlertModal';
 import {
   InlineLabel,
   PrimaryButton,
+  SecondaryButton,
   SectionTitle,
   ServiceCard,
   ServiceScreen,
@@ -28,6 +30,15 @@ const statusLabels: Record<string, string> = {
   CANCELED: 'Отменено',
 };
 
+/** Until the car leaves, the passenger can still give the seat back. */
+const CANCELABLE_STATUSES = ['CONFIRMED', 'BOARDING'];
+
+const cancelReasons: Record<string, string> = {
+  PASSENGER: 'Вы отменили бронь. Место снова свободно для других.',
+  DRIVER: 'Водитель снял вашу бронь. Поищите другой рейс на это направление.',
+  TRIP_CANCELED: 'Водитель отменил рейс. Поищите другой рейс на это направление.',
+};
+
 const tripStages = [
   { key: 'CONFIRMED', title: 'Бронь подтверждена' },
   { key: 'BOARDING', title: 'Посадка' },
@@ -38,6 +49,9 @@ const tripStages = [
 export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { intercityUnreadByThread, refresh: refreshThreadUnread } = useThreadUnread({ autoRefresh: false });
 
   const loadOrder = useCallback(() => {
@@ -90,6 +104,20 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
     };
   }, [route.params.bookingId]);
 
+  const cancelBooking = async () => {
+    setConfirmVisible(false);
+    setCanceling(true);
+    try {
+      const response = await apiClient.post(`/intercity-bookings/${route.params.bookingId}/cancel`);
+      setOrder(response.data);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Не удалось отменить бронь';
+      setErrorMessage(Array.isArray(message) ? message.join(', ') : message);
+    } finally {
+      setCanceling(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -122,6 +150,14 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
         <InlineLabel label="Мест" value={String(order?.seatsBooked || 1)} />
         <InlineLabel label="Сумма" value={`${Math.round(Number(order?.totalPrice || 0))} тг`} />
       </ServiceCard>
+
+      {order?.status === 'CANCELED' ? (
+        <ServiceCard compact>
+          <Text style={styles.canceledText}>
+            {cancelReasons[order?.canceledBy] || 'Бронь отменена.'}
+          </Text>
+        </ServiceCard>
+      ) : null}
 
       <ServiceCard compact>
         <SectionTitle>Статусы поездки</SectionTitle>
@@ -157,6 +193,36 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
       ) : null}
 
       <PrimaryButton title="К такси" onPress={() => navigation.navigate('PassengerHome', {})} />
+
+      {CANCELABLE_STATUSES.includes(order?.status) ? (
+        <SecondaryButton
+          title={canceling ? 'Отменяем...' : 'Отменить бронь'}
+          onPress={() => {
+            if (!canceling) {
+              setConfirmVisible(true);
+            }
+          }}
+        />
+      ) : null}
+
+      <DarkAlertModal
+        visible={confirmVisible}
+        title="Отменить бронь?"
+        message="Водитель получит уведомление, а ваше место станет свободным для других пассажиров."
+        primaryLabel="Отменить бронь"
+        secondaryLabel="Не отменять"
+        primaryVariant="danger"
+        onPrimary={() => {
+          cancelBooking().catch(() => null);
+        }}
+        onSecondary={() => setConfirmVisible(false)}
+      />
+      <DarkAlertModal
+        visible={Boolean(errorMessage)}
+        title="Межгород"
+        message={errorMessage || ''}
+        onPrimary={() => setErrorMessage(null)}
+      />
     </ServiceScreen>
   );
 };
@@ -199,6 +265,12 @@ const styles = StyleSheet.create({
   },
   timeline: {
     gap: 10,
+  },
+  canceledText: {
+    color: colors.dangerText,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
   },
   timelineRow: {
     flexDirection: 'row',

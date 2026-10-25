@@ -9,6 +9,7 @@ import {
   DriverStatus,
   DriverMode,
   IntercityOrderStatus,
+  IntercityBookingCancelSource,
   IntercityBookingStatus,
   IntercityBookingType,
   IntercityTripInviteStatus,
@@ -19,6 +20,28 @@ import { PrismaService } from '../prisma/prisma.service';
 import { IntercityGateway } from './intercity.gateway';
 import { RedisService } from '../redis/redis.service';
 import { NotificationsService } from '../notifications/notifications.service';
+
+/** Bookings that still hold a seat in the car. */
+const ACTIVE_BOOKING_STATUSES: IntercityBookingStatus[] = [
+  IntercityBookingStatus.CONFIRMED,
+  IntercityBookingStatus.BOARDING,
+  IntercityBookingStatus.IN_PROGRESS,
+];
+
+/** A passenger can still step out, or be taken out, until the car leaves. */
+const CANCELABLE_BOOKING_STATUSES: IntercityBookingStatus[] = [
+  IntercityBookingStatus.CONFIRMED,
+  IntercityBookingStatus.BOARDING,
+];
+
+/** Seats nobody holds, in the app or off it. */
+function freeSeats(
+  trip: { seatCapacity: number; offlineSeats: number },
+  activeBookings: Array<{ seatsBooked: number }>,
+) {
+  const booked = activeBookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
+  return Math.max(trip.seatCapacity - trip.offlineSeats - booked, 0);
+}
 
 @Injectable()
 export class IntercityTripsService {
@@ -70,14 +93,11 @@ export class IntercityTripsService {
     });
 
     return trips
-      .map((trip) => {
-      const seatsUsed = trip.bookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
-      return {
+      .map((trip) => ({
         ...trip,
-        seatsRemaining: Math.max(trip.seatCapacity - seatsUsed, 0),
+        seatsRemaining: freeSeats(trip, trip.bookings),
         bookings: undefined,
-      };
-      })
+      }))
       .filter((trip) =>
         typeof filters.seatsRequired === 'number' ? trip.seatsRemaining >= filters.seatsRequired : true,
       );
@@ -326,12 +346,11 @@ export class IntercityTripsService {
         throw new BadRequestException('У вас уже есть активная бронь на этот рейс');
       }
 
-      const usedSeats = trip.bookings.reduce((sum, item) => sum + item.seatsBooked, 0);
-      const remainingSeats = Math.max(trip.seatCapacity - usedSeats, 0);
+      const remainingSeats = freeSeats(trip, trip.bookings);
 
       let seatsBooked = data.seatsBooked;
       if (data.bookingType === IntercityBookingType.FULL_CABIN) {
-        if (usedSeats > 0) {
+        if (remainingSeats < trip.seatCapacity) {
           throw new BadRequestException('Полный салон можно забронировать только если мест еще никто не занял');
         }
         seatsBooked = trip.seatCapacity;
@@ -411,9 +430,7 @@ export class IntercityTripsService {
       throw new BadRequestException('Маршрут заявки не совпадает с маршрутом рейса');
     }
 
-    const usedSeats = trip.bookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
-    const remainingSeats = Math.max(trip.seatCapacity - usedSeats, 0);
-    if (remainingSeats < order.seats) {
+    if (freeSeats(trip, trip.bookings) < order.seats) {
       throw new BadRequestException('В рейсе недостаточно мест для этой заявки');
     }
 
@@ -531,9 +548,7 @@ export class IntercityTripsService {
         throw new BadRequestException('У вас уже есть активная бронь на межгород');
       }
 
-      const usedSeats = trip.bookings.reduce((sum, item) => sum + item.seatsBooked, 0);
-      const remainingSeats = Math.max(trip.seatCapacity - usedSeats, 0);
-      if (remainingSeats < invite.seatsOffered) {
+      if (freeSeats(trip, trip.bookings) < invite.seatsOffered) {
         throw new BadRequestException('В рейсе уже не осталось нужного количества мест');
       }
 
@@ -720,7 +735,11 @@ export class IntercityTripsService {
               ],
             },
           },
-          data: { status: IntercityBookingStatus.CANCELED },
+          data: {
+            status: IntercityBookingStatus.CANCELED,
+            canceledAt: new Date(),
+            canceledBy: IntercityBookingCancelSource.TRIP_CANCELED,
+          },
         });
       }
     });
@@ -739,8 +758,9 @@ export class IntercityTripsService {
       await this.redisService.setActiveAssignment('intercity-trip', userId, updatedTrip.id, updatedTrip.status);
     }
 
+    // Passengers who already left the trip are no longer told about it.
     const affectedBookings = await this.prisma.intercityBooking.findMany({
-      where: { tripId },
+      where: { tripId, ...this.stillOnTripWhere() },
       include: this.passengerBookingInclude(),
     });
     affectedBookings.forEach((booking) => this.intercityGateway.emitBookingUpdated(booking));
@@ -759,6 +779,118 @@ export class IntercityTripsService {
     );
 
     return updatedTrip;
+  }
+
+  /**
+   * The driver marks seats taken outside the app, up to "the car is full",
+   * so the public listing stops offering them.
+   */
+  async setOfflineSeats(userId: string, tripId: string, offlineSeats: number) {
+    const driver = await this.requireDriver(userId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "IntercityTrip" WHERE id = ${tripId} FOR UPDATE`;
+      const trip = await tx.intercityTrip.findUnique({
+        where: { id: tripId },
+        include: { bookings: { where: { status: { in: ACTIVE_BOOKING_STATUSES } } } },
+      });
+      if (!trip || trip.driverId !== driver.id) {
+        throw new NotFoundException('Рейс не найден');
+      }
+      const editableStatuses: IntercityTripStatus[] = [
+        IntercityTripStatus.PLANNED,
+        IntercityTripStatus.BOARDING,
+      ];
+      if (!editableStatuses.includes(trip.status)) {
+        throw new BadRequestException('Места можно менять только до выезда');
+      }
+      const booked = trip.bookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
+      const maxOffline = Math.max(trip.seatCapacity - booked, 0);
+      if (offlineSeats < 0 || offlineSeats > maxOffline) {
+        throw new BadRequestException(
+          `Можно отметить от 0 до ${maxOffline} мест: остальные уже забронированы в приложении`,
+        );
+      }
+      await tx.intercityTrip.update({ where: { id: tripId }, data: { offlineSeats } });
+    });
+
+    const updatedTrip = await this.getTripForDriver(userId, tripId);
+    this.intercityGateway.emitTripUpdated(updatedTrip);
+    return updatedTrip;
+  }
+
+  async cancelBookingByPassenger(userId: string, bookingId: string) {
+    const passenger = await this.requirePassenger(userId);
+    const booking = await this.prisma.intercityBooking.findUnique({
+      where: { id: bookingId },
+      include: { trip: { include: { driver: { include: { user: true } } } } },
+    });
+    if (!booking || booking.passengerId !== passenger.id) {
+      throw new NotFoundException('Бронь не найдена');
+    }
+
+    const canceled = await this.cancelBooking(booking.id, IntercityBookingCancelSource.PASSENGER);
+    const updatedTrip = await this.getTripForDriver(booking.trip.driver.userId, booking.tripId);
+    this.intercityGateway.emitTripUpdated(updatedTrip);
+    await this.notificationsService.sendPush(booking.trip.driver.user?.pushToken, {
+      title: 'Пассажир отменил бронь',
+      body: `${canceled.passenger.fullName || canceled.passenger.user?.phone || 'Пассажир'} не поедет. Освободилось мест: ${canceled.seatsBooked}`,
+      data: { type: 'INTERCITY_TRIP_STATUS', tripId: booking.tripId },
+    });
+    return canceled;
+  }
+
+  async removeBookingByDriver(userId: string, tripId: string, bookingId: string) {
+    const driver = await this.requireDriver(userId);
+    const booking = await this.prisma.intercityBooking.findUnique({
+      where: { id: bookingId },
+      include: { trip: true },
+    });
+    if (!booking || booking.tripId !== tripId || booking.trip.driverId !== driver.id) {
+      throw new NotFoundException('Бронь не найдена');
+    }
+
+    const canceled = await this.cancelBooking(booking.id, IntercityBookingCancelSource.DRIVER);
+    const updatedTrip = await this.getTripForDriver(userId, tripId);
+    this.intercityGateway.emitTripUpdated(updatedTrip);
+    await this.notificationsService.sendPush(canceled.passenger.user?.pushToken, {
+      title: 'Бронь отменена водителем',
+      body: `Водитель снял вашу бронь на рейс ${booking.trip.fromCity} → ${booking.trip.toCity}. Поищите другой рейс.`,
+      data: { type: 'INTERCITY_TRIP_STATUS', bookingId: booking.id },
+    });
+    return updatedTrip;
+  }
+
+  private async cancelBooking(bookingId: string, canceledBy: IntercityBookingCancelSource) {
+    // Only moves a booking that is still cancelable, so a booking the car
+    // already left with, or one canceled a moment ago, is never touched.
+    const result = await this.prisma.intercityBooking.updateMany({
+      where: { id: bookingId, status: { in: CANCELABLE_BOOKING_STATUSES } },
+      data: {
+        status: IntercityBookingStatus.CANCELED,
+        canceledAt: new Date(),
+        canceledBy,
+      },
+    });
+    if (result.count === 0) {
+      throw new BadRequestException('Бронь уже нельзя отменить: рейс выехал или бронь отменена');
+    }
+
+    const booking = await this.prisma.intercityBooking.findUniqueOrThrow({
+      where: { id: bookingId },
+      include: this.passengerBookingInclude(),
+    });
+    this.intercityGateway.emitBookingUpdated(booking);
+    return booking;
+  }
+
+  /** Bookings of passengers who did not leave the trip themselves or get taken out. */
+  private stillOnTripWhere() {
+    return {
+      OR: [
+        { canceledBy: null },
+        { canceledBy: IntercityBookingCancelSource.TRIP_CANCELED },
+      ],
+    } satisfies Prisma.IntercityBookingWhereInput;
   }
 
   private async requirePassenger(userId: string) {
@@ -940,6 +1072,7 @@ export class IntercityTripsService {
         },
       },
       bookings: {
+        where: this.stillOnTripWhere(),
         include: {
           passenger: {
             include: {
