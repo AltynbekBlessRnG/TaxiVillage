@@ -5,6 +5,8 @@ import { resolveApiAssetUrl } from '../../../utils/assets';
 import { colors } from '../../../theme/colors';
 
 const { width } = Dimensions.get('window');
+// Most of a phone, but not a wall of menu on a tablet or an unfolded phone.
+const DRAWER_WIDTH = Math.min(width * 0.8, 360);
 
 interface Props {
   visible: boolean;
@@ -143,7 +145,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    width: width * 0.8,
+    width: DRAWER_WIDTH,
     backgroundColor: colors.bg,
     zIndex: 1000,
     borderRightWidth: 1,

@@ -17,6 +17,8 @@ import { resolveApiAssetUrl } from '../../utils/assets';
 import { colors } from '../../theme/colors';
 
 const { width } = Dimensions.get('window');
+// Most of a phone, but not a wall of menu on a tablet or an unfolded phone.
+const DRAWER_WIDTH = Math.min(width * 0.8, 360);
 
 interface DriverSideMenuProps {
   isOpen: boolean;
@@ -188,7 +190,7 @@ export const DriverSideMenu: React.FC<DriverSideMenuProps> = ({
 
 const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 900 },
-  drawer: { position: 'absolute', top: 0, bottom: 0, left: 0, width: width * 0.8, backgroundColor: colors.bg, zIndex: 1000, borderRightWidth: 1, borderColor: colors.surface },
+  drawer: { position: 'absolute', top: 0, bottom: 0, left: 0, width: DRAWER_WIDTH, backgroundColor: colors.bg, zIndex: 1000, borderRightWidth: 1, borderColor: colors.surface },
   header: { backgroundColor: colors.surface, padding: 24, borderBottomWidth: 1, borderBottomColor: colors.border },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatarCircle: {
