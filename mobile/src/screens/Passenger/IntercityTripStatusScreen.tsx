@@ -19,6 +19,7 @@ import { formatTripDeparture } from '../../constants/intercity';
 import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
 import { colors } from '../../theme/colors';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityTripStatus'>;
 
@@ -145,6 +146,7 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
         </View>
         <InlineLabel label="Маршрут" value={`${order?.trip?.fromCity || '-'} → ${order?.trip?.toCity || '-'}`} />
         <InlineLabel label="Водитель" value={order?.trip?.driver?.fullName || order?.trip?.driver?.user?.phone || 'Водитель'} />
+        <VerifiedBadge verified={order?.trip?.driver?.documentsVerified} />
         <InlineLabel label="Телефон" value={order?.trip?.driver?.user?.phone || '-'} />
         <InlineLabel label="Выезд" value={formatTripDeparture(order?.trip?.departureAt, order?.trip?.departWhenFull)} accentColor={colors.accent} />
         <InlineLabel label="Мест" value={String(order?.seatsBooked || 1)} />

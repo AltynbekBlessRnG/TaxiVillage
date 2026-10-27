@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { VerifiedBadge } from '../VerifiedBadge';
 
 interface Props {
   activeRide?: any | null;
@@ -73,6 +74,7 @@ export const ActiveOrderSheet: React.FC<Props> = ({
               <View style={styles.driverMeta}>
                 <Text style={styles.driverName}>{driverName}</Text>
                 <Text style={styles.driverCar}>{carInfo || 'Автомобиль в пути'}</Text>
+                <VerifiedBadge verified={activeRide.driver.documentsVerified} />
               </View>
               <View style={styles.plateBox}>
                 <Text style={styles.plateText}>{plate}</Text>

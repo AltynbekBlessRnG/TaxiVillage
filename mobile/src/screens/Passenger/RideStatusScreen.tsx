@@ -18,6 +18,7 @@ import { buildRegion, buildRouteCoordinates } from '../../utils/map';
 import { darkMinimalMapStyle } from '../../utils/mapStyle';
 import { DEFAULT_LOCATION } from '../../utils/defaultRegion';
 import { colors } from '../../theme/colors';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideDetails'>;
 
@@ -42,6 +43,7 @@ interface RideData {
   finalPrice?: number;
   driver?: {
     fullName?: string;
+    documentsVerified?: boolean;
     car?: {
       make?: string;
       model?: string;
@@ -163,6 +165,7 @@ export const RideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
                 .filter(Boolean)
                 .join(' • ') || 'Автомобиль не указан'}
             </Text>
+            <VerifiedBadge verified={ride.driver.documentsVerified} />
           </View>
         ) : null}
 

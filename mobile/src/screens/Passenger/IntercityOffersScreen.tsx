@@ -11,6 +11,7 @@ import {
   formatTripDeparture,
 } from '../../constants/intercity';
 import { colors } from '../../theme/colors';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityOffers'>;
 
@@ -114,6 +115,7 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
               departureAt: offer.departureAt,
               departWhenFull: Boolean(offer.departWhenFull),
               driverCancelCount: Number(offer.driverCancelCount || 0),
+              driverVerified: Boolean(offer.driver?.documentsVerified),
               driverName: offer.driver?.fullName || offer.driver?.user?.phone || 'Водитель',
               car:
                 [offer.carMake, offer.carModel, offer.carColor].filter(Boolean).join(' • ') ||
@@ -145,6 +147,7 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
               <Text style={styles.carText}>
                 {[offer.carMake, offer.carModel, offer.carColor].filter(Boolean).join(' • ') || 'Авто не указано'}
               </Text>
+              <VerifiedBadge verified={offer.driver?.documentsVerified} />
               {formatCancelRecord(offer.driverCancelCount) ? (
                 <Text style={styles.cancelRecord}>{formatCancelRecord(offer.driverCancelCount)}</Text>
               ) : null}

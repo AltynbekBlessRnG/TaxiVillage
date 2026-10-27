@@ -17,6 +17,7 @@ import {
 } from '../../components/ServiceScreen';
 import { showAlert } from '../../components/AppAlert';
 import { colors } from '../../theme/colors';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodOrderStatus'>;
 
@@ -224,6 +225,7 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       {order?.driver ? (
         <ServiceCard compact>
           <SectionTitle>Водитель</SectionTitle>
+          <VerifiedBadge verified={order.driver.documentsVerified} />
           <InlineLabel
             label="Имя"
             value={order.driver.fullName || order.driver.user?.phone || 'Водитель'}

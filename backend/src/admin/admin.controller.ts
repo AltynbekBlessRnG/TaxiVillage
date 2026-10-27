@@ -23,6 +23,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
+  DocumentType,
   DriverStatus,
   MerchantVerificationStatus,
   Prisma,
@@ -286,10 +287,31 @@ export class AdminController {
       where: { id: documentId },
     });
     if (!doc) throw new NotFoundException('Document not found');
-    return this.prisma.driverDocument.update({
+    const updated = await this.prisma.driverDocument.update({
       where: { id: documentId },
       data: { approved: dto.approved },
     });
+
+    // Passengers see a "documents checked" badge; recompute it from what is
+    // approved now, so revoking a document takes the badge away too.
+    const approvedTypes = new Set(
+      (
+        await this.prisma.driverDocument.findMany({
+          where: { driverId: doc.driverId, approved: true },
+          select: { type: true },
+        })
+      ).map((approvedDoc) => approvedDoc.type),
+    );
+    const documentsVerified =
+      (approvedTypes.has(DocumentType.DRIVER_LICENSE) &&
+        approvedTypes.has(DocumentType.CAR_REGISTRATION)) ||
+      approvedTypes.has(DocumentType.COURIER_ID);
+    await this.prisma.driverProfile.update({
+      where: { id: doc.driverId },
+      data: { documentsVerified },
+    });
+
+    return updated;
   }
 
   @Patch('drivers/:id/status')

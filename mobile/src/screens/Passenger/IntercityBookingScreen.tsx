@@ -13,6 +13,7 @@ import {
 } from '../../components/ServiceScreen';
 import { formatCancelRecord, formatTripDeparture } from '../../constants/intercity';
 import { colors } from '../../theme/colors';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityBooking'>;
 
@@ -25,6 +26,7 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
     departWhenFull,
     driverName,
     driverCancelCount,
+    driverVerified,
     car,
     pricePerSeat,
     seatCapacity,
@@ -87,6 +89,7 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
       <ServiceCard>
         <InlineLabel label="Маршрут" value={`${fromCity} → ${toCity}`} />
         <InlineLabel label="Водитель" value={driverName} />
+        <VerifiedBadge verified={driverVerified} />
         {formatCancelRecord(driverCancelCount) ? (
           <InlineLabel
             label="Отмены"

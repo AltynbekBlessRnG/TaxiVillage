@@ -13,6 +13,7 @@ import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
 import { saveNotificationToInbox } from '../../storage/notificationsInbox';
 import { colors } from '../../theme/colors';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityOrderStatus'>;
 
@@ -207,6 +208,7 @@ export const IntercityOrderStatusScreen: React.FC<Props> = ({ navigation, route 
       {order?.driver ? (
         <ServiceCard compact>
           <InlineLabel label="Водитель" value={order.driver.fullName || order.driver.user?.phone || 'Водитель'} />
+          <VerifiedBadge verified={order.driver.documentsVerified} />
           <InlineLabel
             label="Авто"
             value={
