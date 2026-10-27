@@ -261,7 +261,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
                     ? 'В пути'
                     : 'Подача'}
                 </Text>
-                <Text style={styles.activeSummaryAddress} numberOfLines={1}>
+                <Text style={styles.activeSummaryAddress} numberOfLines={2}>
                   {currentRide?.fromAddress || currentCourierOrder?.pickupAddress || '-'}
                 </Text>
               </View>

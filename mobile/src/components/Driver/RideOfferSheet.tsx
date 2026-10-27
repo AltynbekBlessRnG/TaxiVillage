@@ -125,7 +125,7 @@ export const RideOfferSheet: React.FC<Props> = ({
           <View style={styles.routePoint}>
             <View style={[styles.dot, { backgroundColor: colors.info }]} />
             <View style={styles.addressWrap}>
-              <Text style={styles.addressText} numberOfLines={1}>
+              <Text style={styles.addressText} numberOfLines={3}>
                 {offer.fromAddress}
               </Text>
               {offer.pickupLocationPrecision === 'LANDMARK_TEXT' ? (
@@ -139,7 +139,7 @@ export const RideOfferSheet: React.FC<Props> = ({
           {offer.stops?.map((stop, idx) => (
             <View key={idx} style={styles.routePoint}>
               <View style={[styles.dot, { backgroundColor: colors.foodStrong }]} />
-              <Text style={styles.addressText} numberOfLines={1}>
+              <Text style={[styles.addressText, styles.addressFlex]} numberOfLines={2}>
                 Заезд: {stop.address}
               </Text>
             </View>
@@ -148,7 +148,7 @@ export const RideOfferSheet: React.FC<Props> = ({
           <View style={styles.routePoint}>
             <View style={[styles.dot, { backgroundColor: colors.danger }]} />
             <View style={styles.addressWrap}>
-              <Text style={styles.addressText} numberOfLines={1}>
+              <Text style={styles.addressText} numberOfLines={3}>
                 {offer.toAddress}
               </Text>
               {offer.dropoffLocationPrecision === 'LANDMARK_TEXT' ? (
@@ -267,10 +267,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  routePoint: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
+  // Addresses here are often landmarks ("возле Алатау, синий забор") that
+  // only make sense whole, so they wrap instead of cutting off; the dot stays
+  // beside the first line.
+  routePoint: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: 6 },
   addressWrap: { flex: 1 },
-  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 15 },
-  addressText: { color: colors.textMuted, fontSize: 14, fontWeight: '500' },
+  addressFlex: { flex: 1 },
+  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 15, marginTop: 5 },
+  addressText: { color: colors.textMuted, fontSize: 14, lineHeight: 20, fontWeight: '500' },
   precisionBadge: {
     alignSelf: 'flex-start',
     marginTop: 6,
