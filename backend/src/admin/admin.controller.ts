@@ -287,28 +287,34 @@ export class AdminController {
       where: { id: documentId },
     });
     if (!doc) throw new NotFoundException('Document not found');
-    const updated = await this.prisma.driverDocument.update({
-      where: { id: documentId },
-      data: { approved: dto.approved },
-    });
-
-    // Passengers see a "documents checked" badge; recompute it from what is
-    // approved now, so revoking a document takes the badge away too.
-    const approvedTypes = new Set(
-      (
-        await this.prisma.driverDocument.findMany({
-          where: { driverId: doc.driverId, approved: true },
-          select: { type: true },
-        })
-      ).map((approvedDoc) => approvedDoc.type),
-    );
-    const documentsVerified =
-      (approvedTypes.has(DocumentType.DRIVER_LICENSE) &&
-        approvedTypes.has(DocumentType.CAR_REGISTRATION)) ||
-      approvedTypes.has(DocumentType.COURIER_ID);
-    await this.prisma.driverProfile.update({
-      where: { id: doc.driverId },
-      data: { documentsVerified },
+    // Passengers see a "documents checked" badge on taxi and intercity
+    // rides, so it means the license and car registration both passed. It is
+    // recomputed from what is approved now, so revoking either removes it.
+    // The driver row is locked so two approvals landing together can't
+    // each read the other's half and leave the flag stale.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "DriverProfile" WHERE id = ${doc.driverId} FOR UPDATE`;
+      const changed = await tx.driverDocument.update({
+        where: { id: documentId },
+        data: { approved: dto.approved },
+      });
+      const approvedTypes = new Set(
+        (
+          await tx.driverDocument.findMany({
+            where: { driverId: doc.driverId, approved: true },
+            select: { type: true },
+          })
+        ).map((approvedDoc) => approvedDoc.type),
+      );
+      await tx.driverProfile.update({
+        where: { id: doc.driverId },
+        data: {
+          documentsVerified:
+            approvedTypes.has(DocumentType.DRIVER_LICENSE) &&
+            approvedTypes.has(DocumentType.CAR_REGISTRATION),
+        },
+      });
+      return changed;
     });
 
     return updated;

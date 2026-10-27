@@ -120,7 +120,10 @@ export const IntercityMyTripsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           orderedTrips.map((trip, index) => {
-            const bookings = Array.isArray(trip.bookings) ? trip.bookings : [];
+            // Same rule as the trip screen: a canceled booking holds no seat.
+            const bookings = Array.isArray(trip.bookings)
+              ? trip.bookings.filter((booking: any) => booking.status !== 'CANCELED')
+              : [];
             const bookedSeats =
               bookings.reduce((sum: number, booking: any) => sum + Number(booking.seatsBooked || 0), 0) +
               Number(trip.offlineSeats || 0);

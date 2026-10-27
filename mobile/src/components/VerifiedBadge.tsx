@@ -5,7 +5,7 @@ import { colors } from '../theme/colors';
 
 /**
  * "Документы проверены": an admin approved the driver's license and car
- * registration (or courier ID). Renders nothing for an unchecked driver, so
+ * registration. Renders nothing for an unchecked driver, so
  * callers can pass the flag straight through.
  */
 export const VerifiedBadge: React.FC<{ verified?: boolean | null }> = ({ verified }) => {

@@ -232,6 +232,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: colors.white, fontSize: 12, fontWeight: '800' },
-  logoutBtn: { margin: 20, marginBottom: 40, padding: 16, backgroundColor: colors.dangerBorder, borderRadius: 12, alignItems: 'center' },
+  logoutBtn: { margin: 20, marginBottom: 40, padding: 16, backgroundColor: colors.dangerFill, borderRadius: 12, alignItems: 'center' },
   logoutText: { color: colors.dangerText, fontSize: 16, fontWeight: '600' },
 });

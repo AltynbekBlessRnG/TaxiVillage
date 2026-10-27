@@ -81,6 +81,8 @@ export const colors = {
   dangerDeep: '#991B1B',
   dangerSurface: '#2B1114',
   dangerBorder: '#7F1D1D',
+  // Fill for a destructive button whose label is dangerText, not white.
+  dangerFill: '#7F1D1D',
 
   highlight: '#FACC15',
   shadow: '#000000',

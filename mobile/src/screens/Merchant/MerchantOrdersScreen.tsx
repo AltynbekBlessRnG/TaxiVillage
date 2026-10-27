@@ -13,7 +13,13 @@ import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MerchantOrders'>;
 
-type OrderAction = { status: string; label: string; kind: 'primary' | 'secondary' };
+type OrderAction = {
+  status: string;
+  label: string;
+  kind: 'primary' | 'secondary';
+  /** Asked before an action that can't be undone. */
+  confirm?: { title: string; message: string; button: string };
+};
 
 const FIND_COURIER: OrderAction = {
   status: 'SEARCHING_DRIVER',
@@ -24,6 +30,12 @@ const OWN_COURIER: OrderAction = {
   status: 'ON_DELIVERY',
   label: 'Отдать своему курьеру',
   kind: 'secondary',
+  confirm: {
+    title: 'Отдать своему курьеру?',
+    message:
+      'Заказ повезёт ваш курьер, курьеры приложения его больше не увидят. Плата за доставку остаётся вам. Отменить это нельзя.',
+    button: 'Отдать',
+  },
 };
 
 /**
@@ -44,7 +56,18 @@ function orderActions(order: any): OrderAction[] {
       return [OWN_COURIER];
     case 'ON_DELIVERY':
       return order.ownCourier
-        ? [{ status: 'DELIVERED', label: 'Заказ доставлен', kind: 'primary' }]
+        ? [
+            {
+              status: 'DELIVERED',
+              label: 'Заказ доставлен',
+              kind: 'primary',
+              confirm: {
+                title: 'Заказ доставлен?',
+                message: 'Отметьте, только когда клиент получил заказ.',
+                button: 'Доставлен',
+              },
+            },
+          ]
         : [];
     default:
       return [];
@@ -67,6 +90,7 @@ const statusLabels: Record<string, string> = {
 export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
 
   const loadOrders = useCallback(() =>
     apiClient
@@ -114,13 +138,36 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
   }, [loadOrders]);
 
   const advanceStatus = async (orderId: string, nextStatus: string) => {
+    // One request per order at a time, so a double tap can't send two.
+    if (busyOrderId) {
+      return;
+    }
+    setBusyOrderId(orderId);
     try {
       await apiClient.post(`/food-orders/${orderId}/status`, { status: nextStatus });
       await loadOrders();
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Не удалось обновить статус';
       showAlert('Ошибка', Array.isArray(message) ? message.join(', ') : message);
+    } finally {
+      setBusyOrderId(null);
     }
+  };
+
+  const runAction = (orderId: string, action: OrderAction) => {
+    if (!action.confirm) {
+      advanceStatus(orderId, action.status).catch(() => null);
+      return;
+    }
+    showAlert(action.confirm.title, action.confirm.message, [
+      { text: 'Назад', style: 'cancel' },
+      {
+        text: action.confirm.button,
+        onPress: () => {
+          advanceStatus(orderId, action.status).catch(() => null);
+        },
+      },
+    ]);
   };
 
   const cancelOrder = (orderId: string) => {
@@ -221,9 +268,14 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
           {orderActions(order).map((action) => (
             <TouchableOpacity
               key={action.status}
-              style={action.kind === 'primary' ? styles.actionButton : styles.secondaryActionButton}
-              onPress={() => advanceStatus(order.id, action.status)}
+              style={[
+                action.kind === 'primary' ? styles.actionButton : styles.secondaryActionButton,
+                busyOrderId === order.id && styles.busyButton,
+              ]}
+              onPress={() => runAction(order.id, action)}
+              disabled={busyOrderId === order.id}
               accessibilityRole="button"
+              accessibilityState={{ disabled: busyOrderId === order.id }}
             >
               <Text
                 style={
@@ -325,6 +377,9 @@ const styles = StyleSheet.create({
     color: colors.foodTextSoft,
     fontWeight: '800',
     fontSize: 15,
+  },
+  busyButton: {
+    opacity: 0.5,
   },
   hintText: {
     color: colors.textSecondary,

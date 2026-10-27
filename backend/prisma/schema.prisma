@@ -93,9 +93,9 @@ model DriverProfile {
   lastCourierOrderFinishedAt DateTime?
   balance      Decimal       @default(0) @db.Decimal(10, 2)
   rating       Float         @default(5.0)
-  /// An admin checked the driver's papers: license and car registration,
-  /// or a courier ID. Shown to passengers as a badge; kept in step by the
-  /// admin document approval.
+  /// An admin approved both the driver's license and car registration.
+  /// Shown to passengers as a badge; kept in step by the admin document
+  /// approval.
   documentsVerified Boolean  @default(false)
 
   car          Car?

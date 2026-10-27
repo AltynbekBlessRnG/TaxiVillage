@@ -52,8 +52,9 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       load().catch(() => null);
-      // The socket pushes new deliveries; this only catches a missed event.
-      const timer = setInterval(() => load().catch(() => null), 60_000);
+      // The socket announces new deliveries but not ones another courier or
+      // the restaurant's own courier took, so the list still needs a refresh.
+      const timer = setInterval(() => load().catch(() => null), 15_000);
       return () => clearInterval(timer);
     }, [load]),
   );

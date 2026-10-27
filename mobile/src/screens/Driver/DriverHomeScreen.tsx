@@ -113,7 +113,13 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
   const [currentCourierOrder, setCurrentCourierOrder] = useState<any>(null);
   const [availableCourierOrders, setAvailableCourierOrders] = useState<any[]>([]);
   const [courierLocation, setCourierLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const hasActiveTrip = Boolean(currentRideId || currentCourierOrder || currentIntercityTrip);
+  // A planned intercity trip may be days away; only boarding and the road
+  // itself need trip-grade GPS.
+  const hasActiveTrip = Boolean(
+    currentRideId ||
+      currentCourierOrder ||
+      ['BOARDING', 'IN_PROGRESS'].includes(currentIntercityTrip?.status),
+  );
   // Routes are fetched from Google per call, so redraw them only once the
   // driver has actually moved, not on every location tick.
   const routeLocation = useSettledLocation(location, ROUTE_REFRESH_METERS);
@@ -1454,7 +1460,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.shadow },
+  container: { flex: 1, backgroundColor: colors.bg },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1551,7 +1557,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   modalPrimaryButtonDanger: {
-    backgroundColor: colors.dangerBorder,
+    backgroundColor: colors.dangerFill,
   },
   modalPrimaryButtonTextDanger: {
     color: colors.dangerText,

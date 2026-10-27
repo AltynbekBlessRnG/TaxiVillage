@@ -398,11 +398,7 @@ export class IntercityTripsService {
           bookings: {
             where: {
               status: {
-                in: [
-                  IntercityBookingStatus.CONFIRMED,
-                  IntercityBookingStatus.BOARDING,
-                  IntercityBookingStatus.IN_PROGRESS,
-                ],
+                in: ACTIVE_BOOKING_STATUSES,
               },
             },
           },
@@ -418,11 +414,7 @@ export class IntercityTripsService {
           tripId,
           passengerId: passenger.id,
           status: {
-            in: [
-              IntercityBookingStatus.CONFIRMED,
-              IntercityBookingStatus.BOARDING,
-              IntercityBookingStatus.IN_PROGRESS,
-            ],
+            in: ACTIVE_BOOKING_STATUSES,
           },
         },
       });
@@ -476,11 +468,7 @@ export class IntercityTripsService {
         bookings: {
           where: {
             status: {
-              in: [
-                IntercityBookingStatus.CONFIRMED,
-                IntercityBookingStatus.BOARDING,
-                IntercityBookingStatus.IN_PROGRESS,
-              ],
+              in: ACTIVE_BOOKING_STATUSES,
             },
           },
         },
@@ -601,11 +589,7 @@ export class IntercityTripsService {
           bookings: {
             where: {
               status: {
-                in: [
-                  IntercityBookingStatus.CONFIRMED,
-                  IntercityBookingStatus.BOARDING,
-                  IntercityBookingStatus.IN_PROGRESS,
-                ],
+                in: ACTIVE_BOOKING_STATUSES,
               },
             },
           },
@@ -620,11 +604,7 @@ export class IntercityTripsService {
         where: {
           passengerId: passenger.id,
           status: {
-            in: [
-              IntercityBookingStatus.CONFIRMED,
-              IntercityBookingStatus.BOARDING,
-              IntercityBookingStatus.IN_PROGRESS,
-            ],
+            in: ACTIVE_BOOKING_STATUSES,
           },
         },
       });
@@ -798,11 +778,7 @@ export class IntercityTripsService {
           where: {
             tripId,
             status: {
-              in: [
-                IntercityBookingStatus.CONFIRMED,
-                IntercityBookingStatus.BOARDING,
-                IntercityBookingStatus.IN_PROGRESS,
-              ],
+              in: ACTIVE_BOOKING_STATUSES,
             },
           },
           data: { status: IntercityBookingStatus.COMPLETED },
@@ -812,11 +788,7 @@ export class IntercityTripsService {
           where: {
             tripId,
             status: {
-              in: [
-                IntercityBookingStatus.CONFIRMED,
-                IntercityBookingStatus.BOARDING,
-                IntercityBookingStatus.IN_PROGRESS,
-              ],
+              in: ACTIVE_BOOKING_STATUSES,
             },
           },
           data: {
@@ -887,8 +859,8 @@ export class IntercityTripsService {
       if (!editableStatuses.includes(trip.status)) {
         throw new BadRequestException('Места можно менять только до выезда');
       }
-      const booked = trip.bookings.reduce((sum, booking) => sum + booking.seatsBooked, 0);
-      const maxOffline = Math.max(trip.seatCapacity - booked, 0);
+      // Every seat not booked in the app may be marked as taken off it.
+      const maxOffline = freeSeats({ ...trip, offlineSeats: 0 }, trip.bookings);
       if (offlineSeats < 0 || offlineSeats > maxOffline) {
         throw new BadRequestException(
           `Можно отметить от 0 до ${maxOffline} мест: остальные уже забронированы в приложении`,
@@ -1060,11 +1032,7 @@ export class IntercityTripsService {
       bookings: {
         where: {
           status: {
-            in: [
-              IntercityBookingStatus.CONFIRMED,
-              IntercityBookingStatus.BOARDING,
-              IntercityBookingStatus.IN_PROGRESS,
-            ],
+            in: ACTIVE_BOOKING_STATUSES,
           },
         },
         select: {
