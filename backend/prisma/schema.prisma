@@ -575,6 +575,9 @@ model FoodOrder {
 
   driverId         String?
   driver           DriverProfile?  @relation("DriverFoodDeliveries", fields: [driverId], references: [id])
+  /// The merchant's own courier carries this order, not one of ours: no
+  /// driver is searched for, and the merchant marks it delivered.
+  ownCourier       Boolean         @default(false)
 
   status          FoodOrderStatus  @default(PLACED)
   deliveryAddress String

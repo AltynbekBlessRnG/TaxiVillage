@@ -221,11 +221,19 @@ export class FoodOrdersService {
       throw new NotFoundException('Food order not found');
     }
 
+    // A ready order goes either to our drivers (SEARCHING_DRIVER) or out
+    // the door with the merchant's own courier (ON_DELIVERY). If none of our
+    // drivers takes it, the merchant can still send it with their own.
     const allowed: Partial<Record<FoodOrderStatus, FoodOrderStatus[]>> = {
       [FoodOrderStatus.PLACED]: [FoodOrderStatus.ACCEPTED],
       [FoodOrderStatus.ACCEPTED]: [FoodOrderStatus.PREPARING],
-      [FoodOrderStatus.PREPARING]: [FoodOrderStatus.SEARCHING_DRIVER],
-      [FoodOrderStatus.READY_FOR_PICKUP]: [FoodOrderStatus.SEARCHING_DRIVER],
+      [FoodOrderStatus.PREPARING]: [FoodOrderStatus.SEARCHING_DRIVER, FoodOrderStatus.ON_DELIVERY],
+      [FoodOrderStatus.READY_FOR_PICKUP]: [
+        FoodOrderStatus.SEARCHING_DRIVER,
+        FoodOrderStatus.ON_DELIVERY,
+      ],
+      [FoodOrderStatus.SEARCHING_DRIVER]: [FoodOrderStatus.ON_DELIVERY],
+      ...(order.ownCourier ? { [FoodOrderStatus.ON_DELIVERY]: [FoodOrderStatus.DELIVERED] } : {}),
     };
     if (!allowed[order.status]?.includes(status)) {
       throw new BadRequestException(
@@ -233,13 +241,36 @@ export class FoodOrdersService {
       );
     }
 
-    const timestamps: Prisma.FoodOrderUpdateInput =
-      status === FoodOrderStatus.ACCEPTED
-        ? { acceptedAt: new Date() }
-        : status === FoodOrderStatus.SEARCHING_DRIVER
-          ? { searchingDriverAt: new Date() }
-          : {};
-    await this.setStatus(orderId, status, timestamps);
+    if (status === FoodOrderStatus.DELIVERED) {
+      await this.completeDelivery(orderId);
+    } else if (status === FoodOrderStatus.ON_DELIVERY) {
+      // Only a still-unclaimed order can switch to the merchant's courier, so
+      // a driver who claimed it a moment ago keeps it.
+      const handedOver = await this.prisma.foodOrder.updateMany({
+        where: { id: orderId, status: order.status, driverId: null },
+        data: {
+          status: FoodOrderStatus.ON_DELIVERY,
+          ownCourier: true,
+          pickedUpAt: new Date(),
+          // The delivery fee stays with the merchant who carries the order.
+          driverPayout: new Prisma.Decimal(0),
+        },
+      });
+      if (handedOver.count !== 1) {
+        throw new ConflictException('Заказ уже забрал водитель приложения');
+      }
+      await this.prisma.foodOrderStatusHistory.create({
+        data: { foodOrderId: orderId, status: FoodOrderStatus.ON_DELIVERY },
+      });
+    } else {
+      const timestamps: Prisma.FoodOrderUpdateInput =
+        status === FoodOrderStatus.ACCEPTED
+          ? { acceptedAt: new Date() }
+          : status === FoodOrderStatus.SEARCHING_DRIVER
+            ? { searchingDriverAt: new Date() }
+            : {};
+      await this.setStatus(orderId, status, timestamps);
+    }
     const updated = await this.getOrderByIdForUser(userId, UserRole.MERCHANT, orderId);
 
     if (status === FoodOrderStatus.SEARCHING_DRIVER) {
@@ -691,7 +722,7 @@ export class FoodOrdersService {
 
   private async afterStatusUpdate(order: any) {
     this.foodOrdersGateway.emitOrderUpdated(order);
-    const message = this.statusMessage(order.status);
+    const message = this.statusMessage(order.status, order.ownCourier);
     if (message) {
       await this.notificationsService.sendPush(order.passenger?.user?.pushToken, {
         ...message,
@@ -714,7 +745,10 @@ export class FoodOrdersService {
     }
   }
 
-  private statusMessage(status: FoodOrderStatus) {
+  private statusMessage(status: FoodOrderStatus, ownCourier = false) {
+    if (ownCourier && status === FoodOrderStatus.ON_DELIVERY) {
+      return { title: 'Заказ в пути', body: 'Курьер заведения везёт ваш заказ.' };
+    }
     const messages: Partial<
       Record<FoodOrderStatus, { title: string; body: string }>
     > = {

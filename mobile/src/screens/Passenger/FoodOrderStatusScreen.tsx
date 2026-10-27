@@ -44,6 +44,22 @@ const foodStages = [
   { key: 'DELIVERED', title: 'Доставлено' },
 ];
 
+/** The merchant's own courier skips every step about finding one of ours. */
+const ownCourierStages = [
+  { key: 'PLACED', title: 'Заказ оформлен' },
+  { key: 'ACCEPTED', title: 'Заведение приняло заказ' },
+  { key: 'PREPARING', title: 'Готовится' },
+  { key: 'ON_DELIVERY', title: 'Курьер заведения в пути' },
+  { key: 'DELIVERED', title: 'Доставлено' },
+];
+
+function statusLabel(order: any) {
+  if (order?.ownCourier && order?.status === 'ON_DELIVERY') {
+    return 'Курьер заведения везёт заказ';
+  }
+  return statusLabels[order?.status];
+}
+
 export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -162,16 +178,26 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
     >
       <View style={styles.heroBlock}>
         <Text style={styles.heroTitle}>{order?.merchant?.name || 'Ваш заказ принят'}</Text>
-        <Text style={styles.heroText}>{statusLabels[order?.status] || 'Статус обновляется'}</Text>
+        <Text style={styles.heroText}>{statusLabel(order) || 'Статус обновляется'}</Text>
       </View>
 
       <ServiceCard>
         <SectionTitle>Статус кухни</SectionTitle>
         <View style={styles.statusPill}>
-          <Text style={styles.statusText}>{statusLabels[order?.status] || 'Заказ'}</Text>
+          <Text style={styles.statusText}>{statusLabel(order) || 'Заказ'}</Text>
         </View>
         <InlineLabel label="Заведение" value={order?.merchant?.name || '-'} />
         <InlineLabel label="Адрес доставки" value={order?.deliveryAddress || '-'} />
+        {order?.ownCourier ? (
+          <InlineLabel
+            label="Доставляет"
+            value={
+              order.merchantPhoneSnapshot
+                ? `Курьер заведения • ${order.merchantPhoneSnapshot}`
+                : 'Курьер заведения'
+            }
+          />
+        ) : null}
         <InlineLabel label="Блюда" value={`${Math.round(Number(order?.subtotal || 0))} ₸`} />
         <InlineLabel label="Доставка" value={`${Math.round(Number(order?.deliveryFee || 0))} ₸`} />
         {Number(order?.discountAmount || 0) > 0 ? (
@@ -252,8 +278,8 @@ export const FoodOrderStatusScreen: React.FC<Props> = ({ navigation, route }) =>
       <ServiceCard compact>
         <SectionTitle>Этапы</SectionTitle>
         <View style={styles.timeline}>
-          {foodStages.map((stage, index) => {
-            const currentIndex = foodStages.findIndex((item) => item.key === order?.status);
+          {(order?.ownCourier ? ownCourierStages : foodStages).map((stage, index, stages) => {
+            const currentIndex = stages.findIndex((item) => item.key === order?.status);
             const isCompleted = currentIndex >= index || order?.status === 'DELIVERED';
             return (
               <View key={stage.key} style={styles.timelineRow}>

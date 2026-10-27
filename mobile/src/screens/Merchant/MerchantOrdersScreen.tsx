@@ -13,18 +13,43 @@ import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MerchantOrders'>;
 
-const nextStatusMap: Record<string, string | null> = {
-  PLACED: 'ACCEPTED',
-  ACCEPTED: 'PREPARING',
-  PREPARING: 'SEARCHING_DRIVER',
-  READY_FOR_PICKUP: 'SEARCHING_DRIVER',
-  SEARCHING_DRIVER: null,
-  DRIVER_ASSIGNED: null,
-  AT_MERCHANT: null,
-  ON_DELIVERY: null,
-  DELIVERED: null,
-  CANCELED: null,
+type OrderAction = { status: string; label: string; kind: 'primary' | 'secondary' };
+
+const FIND_COURIER: OrderAction = {
+  status: 'SEARCHING_DRIVER',
+  label: 'Найти курьера в приложении',
+  kind: 'primary',
 };
+const OWN_COURIER: OrderAction = {
+  status: 'ON_DELIVERY',
+  label: 'Отдать своему курьеру',
+  kind: 'secondary',
+};
+
+/**
+ * What the merchant can do next. A ready order goes either to one of our
+ * couriers or to the merchant's own; while we are still searching, the
+ * merchant can give up waiting and send it with their own.
+ */
+function orderActions(order: any): OrderAction[] {
+  switch (order.status) {
+    case 'PLACED':
+      return [{ status: 'ACCEPTED', label: 'Принять заказ', kind: 'primary' }];
+    case 'ACCEPTED':
+      return [{ status: 'PREPARING', label: 'Начать готовить', kind: 'primary' }];
+    case 'PREPARING':
+    case 'READY_FOR_PICKUP':
+      return [FIND_COURIER, OWN_COURIER];
+    case 'SEARCHING_DRIVER':
+      return [OWN_COURIER];
+    case 'ON_DELIVERY':
+      return order.ownCourier
+        ? [{ status: 'DELIVERED', label: 'Заказ доставлен', kind: 'primary' }]
+        : [];
+    default:
+      return [];
+  }
+}
 
 const statusLabels: Record<string, string> = {
   PLACED: 'Новый заказ',
@@ -34,7 +59,7 @@ const statusLabels: Record<string, string> = {
   SEARCHING_DRIVER: 'Ищем водителя',
   DRIVER_ASSIGNED: 'Водитель назначен',
   AT_MERCHANT: 'Водитель в заведении',
-  ON_DELIVERY: 'Передан водителю',
+  ON_DELIVERY: 'Передан курьеру приложения',
   DELIVERED: 'Доставлен',
   CANCELED: 'Отменен',
 };
@@ -88,11 +113,7 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
     };
   }, [loadOrders]);
 
-  const advanceStatus = async (orderId: string, currentStatus: string) => {
-    const nextStatus = nextStatusMap[currentStatus];
-    if (!nextStatus) {
-      return;
-    }
+  const advanceStatus = async (orderId: string, nextStatus: string) => {
     try {
       await apiClient.post(`/food-orders/${orderId}/status`, { status: nextStatus });
       await loadOrders();
@@ -151,7 +172,7 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
       <View style={styles.heroBlock}>
         <Text style={styles.heroTitle}>Работа с заказами</Text>
         <Text style={styles.heroText}>
-          Примите новый заказ и обновляйте этапы по мере приготовления и передачи водителю.
+          Примите заказ, приготовьте и отправьте: курьером из приложения или своим курьером.
         </Text>
       </View>
 
@@ -174,7 +195,11 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
       {orders.map((order) => (
         <ServiceCard key={order.id}>
           <View style={styles.statusRow}>
-            <Text style={styles.cardTitle}>{statusLabels[order.status] || order.status}</Text>
+            <Text style={styles.cardTitle}>
+              {order.status === 'ON_DELIVERY' && order.ownCourier
+                ? 'У вашего курьера'
+                : statusLabels[order.status] || order.status}
+            </Text>
             <View style={[styles.statusBadge, route.params?.orderId === order.id && styles.statusBadgeActive]}>
               <Text style={styles.statusBadgeText}>{Math.round(Number(order.totalPrice || 0))} тг</Text>
             </View>
@@ -188,11 +213,27 @@ export const MerchantOrdersScreen: React.FC<Props> = ({ navigation, route }) => 
               value={`${Math.round(Number(item.price || 0))} тг`}
             />
           ))}
-          {nextStatusMap[order.status] ? (
-            <TouchableOpacity style={styles.actionButton} onPress={() => advanceStatus(order.id, order.status)}>
-              <Text style={styles.actionButtonText}>Следующий этап</Text>
-            </TouchableOpacity>
+          {order.status === 'SEARCHING_DRIVER' ? (
+            <Text style={styles.hintText}>
+              Ищем курьера в приложении. Если долго никто не берёт, отправьте своим курьером.
+            </Text>
           ) : null}
+          {orderActions(order).map((action) => (
+            <TouchableOpacity
+              key={action.status}
+              style={action.kind === 'primary' ? styles.actionButton : styles.secondaryActionButton}
+              onPress={() => advanceStatus(order.id, action.status)}
+              accessibilityRole="button"
+            >
+              <Text
+                style={
+                  action.kind === 'primary' ? styles.actionButtonText : styles.secondaryActionButtonText
+                }
+              >
+                {action.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
           {['PLACED', 'ACCEPTED', 'PREPARING', 'SEARCHING_DRIVER'].includes(
             order.status,
           ) ? (
@@ -270,6 +311,26 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
     fontWeight: '900',
     fontSize: 15,
+  },
+  secondaryActionButton: {
+    borderWidth: 1,
+    borderColor: colors.foodBorder,
+    backgroundColor: colors.foodSurface,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  secondaryActionButtonText: {
+    color: colors.foodTextSoft,
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  hintText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
   },
   cancelButton: {
     borderWidth: 1,

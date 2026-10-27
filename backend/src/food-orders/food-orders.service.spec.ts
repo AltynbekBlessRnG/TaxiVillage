@@ -241,4 +241,84 @@ describe('FoodOrdersService beta flow', () => {
       service.getOrderByIdForUser('stranger', UserRole.PASSENGER, 'order'),
     ).rejects.toThrow('Food order not found');
   });
+
+  describe("merchant's own courier", () => {
+    function merchantOrder(overrides: Record<string, any> = {}) {
+      return {
+        id: 'order',
+        merchantId: 'merchant',
+        status: FoodOrderStatus.PREPARING,
+        driverId: null,
+        ownCourier: false,
+        ...overrides,
+      };
+    }
+
+    function shownOrder(overrides: Record<string, any> = {}) {
+      return {
+        id: 'order',
+        passenger: { userId: 'passenger-user', user: { pushToken: 'passenger-token' } },
+        merchant: { userId: 'merchant-user', name: 'Донер' },
+        driver: null,
+        ...overrides,
+      };
+    }
+
+    it('hands a ready order to the own courier without searching for a driver', async () => {
+      const { service, prisma, gateway, notifications } = makeService();
+      prisma.merchant.findUnique.mockResolvedValue({ id: 'merchant', userId: 'merchant-user' });
+      prisma.foodOrder.findUnique
+        .mockResolvedValueOnce(merchantOrder())
+        .mockResolvedValueOnce(
+          shownOrder({ status: FoodOrderStatus.ON_DELIVERY, ownCourier: true }),
+        );
+      prisma.foodOrder.updateMany.mockResolvedValue({ count: 1 });
+      prisma.foodOrderStatusHistory.create.mockResolvedValue({});
+
+      await service.updateOrderStatusForMerchant(
+        'merchant-user',
+        'order',
+        FoodOrderStatus.ON_DELIVERY,
+      );
+
+      expect(prisma.foodOrder.updateMany).toHaveBeenCalledWith({
+        where: { id: 'order', status: FoodOrderStatus.PREPARING, driverId: null },
+        data: expect.objectContaining({
+          status: FoodOrderStatus.ON_DELIVERY,
+          ownCourier: true,
+          driverPayout: new Prisma.Decimal(0),
+        }),
+      });
+      expect(gateway.emitDeliveryAvailable).not.toHaveBeenCalled();
+      expect(notifications.sendPush).toHaveBeenCalledWith(
+        'passenger-token',
+        expect.objectContaining({ body: 'Курьер заведения везёт ваш заказ.' }),
+      );
+    });
+
+    it('keeps an order a driver claimed a moment ago with that driver', async () => {
+      const { service, prisma } = makeService();
+      prisma.merchant.findUnique.mockResolvedValue({ id: 'merchant', userId: 'merchant-user' });
+      prisma.foodOrder.findUnique.mockResolvedValueOnce(
+        merchantOrder({ status: FoodOrderStatus.SEARCHING_DRIVER }),
+      );
+      prisma.foodOrder.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.updateOrderStatusForMerchant('merchant-user', 'order', FoodOrderStatus.ON_DELIVERY),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("does not let a merchant close an order one of our drivers carries", async () => {
+      const { service, prisma } = makeService();
+      prisma.merchant.findUnique.mockResolvedValue({ id: 'merchant', userId: 'merchant-user' });
+      prisma.foodOrder.findUnique.mockResolvedValueOnce(
+        merchantOrder({ status: FoodOrderStatus.ON_DELIVERY, driverId: 'driver' }),
+      );
+
+      await expect(
+        service.updateOrderStatusForMerchant('merchant-user', 'order', FoodOrderStatus.DELIVERED),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
 });
