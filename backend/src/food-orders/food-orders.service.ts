@@ -406,7 +406,7 @@ export class FoodOrdersService {
         },
       });
       if (claimed.count !== 1) {
-        throw new ConflictException('Эту доставку уже принял другой водитель');
+        throw new ConflictException('Эту доставку уже забрал другой курьер');
       }
       await tx.foodOrderStatusHistory.create({
         data: { foodOrderId: orderId, status: FoodOrderStatus.DRIVER_ASSIGNED },

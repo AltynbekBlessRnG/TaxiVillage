@@ -82,7 +82,7 @@ export const FoodDeliveriesScreen: React.FC<Props> = ({ navigation }) => {
       await load();
     } catch (error: any) {
       const message =
-        error?.response?.data?.message || 'Доставку уже принял другой водитель.';
+        error?.response?.data?.message || 'Доставку уже забрал другой курьер.';
       showAlert('Не удалось принять', Array.isArray(message) ? message.join(', ') : message);
       await load();
     } finally {
