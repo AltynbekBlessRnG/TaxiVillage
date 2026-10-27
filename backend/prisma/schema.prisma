@@ -735,6 +735,9 @@ model IntercityTrip {
   fromCity          String
   toCity            String
   departureAt       DateTime
+  /// The driver leaves once the car is full; departureAt is only the
+  /// earliest, approximate time.
+  departWhenFull    Boolean              @default(false)
   pricePerSeat      Decimal              @db.Decimal(10, 2)
   seatCapacity      Int
   /// Seats the driver filled outside the app (bus station, friends), so

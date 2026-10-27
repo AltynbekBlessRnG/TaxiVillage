@@ -86,7 +86,9 @@ export type RootStackParamList = {
     fromCity: string;
     toCity: string;
     departureAt: string;
+    departWhenFull?: boolean;
     driverName: string;
+    driverCancelCount?: number;
     car: string;
     pricePerSeat: string;
     seatCapacity: number;

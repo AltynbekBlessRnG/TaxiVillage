@@ -17,9 +17,10 @@ function makeService() {
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
       updateMany: jest.fn(),
+      groupBy: jest.fn().mockResolvedValue([]),
     },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
@@ -66,9 +67,9 @@ function trip(overrides: Record<string, any> = {}) {
 describe('IntercityTripsService seat honesty', () => {
   it('does not count seats taken outside the app as free', async () => {
     const { service, prisma } = makeService();
-    prisma.intercityTrip.findMany.mockResolvedValue([
-      trip({ offlineSeats: 2, bookings: [{ seatsBooked: 1 }] }),
-    ]);
+    prisma.intercityTrip.findMany
+      .mockResolvedValueOnce([trip({ offlineSeats: 2, bookings: [{ seatsBooked: 1 }] })])
+      .mockResolvedValueOnce([]);
 
     const [listed] = await service.listPublicTrips({});
 
@@ -202,5 +203,39 @@ describe('IntercityTripsService seat honesty', () => {
       service.removeBookingByDriver('driver-user', 'trip', 'booking'),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.intercityBooking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("shows a driver's recent cancellations next to their trips", async () => {
+    const { service, prisma } = makeService();
+    prisma.intercityTrip.findMany
+      .mockResolvedValueOnce([trip()])
+      // One trip canceled with passengers on it...
+      .mockResolvedValueOnce([{ driverId: driver.id }]);
+    // ...and one passenger the driver took out.
+    prisma.intercityBooking.findMany.mockResolvedValueOnce([{ trip: { driverId: driver.id } }]);
+
+    const [listed] = await service.listPublicTrips({});
+
+    expect(listed.driverCancelCount).toBe(2);
+  });
+
+  it("shows the driver each passenger's recent cancellations", async () => {
+    const { service, prisma } = makeService();
+    prisma.driverProfile.findUnique.mockResolvedValue(driver);
+    prisma.intercityTrip.findUnique.mockResolvedValue(
+      trip({ bookings: [{ id: 'booking', passengerId: passenger.id, seatsBooked: 1 }] }),
+    );
+    prisma.intercityBooking.groupBy.mockResolvedValue([
+      { passengerId: passenger.id, _count: { _all: 3 } },
+    ]);
+
+    const shown = await service.getTripForDriver('driver-user', 'trip');
+
+    expect(shown.bookings[0].passengerCancelCount).toBe(3);
+    expect(prisma.intercityBooking.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ canceledBy: IntercityBookingCancelSource.PASSENGER }),
+      }),
+    );
   });
 });

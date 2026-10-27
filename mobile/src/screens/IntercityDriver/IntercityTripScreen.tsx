@@ -13,7 +13,8 @@ import { InlineLabel, PrimaryButton, SecondaryButton, ServiceCard, ServiceScreen
 import {
   buildIntercityDateOptions,
   composeIntercityDepartureAt,
-  formatIntercityDateTime,
+  formatCancelRecord,
+  formatTripDeparture,
   INTERCITY_CITIES,
   INTERCITY_TIME_OPTIONS,
 } from '../../constants/intercity';
@@ -59,6 +60,7 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
   const [womenOnly, setWomenOnly] = useState(false);
   const [baggageSpace, setBaggageSpace] = useState(true);
   const [allowAnimals, setAllowAnimals] = useState(true);
+  const [departWhenFull, setDepartWhenFull] = useState(false);
   const [picker, setPicker] = useState<'from' | 'to' | 'date' | 'time' | null>(null);
   const [modal, setModal] = useState<{
     visible: boolean;
@@ -168,6 +170,7 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
         womenOnly,
         baggageSpace,
         allowAnimals,
+        departWhenFull,
       });
       navigation.navigate('IntercityTrip', { tripId: response.data.id });
     } catch (error: any) {
@@ -292,7 +295,7 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.selectField, styles.half]} activeOpacity={0.9} onPress={() => setPicker('time')}>
-              <Text style={styles.fieldLabel}>Время</Text>
+              <Text style={styles.fieldLabel}>{departWhenFull ? 'Не раньше' : 'Время'}</Text>
               <Text style={styles.fieldValue}>{time}</Text>
             </TouchableOpacity>
           </View>
@@ -317,6 +320,10 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
             <SecondaryButton title={womenOnly ? 'Женский салон: Да' : 'Женский салон: Нет'} onPress={() => setWomenOnly((value) => !value)} />
             <SecondaryButton title={baggageSpace ? 'Есть багаж' : 'Без багажа'} onPress={() => setBaggageSpace((value) => !value)} />
             <SecondaryButton title={allowAnimals ? 'Животные можно' : 'Без животных'} onPress={() => setAllowAnimals((value) => !value)} />
+            <SecondaryButton
+              title={departWhenFull ? 'Выезд: по заполнению' : 'Выезд: точно ко времени'}
+              onPress={() => setDepartWhenFull((value) => !value)}
+            />
           </View>
         </ServiceCard>
         <PrimaryButton title={saving ? 'Создаем...' : 'Создать рейс'} onPress={createTrip} accentColor={colors.accent} />
@@ -373,7 +380,7 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <ServiceCard>
         <InlineLabel label="Статус" value={statusLabels[trip?.status] || 'Рейс'} accentColor={colors.accent} />
-        <InlineLabel label="Выезд" value={formatIntercityDateTime(trip?.departureAt)} />
+        <InlineLabel label="Выезд" value={formatTripDeparture(trip?.departureAt, trip?.departWhenFull)} />
         <InlineLabel label="Цена за место" value={`${Math.round(Number(trip?.pricePerSeat || 0))} тг`} />
         <InlineLabel label="Свободно мест" value={`${freeSeatsLeft} из ${seatCapacityTotal}`} accentColor={colors.accent} />
         <InlineLabel label="Салон" value={trip?.womenOnly ? 'Женский' : 'Любой'} />
@@ -452,6 +459,9 @@ export const IntercityTripScreen: React.FC<Props> = ({ navigation, route }) => {
                   {booking.seatsBooked} мест • {Math.round(Number(booking.totalPrice || 0))} тг
                 </Text>
                 <Text style={styles.bookingMeta}>Телефон: {booking.passenger?.user?.phone || '-'}</Text>
+                {formatCancelRecord(booking.passengerCancelCount) ? (
+                  <Text style={styles.cancelRecord}>{formatCancelRecord(booking.passengerCancelCount)}</Text>
+                ) : null}
               </View>
               {canEditTrip && REMOVABLE_BOOKING_STATUSES.includes(booking.status) ? (
                 <TouchableOpacity
@@ -625,6 +635,12 @@ const styles = StyleSheet.create({
   },
   bookingInfo: {
     flex: 1,
+  },
+  cancelRecord: {
+    color: colors.warningText,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
   },
   removeBtn: {
     minHeight: 44,

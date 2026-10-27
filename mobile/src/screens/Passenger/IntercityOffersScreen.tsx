@@ -5,7 +5,11 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { OptionPickerModal } from '../../components/OptionPickerModal';
 import { SecondaryButton, ServiceCard, ServiceScreen } from '../../components/ServiceScreen';
-import { buildIntercityDateOptions, formatIntercityDateTime } from '../../constants/intercity';
+import {
+  buildIntercityDateOptions,
+  formatCancelRecord,
+  formatTripDeparture,
+} from '../../constants/intercity';
 import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityOffers'>;
@@ -108,6 +112,8 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
               fromCity: offer.fromCity,
               toCity: offer.toCity,
               departureAt: offer.departureAt,
+              departWhenFull: Boolean(offer.departWhenFull),
+              driverCancelCount: Number(offer.driverCancelCount || 0),
               driverName: offer.driver?.fullName || offer.driver?.user?.phone || 'Водитель',
               car:
                 [offer.carMake, offer.carModel, offer.carColor].filter(Boolean).join(' • ') ||
@@ -128,7 +134,7 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
           <View style={styles.topRow}>
             <View style={styles.topMeta}>
               <Text style={styles.routeText}>{offer.fromCity} → {offer.toCity}</Text>
-              <Text style={styles.departureText}>{formatIntercityDateTime(offer.departureAt)}</Text>
+              <Text style={styles.departureText}>{formatTripDeparture(offer.departureAt, offer.departWhenFull)}</Text>
             </View>
             <Text style={styles.priceText}>{Math.round(Number(offer.pricePerSeat || 0))} тг</Text>
           </View>
@@ -139,6 +145,9 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
               <Text style={styles.carText}>
                 {[offer.carMake, offer.carModel, offer.carColor].filter(Boolean).join(' • ') || 'Авто не указано'}
               </Text>
+              {formatCancelRecord(offer.driverCancelCount) ? (
+                <Text style={styles.cancelRecord}>{formatCancelRecord(offer.driverCancelCount)}</Text>
+              ) : null}
             </View>
             <View style={styles.metaRow}>
               <Text style={styles.metaPill}>{Number(offer.seatsRemaining ?? offer.seatCapacity ?? 0)} мест</Text>
@@ -161,6 +170,12 @@ export const IntercityOffersScreen: React.FC<Props> = ({ navigation, route }) =>
 };
 
 const styles = StyleSheet.create({
+  cancelRecord: {
+    color: colors.warningText,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

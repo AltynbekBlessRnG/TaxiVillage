@@ -90,6 +90,21 @@ export const formatIntercityDateTime = (isoLike?: string | null) => {
   });
 };
 
+/**
+ * When the trip leaves. A "leave when full" trip names its time as the
+ * earliest one, so nobody plans around it as exact.
+ */
+export const formatTripDeparture = (isoLike?: string | null, departWhenFull?: boolean) =>
+  departWhenFull
+    ? `По заполнению, не раньше ${formatIntercityDateTime(isoLike)}`
+    : formatIntercityDateTime(isoLike);
+
+/** "Отмен за 3 месяца: 2", or nothing for a clean record. */
+export const formatCancelRecord = (count?: number | null) => {
+  const n = Number(count || 0);
+  return n > 0 ? `Отмен за 3 месяца: ${n}` : null;
+};
+
 export const composeIntercityDepartureAt = (date: string, time: string) => {
   const parsed = new Date(`${date}T${time || '00:00'}`);
   if (Number.isNaN(parsed.getTime())) {

@@ -63,6 +63,11 @@ class CreateIntercityTripDto {
   @Type(() => Boolean)
   @IsBoolean()
   allowAnimals?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  departWhenFull?: boolean;
 }
 
 class BookIntercityTripDto {

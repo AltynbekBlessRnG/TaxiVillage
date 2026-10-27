@@ -11,7 +11,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
-import { formatIntercityDateTime } from '../../constants/intercity';
+import { formatCancelRecord, formatTripDeparture } from '../../constants/intercity';
 import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityBooking'>;
@@ -22,7 +22,9 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
     fromCity,
     toCity,
     departureAt,
+    departWhenFull,
     driverName,
+    driverCancelCount,
     car,
     pricePerSeat,
     seatCapacity,
@@ -79,14 +81,21 @@ export const IntercityBookingScreen: React.FC<Props> = ({ navigation, route }) =
     >
       <View style={styles.heroBlock}>
         <Text style={styles.heroRoute}>{fromCity} → {toCity}</Text>
-        <Text style={styles.heroText}>{driverName} • {formatIntercityDateTime(departureAt)}</Text>
+        <Text style={styles.heroText}>{driverName} • {formatTripDeparture(departureAt, departWhenFull)}</Text>
       </View>
 
       <ServiceCard>
         <InlineLabel label="Маршрут" value={`${fromCity} → ${toCity}`} />
         <InlineLabel label="Водитель" value={driverName} />
+        {formatCancelRecord(driverCancelCount) ? (
+          <InlineLabel
+            label="Отмены"
+            value={formatCancelRecord(driverCancelCount) || ''}
+            accentColor={colors.warningText}
+          />
+        ) : null}
         <InlineLabel label="Авто" value={car} />
-        <InlineLabel label="Выезд" value={formatIntercityDateTime(departureAt)} />
+        <InlineLabel label="Выезд" value={formatTripDeparture(departureAt, departWhenFull)} />
         <InlineLabel label="Цена за место" value={`${pricePerSeat} тг`} accentColor={colors.accent} />
         <InlineLabel label="Свободно мест" value={`${seatsRemaining} из ${seatCapacity}`} />
         <InlineLabel label="Салон" value={womenOnly ? 'Только женщины' : 'Любой'} />

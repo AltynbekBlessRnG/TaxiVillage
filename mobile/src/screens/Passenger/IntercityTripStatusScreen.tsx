@@ -15,7 +15,7 @@ import {
   ServiceCard,
   ServiceScreen,
 } from '../../components/ServiceScreen';
-import { formatIntercityDateTime } from '../../constants/intercity';
+import { formatTripDeparture } from '../../constants/intercity';
 import { loadAuth } from '../../storage/authStorage';
 import { useThreadUnread } from '../../hooks/useThreadUnread';
 import { colors } from '../../theme/colors';
@@ -146,7 +146,7 @@ export const IntercityTripStatusScreen: React.FC<Props> = ({ navigation, route }
         <InlineLabel label="Маршрут" value={`${order?.trip?.fromCity || '-'} → ${order?.trip?.toCity || '-'}`} />
         <InlineLabel label="Водитель" value={order?.trip?.driver?.fullName || order?.trip?.driver?.user?.phone || 'Водитель'} />
         <InlineLabel label="Телефон" value={order?.trip?.driver?.user?.phone || '-'} />
-        <InlineLabel label="Выезд" value={formatIntercityDateTime(order?.trip?.departureAt)} accentColor={colors.accent} />
+        <InlineLabel label="Выезд" value={formatTripDeparture(order?.trip?.departureAt, order?.trip?.departWhenFull)} accentColor={colors.accent} />
         <InlineLabel label="Мест" value={String(order?.seatsBooked || 1)} />
         <InlineLabel label="Сумма" value={`${Math.round(Number(order?.totalPrice || 0))} тг`} />
       </ServiceCard>

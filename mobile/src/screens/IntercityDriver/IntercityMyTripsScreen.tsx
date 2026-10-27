@@ -16,7 +16,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { createIntercitySocket } from '../../api/intercitySocket';
 import { loadAuth } from '../../storage/authStorage';
-import { formatIntercityDateTime } from '../../constants/intercity';
+import { formatTripDeparture } from '../../constants/intercity';
 import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IntercityMyTrips'>;
@@ -139,7 +139,7 @@ export const IntercityMyTripsScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 ) : null}
                 <Text style={styles.routeText}>{`${trip.fromCity || '-'} → ${trip.toCity || '-'}`}</Text>
-                <Text style={styles.metaText}>{formatIntercityDateTime(trip.departureAt)}</Text>
+                <Text style={styles.metaText}>{formatTripDeparture(trip.departureAt, trip.departWhenFull)}</Text>
                 <Text style={styles.metaText}>
                   {statusLabels[trip.status] || trip.status} • {Math.round(Number(trip.pricePerSeat || 0))} ₸ за место
                 </Text>

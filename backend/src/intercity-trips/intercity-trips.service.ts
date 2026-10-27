@@ -34,6 +34,9 @@ const CANCELABLE_BOOKING_STATUSES: IntercityBookingStatus[] = [
   IntercityBookingStatus.BOARDING,
 ];
 
+/** How far back cancellations count toward someone's record. */
+const CANCEL_HISTORY_DAYS = 90;
+
 /** Seats nobody holds, in the app or off it. */
 function freeSeats(
   trip: { seatCapacity: number; offlineSeats: number },
@@ -92,10 +95,13 @@ export class IntercityTripsService {
       orderBy: [{ departureAt: 'asc' }, { createdAt: 'desc' }],
     });
 
+    const driverCancels = await this.countDriverCancels(trips.map((trip) => trip.driverId));
+
     return trips
       .map((trip) => ({
         ...trip,
         seatsRemaining: freeSeats(trip, trip.bookings),
+        driverCancelCount: driverCancels.get(trip.driverId) ?? 0,
         bookings: undefined,
       }))
       .filter((trip) =>
@@ -208,6 +214,7 @@ export class IntercityTripsService {
       womenOnly?: boolean;
       baggageSpace?: boolean;
       allowAnimals?: boolean;
+      departWhenFull?: boolean;
     },
   ) {
     const driver = await this.requireDriver(userId, true);
@@ -238,6 +245,7 @@ export class IntercityTripsService {
           womenOnly: data.womenOnly ?? false,
           baggageSpace: data.baggageSpace ?? true,
           allowAnimals: data.allowAnimals ?? true,
+          departWhenFull: data.departWhenFull ?? false,
           carMake: driver.car?.make || null,
           carModel: driver.car?.model || null,
           carColor: driver.car?.color || null,
@@ -275,7 +283,83 @@ export class IntercityTripsService {
     if (!trip || trip.driverId !== driver.id) {
       throw new NotFoundException('Intercity trip not found');
     }
-    return trip;
+    const passengerCancels = await this.countPassengerCancels(
+      trip.bookings.map((booking) => booking.passengerId),
+    );
+    return {
+      ...trip,
+      bookings: trip.bookings.map((booking) => ({
+        ...booking,
+        passengerCancelCount: passengerCancels.get(booking.passengerId) ?? 0,
+      })),
+    };
+  }
+
+  /**
+   * Bookings each passenger gave back lately, so a driver can tell a
+   * reliable passenger from one who books three trips and rides one.
+   */
+  private async countPassengerCancels(passengerIds: string[]) {
+    const counts = new Map<string, number>();
+    if (!passengerIds.length) {
+      return counts;
+    }
+    const rows = await this.prisma.intercityBooking.groupBy({
+      by: ['passengerId'],
+      where: {
+        passengerId: { in: Array.from(new Set(passengerIds)) },
+        canceledBy: IntercityBookingCancelSource.PASSENGER,
+        canceledAt: { gte: this.cancelHistoryStart() },
+      },
+      _count: { _all: true },
+    });
+    rows.forEach((row) => counts.set(row.passengerId, row._count._all));
+    return counts;
+  }
+
+  /**
+   * Trips each driver canceled with passengers on board, plus passengers
+   * the driver took out, lately. A trip canceled before anyone booked it
+   * hurts nobody and is not counted.
+   */
+  private async countDriverCancels(driverIds: string[]) {
+    const counts = new Map<string, number>();
+    if (!driverIds.length) {
+      return counts;
+    }
+    const since = this.cancelHistoryStart();
+    const [canceledTrips, removedBookings] = await Promise.all([
+      this.prisma.intercityTrip.findMany({
+        where: {
+          driverId: { in: Array.from(new Set(driverIds)) },
+          status: IntercityTripStatus.CANCELED,
+          bookings: {
+            some: {
+              canceledBy: IntercityBookingCancelSource.TRIP_CANCELED,
+              canceledAt: { gte: since },
+            },
+          },
+        },
+        select: { driverId: true },
+      }),
+      this.prisma.intercityBooking.findMany({
+        where: {
+          canceledBy: IntercityBookingCancelSource.DRIVER,
+          canceledAt: { gte: since },
+          trip: { driverId: { in: Array.from(new Set(driverIds)) } },
+        },
+        select: { trip: { select: { driverId: true } } },
+      }),
+    ]);
+    canceledTrips.forEach(({ driverId }) => counts.set(driverId, (counts.get(driverId) ?? 0) + 1));
+    removedBookings.forEach(({ trip }) =>
+      counts.set(trip.driverId, (counts.get(trip.driverId) ?? 0) + 1),
+    );
+    return counts;
+  }
+
+  private cancelHistoryStart() {
+    return new Date(Date.now() - CANCEL_HISTORY_DAYS * 24 * 60 * 60 * 1000);
   }
 
   async getBookingForPassenger(userId: string, bookingId: string) {
