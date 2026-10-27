@@ -109,7 +109,8 @@ export type RootStackParamList = {
   FoodDeliveries: undefined;
   DriverProfile: undefined;
   DriverBalance: undefined;
-  DriverDocuments: undefined;
+  /** focus 'car': opened to add the car before going online for the first time. */
+  DriverDocuments: { focus?: 'car' } | undefined;
   MerchantDashboard: undefined;
   MerchantOrders: { orderId?: string } | undefined;
   MenuEditor: undefined;

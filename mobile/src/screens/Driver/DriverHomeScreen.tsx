@@ -384,8 +384,20 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     [navigation, openDriverModal],
   );
 
+  // Taxi and intercity need the car on file before the first shift; send a
+  // new driver straight to that form instead of letting the server refuse.
+  const needsCar = Boolean(
+    profile?.id &&
+      profile.driverMode !== 'COURIER' &&
+      !(profile.car?.make && profile.car?.model && profile.car?.color && profile.car?.plateNumber),
+  );
+
   const toggleOnline = useCallback(
     async (value: boolean) => {
+      if (value && needsCar) {
+        navigation.navigate('DriverDocuments', { focus: 'car' });
+        return;
+      }
       if (value) {
         const hasPermissions = await ensureLocationPermissions();
         if (!hasPermissions) {
@@ -465,6 +477,14 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
               secondaryLabel: 'Позже',
               onPrimary: () => navigation.navigate('DriverBalance'),
             });
+          } else if (errorMessage.startsWith('Заполните автомобиль')) {
+            openDriverModal({
+              title: 'Добавьте машину',
+              message: errorMessage,
+              primaryLabel: 'Добавить машину',
+              secondaryLabel: 'Позже',
+              onPrimary: () => navigation.navigate('DriverDocuments', { focus: 'car' }),
+            });
           } else {
             openProfileActionModal('Профиль не готов', errorMessage);
           }
@@ -490,6 +510,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
     [
       ensureLocationPermissions,
       navigation,
+      needsCar,
       openDriverModal,
       openProfileActionModal,
       profile?.driverMode,
@@ -1338,6 +1359,7 @@ export const DriverHomeScreen: React.FC<Props> = ({ navigation }) => {
           onSwitchMode={switchDriverMode}
           onHeightChange={setStatusSheetHeight}
           onToggleOnline={toggleOnline}
+          needsCar={needsCar}
           onOpenIntercity={openIntercityHub}
           onOpenFoodDeliveries={() => navigation.navigate('FoodDeliveries')}
           currentCourierOrder={currentCourierOrder}

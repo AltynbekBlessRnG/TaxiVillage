@@ -20,6 +20,8 @@ interface DriverStatusSheetProps {
   profile: any;
   onSwitchMode: (mode: 'TAXI' | 'COURIER') => void;
   onToggleOnline?: (next: boolean) => void;
+  /** No car on file yet: the main button leads to adding one instead. */
+  needsCar?: boolean;
   onOpenIntercity?: () => void;
   onOpenFoodDeliveries?: () => void;
   onOpenToday?: () => void;
@@ -52,6 +54,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
   profile,
   onSwitchMode,
   onToggleOnline,
+  needsCar = false,
   onOpenIntercity,
   onOpenFoodDeliveries,
   onOpenToday,
@@ -667,7 +670,7 @@ export const DriverStatusSheet: React.FC<DriverStatusSheetProps> = ({
             activeOpacity={0.9}
           >
             <Text style={[styles.goButtonText, isOnline && styles.goButtonTextOnline]}>
-              {isOnline ? 'Завершить смену' : 'Выйти на линию'}
+              {isOnline ? 'Завершить смену' : needsCar ? 'Добавить машину' : 'Выйти на линию'}
             </Text>
           </TouchableOpacity>
         </Animated.View>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -58,7 +58,10 @@ const UploadAction: React.FC<{
   </TouchableOpacity>
 );
 
-export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
+export const DriverDocumentsScreen: React.FC<Props> = ({ navigation, route }) => {
+  const focusCar = route.params?.focus === 'car';
+  const scrollRef = useRef<ScrollView>(null);
+  const didScrollToCarRef = useRef(false);
   const [profile, setProfile] = useState<DriverDocumentsProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
@@ -188,13 +191,18 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
         plateNumber: carPlate.trim().toUpperCase(),
       });
       await loadProfile();
+      if (focusCar) {
+        // Came here only to add the car: go straight back to "Выйти на линию".
+        navigation.goBack();
+        return;
+      }
       showAlert('Готово', 'Данные автомобиля обновлены');
     } catch (error: any) {
       showAlert('Ошибка', error?.response?.data?.message || 'Не удалось сохранить автомобиль');
     } finally {
       setSavingCar(false);
     }
-  }, [carColor, carMake, carModel, carPlate, loadProfile]);
+  }, [carColor, carMake, carModel, carPlate, focusCar, loadProfile, navigation]);
 
   if (loading) {
     return (
@@ -212,6 +220,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
       >
         <ScrollView
+          ref={scrollRef}
           style={styles.container}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -268,10 +277,20 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.section}>
+          <View
+            style={[styles.section, focusCar && styles.sectionFocused]}
+            onLayout={(event) => {
+              if (focusCar && !didScrollToCarRef.current) {
+                didScrollToCarRef.current = true;
+                scrollRef.current?.scrollTo({ y: Math.max(event.nativeEvent.layout.y - 12, 0), animated: true });
+              }
+            }}
+          >
             <Text style={styles.sectionTitle}>Автомобиль</Text>
             <Text style={styles.sectionSubtitle}>
-              Эти данные нужны для такси, межгорода и автокурьера.
+              {focusCar
+                ? 'Осталось добавить машину — и можно выходить на линию. Пассажиры увидят марку, цвет и номер, чтобы найти вас.'
+                : 'Эти данные нужны для такси, межгорода и автокурьера.'}
             </Text>
             <TextInput
               style={styles.input}
@@ -308,7 +327,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
               disabled={savingCar}
             >
               <Text style={styles.primaryButtonText}>
-                {savingCar ? 'Сохраняем...' : 'Сохранить автомобиль'}
+                {savingCar ? 'Сохраняем...' : focusCar ? 'Сохранить и вернуться' : 'Сохранить автомобиль'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -316,7 +335,7 @@ export const DriverDocumentsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Быстрые действия</Text>
             <Text style={styles.sectionSubtitle}>
-              Сначала загрузи документы, потом администратор проверит их и допустит к работе.
+              Права и СТС проверяет администратор. После проверки пассажиры видят у вас отметку «Документы проверены».
             </Text>
 
             <View style={styles.uploadGrid}>
@@ -498,6 +517,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 16,
     marginBottom: 16,
+  },
+  sectionFocused: {
+    borderColor: colors.accentBorder,
   },
   sectionTitle: {
     color: colors.text,
