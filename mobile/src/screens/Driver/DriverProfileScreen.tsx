@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { LegalLinks } from '../../components/LegalLinks';
 import { resolveApiAssetUrl } from '../../utils/assets';
 import { showAlert } from '../../components/AppAlert';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverProfile'>;
@@ -41,6 +42,9 @@ interface DriverProfileData {
   courierTransportType?: 'CAR' | 'BIKE' | 'FOOT' | null;
   car?: Car;
   documents?: Document[];
+  documentsVerified?: boolean;
+  /** False while the server lets drivers online without approved scans. */
+  documentsRequired?: boolean;
   user?: { phone?: string; avatarUrl?: string | null };
 }
 
@@ -50,77 +54,76 @@ const TRANSPORT_LABELS = {
   CAR: 'Авто',
 } as const;
 
-const ReadinessCard: React.FC<{
+type DocState = 'approved' | 'pending' | 'missing';
+
+/** One thing that still keeps the driver off the line, with where to fix it. */
+interface Blocker {
+  label: string;
+  /** Uploaded and waiting on the admin: nothing for the driver to do. */
+  waiting?: boolean;
+  onPress?: () => void;
+}
+
+const BlockerRow: React.FC<{ blocker: Blocker }> = ({ blocker }) => {
+  const content = (
+    <>
+      <Ionicons
+        name={blocker.waiting ? 'time-outline' : 'alert-circle-outline'}
+        size={18}
+        color={blocker.waiting ? colors.textSecondary : colors.warningText}
+      />
+      <Text style={[styles.blockerText, blocker.waiting && styles.blockerTextWaiting]}>
+        {blocker.label}
+      </Text>
+      {blocker.onPress ? (
+        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+      ) : null}
+    </>
+  );
+  if (!blocker.onPress) {
+    return <View style={styles.blockerRow}>{content}</View>;
+  }
+  return (
+    <TouchableOpacity style={styles.blockerRow} onPress={blocker.onPress} accessibilityRole="button">
+      {content}
+    </TouchableOpacity>
+  );
+};
+
+/** A service the driver can work in: on/off, and what it still needs. */
+const ServiceCard: React.FC<{
   title: string;
-  subtitle: string;
-  ready: boolean;
-  accent: string;
-  steps: string[];
-  badge: string;
-}> = ({ title, subtitle, ready, accent, steps, badge }) => (
-  <View
-    style={[
-      styles.readinessCard,
-      ready ? styles.readinessCardReady : styles.readinessCardPending,
-      { borderColor: ready ? colors.border : accent },
-    ]}
-  >
-    {!ready ? <View style={[styles.readinessAccentBar, { backgroundColor: accent }]} /> : null}
-    <View style={styles.readinessHeader}>
-      <View style={styles.readinessCopy}>
-        <Text style={styles.readinessTitle}>{title}</Text>
-        <Text style={styles.readinessSubtitle}>{subtitle}</Text>
-      </View>
-      <View
-        style={[
-          styles.readinessBadge,
-          ready
-            ? { backgroundColor: accent, borderColor: accent }
-            : { backgroundColor: `${accent}22`, borderColor: accent },
-        ]}
-      >
-        <Text style={[styles.readinessBadgeText, ready && styles.readinessBadgeTextReady]}>
-          {badge}
+  enabled: boolean;
+  onToggle?: (next: boolean) => void;
+  toggling?: boolean;
+  blockers: Blocker[];
+  children?: React.ReactNode;
+}> = ({ title, enabled, onToggle, toggling = false, blockers, children }) => (
+  <View style={styles.serviceCard}>
+    <View style={styles.serviceHeader}>
+      <View style={styles.serviceCopy}>
+        <Text style={styles.serviceTitle}>{title}</Text>
+        <Text style={[styles.serviceState, enabled && blockers.length === 0 && styles.serviceStateReady]}>
+          {!enabled ? 'Выключено' : blockers.length === 0 ? 'Всё заполнено' : 'Нужно ещё:'}
         </Text>
       </View>
+      {onToggle ? (
+        toggling ? (
+          <ActivityIndicator color={colors.text} />
+        ) : (
+          <Switch
+            value={enabled}
+            onValueChange={onToggle}
+            accessibilityLabel={`${title}: ${enabled ? 'включено' : 'выключено'}`}
+            trackColor={{ false: colors.borderStrong, true: colors.successBorder }}
+            thumbColor={colors.white}
+          />
+        )
+      ) : null}
     </View>
-    {steps.length === 0 ? (
-      <Text style={styles.readyText}>Можно выходить на линию.</Text>
-    ) : (
-      steps.map((step) => (
-        <View key={`${title}-${step}`} style={styles.stepRow}>
-          <Text style={styles.stepDot}>•</Text>
-          <Text style={styles.stepText}>{step}</Text>
-        </View>
-      ))
-    )}
+    {enabled ? children : null}
+    {enabled ? blockers.map((blocker) => <BlockerRow key={blocker.label} blocker={blocker} />) : null}
   </View>
-);
-
-const StatCard: React.FC<{ label: string; value: string; accent?: string }> = ({
-  label,
-  value,
-  accent = colors.text,
-}) => (
-  <View style={styles.statCard}>
-    <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
-  </View>
-);
-
-const PillButton: React.FC<{
-  title: string;
-  active?: boolean;
-  onPress: () => void;
-  disabled?: boolean;
-}> = ({ title, active = false, onPress, disabled = false }) => (
-  <TouchableOpacity
-    style={[styles.pillButton, active && styles.pillButtonActive, disabled && styles.disabledButton]}
-    onPress={onPress}
-    disabled={disabled}
-  >
-    <Text style={[styles.pillButtonText, active && styles.pillButtonTextActive]}>{title}</Text>
-  </TouchableOpacity>
 );
 
 export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
@@ -167,113 +170,65 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const approvedDocuments = profile?.documents?.filter((doc) => doc.approved) ?? [];
-  const hasApprovedLicense = approvedDocuments.some((doc) => doc.type === 'DRIVER_LICENSE');
-  const hasApprovedRegistration = approvedDocuments.some((doc) => doc.type === 'CAR_REGISTRATION');
-  const hasApprovedCourierId = approvedDocuments.some((doc) => doc.type === 'COURIER_ID');
+  // Mirrors what the server checks when the driver goes online, so the
+  // screen never asks for a scan nobody looks at.
+  const documentsRequired = profile?.documentsRequired !== false;
+  const docState = (type: Document['type']): DocState => {
+    const docs = profile?.documents?.filter((doc) => doc.type === type) ?? [];
+    if (docs.some((doc) => doc.approved)) {
+      return 'approved';
+    }
+    return docs.length > 0 ? 'pending' : 'missing';
+  };
   const hasCarInfo = !!(profile?.car?.make && profile?.car?.model && profile?.car?.color && profile?.car?.plateNumber);
-  const courierNeedsVehicleDocs = courierTransportType !== 'FOOT';
+  const openCar = () => navigation.navigate('DriverDocuments', { focus: 'car' });
+  const openDocuments = () => navigation.navigate('DriverDocuments');
 
-  const taxiSteps = useMemo(
-    () =>
-      [
-        profile?.status !== 'APPROVED' ? 'Нужно одобрение' : null,
-        !hasCarInfo ? 'Заполните авто' : null,
-        !hasApprovedLicense ? 'Загрузите права' : null,
-        !hasApprovedRegistration ? 'Загрузите СТС' : null,
-      ].filter(Boolean) as string[],
-    [hasApprovedLicense, hasApprovedRegistration, hasCarInfo, profile?.status],
-  );
-
-  const courierSteps = useMemo(
-    () =>
-      [
-        profile?.status !== 'APPROVED' ? 'Нужно одобрение' : null,
-        !profile?.supportsCourier ? 'Включите курьера' : null,
-        !hasApprovedCourierId ? 'Загрузите удостоверение' : null,
-        courierNeedsVehicleDocs && !hasCarInfo ? 'Заполните авто' : null,
-        courierNeedsVehicleDocs && !hasApprovedLicense ? 'Загрузите права' : null,
-        courierNeedsVehicleDocs && !hasApprovedRegistration ? 'Загрузите СТС' : null,
-      ].filter(Boolean) as string[],
-    [
-      courierNeedsVehicleDocs,
-      hasApprovedCourierId,
-      hasApprovedLicense,
-      hasApprovedRegistration,
-      hasCarInfo,
-      profile?.status,
-      profile?.supportsCourier,
-    ],
-  );
-
-  const intercitySteps = useMemo(
-    () =>
-      [
-        profile?.status !== 'APPROVED' ? 'Нужно одобрение' : null,
-        !profile?.supportsIntercity ? 'Включите межгород' : null,
-        !hasCarInfo ? 'Заполните авто' : null,
-      ].filter(Boolean) as string[],
-    [hasCarInfo, profile?.status, profile?.supportsIntercity],
-  );
-
-  const taxiReady = taxiSteps.length === 0;
-  const courierReady = courierSteps.length === 0;
-  const intercityReady = intercitySteps.length === 0;
-  const urgentTasks = useMemo(() => {
-    if (taxiSteps.length > 0) {
-      return {
-        title: 'Что нужно для такси',
-        step: taxiSteps[0],
-        accent: colors.infoText,
-      };
+  const docBlocker = (type: Document['type'], name: string): Blocker | null => {
+    if (!documentsRequired) {
+      return null;
     }
-
-    if (courierSteps.length > 0) {
-      return {
-        title: 'Что нужно для курьера',
-        step: courierSteps[0],
-        accent: colors.warning,
-      };
+    const state = docState(type);
+    if (state === 'approved') {
+      return null;
     }
+    return state === 'pending'
+      ? { label: `${name}: на проверке у администратора`, waiting: true }
+      : { label: `Загрузите ${name.toLowerCase()}`, onPress: openDocuments };
+  };
+  const carBlocker: Blocker | null = hasCarInfo ? null : { label: 'Добавьте машину', onPress: openCar };
+  const compact = (items: (Blocker | null)[]) => items.filter(Boolean) as Blocker[];
 
-    if (intercitySteps.length > 0) {
-      return {
-        title: 'Что нужно для межгорода',
-        step: intercitySteps[0],
-        accent: colors.accent,
-      };
-    }
-
-    return {
-      title: 'Профиль готов',
-      step: 'Все готово к работе.',
-      accent: colors.successBright,
-    };
-  }, [courierSteps, intercitySteps, taxiSteps]);
-  const readinessScore = useMemo(() => {
-    const checks = [
-      profile?.status === 'APPROVED',
-      hasCarInfo,
-      hasApprovedLicense,
-      hasApprovedRegistration,
-      profile?.supportsCourier ? hasApprovedCourierId : true,
-      profile?.supportsCourier && courierNeedsVehicleDocs ? hasCarInfo : true,
-      profile?.supportsCourier && courierNeedsVehicleDocs ? hasApprovedLicense : true,
-      profile?.supportsCourier && courierNeedsVehicleDocs ? hasApprovedRegistration : true,
-      profile?.supportsIntercity ? hasCarInfo : true,
-    ];
-    const passed = checks.filter(Boolean).length;
-    return Math.round((passed / checks.length) * 100);
-  }, [
-    courierNeedsVehicleDocs,
-    hasApprovedCourierId,
-    hasApprovedLicense,
-    hasApprovedRegistration,
-    hasCarInfo,
-    profile?.status,
-    profile?.supportsCourier,
-    profile?.supportsIntercity,
+  // Approval and balance gate every service, so they are listed once at the top.
+  const accountBlockers = compact([
+    profile?.status === 'PENDING'
+      ? { label: 'Администратор ещё не одобрил профиль', waiting: true }
+      : null,
+    profile?.status === 'REJECTED'
+      ? { label: 'Администратор отклонил профиль. Напишите в поддержку', waiting: true }
+      : null,
+    Number(profile?.balance || 0) <= 0
+      ? { label: 'Пополните баланс', onPress: () => navigation.navigate('DriverBalance') }
+      : null,
   ]);
+
+  const courierNeedsVehicle = courierTransportType !== 'FOOT';
+  const taxiBlockers = compact([
+    carBlocker,
+    docBlocker('DRIVER_LICENSE', 'Права'),
+    docBlocker('CAR_REGISTRATION', 'СТС'),
+  ]);
+  const courierBlockers = compact([
+    docBlocker('COURIER_ID', 'Удостоверение личности'),
+    courierNeedsVehicle ? carBlocker : null,
+    courierNeedsVehicle ? docBlocker('DRIVER_LICENSE', 'Права') : null,
+    courierNeedsVehicle ? docBlocker('CAR_REGISTRATION', 'СТС') : null,
+  ]);
+  const intercityBlockers = compact([carBlocker]);
+
+  const carSummary = hasCarInfo
+    ? `${profile?.car?.make} ${profile?.car?.model}, ${profile?.car?.color} • ${profile?.car?.plateNumber}`
+    : 'Машина не добавлена';
   const avatarUri = useMemo(
     () => resolveApiAssetUrl(profile?.user?.avatarUrl),
     [profile?.user?.avatarUrl],
@@ -294,9 +249,11 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     loadProfile();
   }, []);
 
-  const loadProfile = async () => {
+  const loadProfile = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       const res = await apiClient.get('/drivers/profile');
       const data = res.data;
       setProfile(data);
@@ -400,13 +357,11 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     });
   };
 
-  const toggleIntercity = async () => {
+  const toggleIntercity = async (next: boolean) => {
     try {
       setUpdatingIntercity(true);
-      await apiClient.post('/drivers/intercity-capability', {
-        supportsIntercity: !profile?.supportsIntercity,
-      });
-      await loadProfile();
+      await apiClient.post('/drivers/intercity-capability', { supportsIntercity: next });
+      await loadProfile(true);
     } catch (e: any) {
       showAlert('Ошибка', e?.response?.data?.message || 'Не удалось обновить межгород');
     } finally {
@@ -414,15 +369,20 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const toggleCourier = async (nextTransportType = courierTransportType) => {
+  // Also how a working courier changes transport: the switch stays on and
+  // only the transport is saved.
+  const saveCourier = async (supportsCourier: boolean, transport: 'CAR' | 'BIKE' | 'FOOT') => {
+    const previousTransport = courierTransportType;
+    setCourierTransportType(transport);
     try {
       setUpdatingCourier(true);
       await apiClient.post('/drivers/courier-capability', {
-        supportsCourier: !profile?.supportsCourier,
-        courierTransportType: nextTransportType,
+        supportsCourier,
+        courierTransportType: transport,
       });
-      await loadProfile();
+      await loadProfile(true);
     } catch (e: any) {
+      setCourierTransportType(previousTransport);
       showAlert('Ошибка', e?.response?.data?.message || 'Не удалось обновить курьерский режим');
     } finally {
       setUpdatingCourier(false);
@@ -508,12 +468,8 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
               </TouchableOpacity>
               <View style={styles.heroMain}>
-                <Text style={styles.heroTitle}>
-                  {profile?.fullName || 'Водитель/курьер'}
-                </Text>
-                <Text style={styles.heroSubtitle}>
-                  {profile?.user?.phone || 'Профиль исполнителя'}
-                </Text>
+                <Text style={styles.heroTitle}>{profile?.fullName || 'Водитель'}</Text>
+                <Text style={styles.heroSubtitle}>{profile?.user?.phone || ''}</Text>
                 <View
                   style={[
                     styles.statusPill,
@@ -526,204 +482,121 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
               </View>
             </View>
-            <Text style={styles.avatarHint}>Нажми на аватарку, чтобы изменить фото</Text>
 
-            <View style={styles.heroDivider} />
             <View style={styles.statRow}>
-              <StatCard
-                label="Баланс"
-                value={`${Math.round(Number(profile?.balance || 0))} ₸`}
-                accent={colors.text}
-              />
-              <StatCard
-                label="Рейтинг"
-                value={`${profile?.rating?.toFixed(1) || '5.0'} ★`}
-                accent={colors.warningText}
-              />
-              <StatCard
-                label="Текущий режим"
-                value={
-                  profile?.driverMode === 'INTERCITY'
-                    ? 'Межгород'
-                    : profile?.driverMode === 'COURIER'
-                      ? 'Курьер'
-                      : 'Такси'
-                }
-                accent={colors.infoText}
-              />
-            </View>
-            <View style={styles.progressBlock}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Готовность профиля</Text>
-                <Text style={styles.progressValue}>{readinessScore}%</Text>
-              </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${readinessScore}%` }]} />
-              </View>
-            </View>
-            <View style={styles.balanceStatusRow}>
-              <Text style={styles.balanceStatusText}>
-                {Number(profile?.balance || 0) > 0
-                  ? 'Можно выйти на линию'
-                  : 'Пополните баланс для выхода на линию'}
-              </Text>
               <TouchableOpacity
-                style={styles.balanceButton}
+                style={styles.statCard}
                 onPress={() => navigation.navigate('DriverBalance')}
+                accessibilityRole="button"
+                accessibilityLabel={`Баланс ${Math.round(Number(profile?.balance || 0))} тенге. Пополнить`}
               >
-                <Text style={styles.balanceButtonText}>Баланс</Text>
+                <Text style={styles.statValue}>{`${Math.round(Number(profile?.balance || 0))} ₸`}</Text>
+                <Text style={styles.statLabel}>Баланс • пополнить ›</Text>
               </TouchableOpacity>
+              <View style={styles.statCard}>
+                <Text style={[styles.statValue, { color: colors.warningText }]}>
+                  {`${profile?.rating?.toFixed(1) || '5.0'} ★`}
+                </Text>
+                <Text style={styles.statLabel}>Рейтинг</Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Что сделать сейчас</Text>
-            <View style={[styles.urgentCard, { borderColor: urgentTasks.accent }]}>
-              <Text style={[styles.urgentTitle, { color: urgentTasks.accent }]}>
-                {urgentTasks.title}
-              </Text>
-              <Text style={styles.urgentStep}>{urgentTasks.step}</Text>
+          {accountBlockers.length > 0 ? (
+            <View style={[styles.section, styles.blockedSection]}>
+              <Text style={styles.sectionTitle}>Пока нельзя выйти на линию</Text>
+              {accountBlockers.map((blocker) => (
+                <BlockerRow key={blocker.label} blocker={blocker} />
+              ))}
             </View>
-          </View>
+          ) : null}
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Данные и документы</Text>
-
-            <View style={styles.documentsSummaryCard}>
-              <Text style={styles.documentsSummaryTitle}>
-                {profile?.fullName || 'Имя не указано'} • {profile?.user?.phone || 'Телефон не найден'}
-              </Text>
-              <Text style={styles.documentsSummaryText}>
-                Авто: {hasCarInfo ? 'заполнено' : 'не заполнено'}. Документы: {profile?.documents?.length || 0}, одобрено: {approvedDocuments.length}.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => navigation.navigate('DriverDocuments')}
-            >
-              <Text style={styles.primaryButtonText}>Открыть документы</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Готовность к работе</Text>
+            <Text style={styles.sectionTitle}>Где вы работаете</Text>
             <Text style={styles.sectionSubtitle}>
-              Что нужно для выхода на линию.
+              Включите то, чем хотите заниматься. Переключаться между ними можно на главном экране.
             </Text>
 
-            <ReadinessCard
-              title="Такси"
-              subtitle="Права, СТС и автомобиль"
-              ready={taxiReady}
-              accent={colors.successBright}
-              steps={taxiSteps}
-              badge={taxiReady ? 'Готов' : 'Не готов'}
-            />
+            {profile?.supportsTaxi !== false ? (
+              <ServiceCard title="Такси" enabled blockers={taxiBlockers} />
+            ) : null}
 
-            <ReadinessCard
-              title="Курьер"
-              subtitle={
-                courierTransportType === 'FOOT'
-                  ? 'Пеший • удостоверение личности'
-                  : `${TRANSPORT_LABELS[courierTransportType]} • авто и документы`
-              }
-              ready={courierReady}
-              accent={colors.warning}
-              steps={courierSteps}
-              badge={courierReady ? 'Готов' : 'Не готов'}
-            />
-
-            <ReadinessCard
-              title="Межгород"
-              subtitle="Публикация рейсов и заявки пассажиров"
-              ready={intercityReady}
-              accent={colors.accent}
-              steps={intercitySteps}
-              badge={intercityReady ? 'Готов' : 'Не готов'}
-            />
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Режимы работы</Text>
-
-            <View style={styles.modeCard}>
-              <Text style={styles.modeTitle}>Такси</Text>
-              <Text style={styles.modeValue}>Всегда доступно для этого профиля</Text>
-            </View>
-
-            <View style={styles.modeCard}>
-              <View style={styles.modeHeader}>
-                <View>
-                  <Text style={styles.modeTitle}>Курьер</Text>
-                  <Text style={styles.modeValue}>
-                    {profile?.supportsCourier
-                      ? `Включен • ${TRANSPORT_LABELS[courierTransportType]}`
-                      : 'Выключен'}
-                  </Text>
-                </View>
-                <PillButton
-                  title={updatingCourier ? 'Обновление...' : profile?.supportsCourier ? 'Выключить' : 'Включить'}
-                  active={Boolean(profile?.supportsCourier)}
-                  onPress={() => toggleCourier(courierTransportType)}
-                  disabled={updatingCourier}
-                />
-              </View>
-
+            <ServiceCard
+              title="Доставка"
+              enabled={Boolean(profile?.supportsCourier)}
+              toggling={updatingCourier}
+              onToggle={(next) => saveCourier(next, courierTransportType).catch(() => null)}
+              blockers={courierBlockers}
+            >
+              <Text style={styles.transportLabel}>На чём доставляете</Text>
               <View style={styles.transportRow}>
-                {(['FOOT', 'BIKE', 'CAR'] as const).map((type) => (
-                  <PillButton
-                    key={type}
-                    title={TRANSPORT_LABELS[type]}
-                    active={courierTransportType === type}
-                    onPress={() => setCourierTransportType(type)}
-                  />
-                ))}
+                {(['FOOT', 'BIKE', 'CAR'] as const).map((type) => {
+                  const active = courierTransportType === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.pillButton, active && styles.pillButtonActive]}
+                      onPress={() => {
+                        if (!active && !updatingCourier) {
+                          saveCourier(true, type).catch(() => null);
+                        }
+                      }}
+                      disabled={updatingCourier}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active, disabled: updatingCourier }}
+                    >
+                      <Text style={[styles.pillButtonText, active && styles.pillButtonTextActive]}>
+                        {TRANSPORT_LABELS[type]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </View>
+            </ServiceCard>
 
-            <View style={styles.modeCard}>
-              <View style={styles.modeHeader}>
-                <View>
-                  <Text style={styles.modeTitle}>Межгород</Text>
-                  <Text style={styles.modeValue}>
-                    {profile?.supportsIntercity
-                      ? 'Включен • рейсы доступны'
-                      : 'Выключен'}
-                  </Text>
-                </View>
-                <PillButton
-                  title={
-                    updatingIntercity
-                      ? 'Обновление...'
-                      : profile?.supportsIntercity
-                        ? 'Выключить'
-                        : 'Включить'
-                  }
-                  active={Boolean(profile?.supportsIntercity)}
-                  onPress={toggleIntercity}
-                  disabled={updatingIntercity}
-                />
-              </View>
-            </View>
+            <ServiceCard
+              title="Межгород"
+              enabled={Boolean(profile?.supportsIntercity)}
+              toggling={updatingIntercity}
+              onToggle={(next) => toggleIntercity(next).catch(() => null)}
+              blockers={intercityBlockers}
+            />
           </View>
+
+          <TouchableOpacity style={styles.linkRow} onPress={openDocuments} accessibilityRole="button">
+            <Ionicons name="car-outline" size={22} color={colors.text} />
+            <View style={styles.linkRowCopy}>
+              <Text style={styles.linkRowTitle}>Машина и документы</Text>
+              <Text style={styles.linkRowSubtitle} numberOfLines={2}>
+                {carSummary}
+              </Text>
+              {profile?.documentsVerified ? (
+                <VerifiedBadge verified />
+              ) : (
+                <Text style={styles.linkRowHint}>
+                  Загрузите права и СТС: после проверки пассажиры увидят у вас отметку «Документы проверены».
+                </Text>
+              )}
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
 
           {roles?.availableRoles.includes('PASSENGER') ? (
-            <View style={styles.modeCard}>
-              <View style={styles.modeHeader}>
-                <View>
-                  <Text style={styles.modeTitle}>Режим пассажира</Text>
-                  <Text style={styles.modeValue}>
-                    Заказывайте такси и еду с этого же аккаунта.
-                  </Text>
-                </View>
-                <PillButton
-                  title={switchingRole ? 'Переключаем...' : 'Перейти'}
-                  onPress={goToPassengerMode}
-                  disabled={switchingRole}
-                />
+            <TouchableOpacity
+              style={[styles.linkRow, switchingRole && styles.disabledButton]}
+              onPress={goToPassengerMode}
+              disabled={switchingRole}
+              accessibilityRole="button"
+            >
+              <Ionicons name="person-outline" size={22} color={colors.text} />
+              <View style={styles.linkRowCopy}>
+                <Text style={styles.linkRowTitle}>
+                  {switchingRole ? 'Переключаем...' : 'Перейти в режим пассажира'}
+                </Text>
+                <Text style={styles.linkRowSubtitle}>Заказывайте такси и еду с этого же аккаунта.</Text>
               </View>
-            </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           ) : null}
 
           <LegalLinks />
@@ -888,74 +761,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  heroDivider: {
-    height: 1,
-    backgroundColor: colors.surfaceElevated,
-    marginBottom: 16,
-  },
-  avatarHint: {
-    color: colors.textTertiary,
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 14,
-  },
   statRow: {
     flexDirection: 'row',
     gap: 10,
-  },
-  progressBlock: {
-    marginTop: 16,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  progressLabel: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  progressValue: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  progressTrack: {
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceRaised,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: colors.successBright,
-  },
-  balanceStatusRow: {
-    marginTop: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  balanceStatusText: {
-    flex: 1,
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  balanceButton: {
-    backgroundColor: colors.surfaceInverse,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  balanceButtonText: {
-    color: colors.textInverse,
-    fontSize: 13,
-    fontWeight: '900',
   },
   statCard: {
     flex: 1,
@@ -996,127 +804,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 14,
   },
-  urgentCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-  },
-  urgentTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    marginBottom: 8,
-  },
-  urgentStep: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  readinessCard: {
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 12,
-  },
-  readinessCardReady: {
-    backgroundColor: colors.successSurface,
-  },
-  readinessCardPending: {
-    backgroundColor: colors.surface,
-  },
-  readinessHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 10,
-  },
-  readinessAccentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-  },
-  readinessCopy: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  readinessTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  readinessSubtitle: {
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
-  readinessBadge: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  readinessBadgeText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  readinessBadgeTextReady: {
-    color: colors.onSuccess,
-  },
-  readyText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 6,
-  },
-  stepDot: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 20,
-    marginRight: 8,
-  },
-  stepText: {
-    flex: 1,
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  modeCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    marginBottom: 12,
-  },
-  modeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  modeTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  modeValue: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    maxWidth: 180,
-  },
   transportRow: {
     flexDirection: 'row',
     gap: 8,
@@ -1144,49 +831,6 @@ const styles = StyleSheet.create({
   pillButtonTextActive: {
     color: colors.textInverse,
   },
-  primaryButton: {
-    backgroundColor: colors.surfaceInverse,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  primaryButtonText: {
-    color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  secondaryWideButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  secondaryWideButtonText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  documentsSummaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-  },
-  documentsSummaryTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  documentsSummaryText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
   disabledButton: {
     opacity: 0.6,
   },
@@ -1203,5 +847,94 @@ const styles = StyleSheet.create({
     color: colors.dangerText,
     fontSize: 15,
     fontWeight: '900',
+  },
+  blockedSection: {
+    borderColor: colors.warning,
+  },
+  blockerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 44,
+  },
+  blockerText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  blockerTextWaiting: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  serviceCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    marginBottom: 12,
+  },
+  serviceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 44,
+  },
+  serviceCopy: {
+    flex: 1,
+  },
+  serviceTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  serviceState: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  serviceStateReady: {
+    color: colors.successText,
+    fontWeight: '700',
+  },
+  transportLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: 12,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    marginBottom: 12,
+  },
+  linkRowCopy: {
+    flex: 1,
+  },
+  linkRowTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  linkRowSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  linkRowHint: {
+    color: colors.textTertiary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
   },
 });

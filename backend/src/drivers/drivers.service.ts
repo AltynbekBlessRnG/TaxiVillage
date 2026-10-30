@@ -434,7 +434,9 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('Driver profile not found');
     }
 
-    return driver;
+    // The profile screen lists what stands between the driver and going
+    // online, so it has to know whether scans are checked at all.
+    return { ...driver, documentsRequired: this.documentsRequired() };
   }
 
   async getMetrics(userId: string, days = 7) {
