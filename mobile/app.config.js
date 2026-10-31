@@ -4,7 +4,7 @@ export default {
   "expo": {
     "name": "Zhetysu Go",
     "slug": "taxivillage",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
