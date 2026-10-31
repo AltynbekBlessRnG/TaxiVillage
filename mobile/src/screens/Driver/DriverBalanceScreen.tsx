@@ -8,11 +8,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { apiClient } from '../../api/client';
 import { DarkAlertModal } from '../../components/DarkAlertModal';
 import { colors } from '../../theme/colors';
+import { extractNationalDigits, formatPhoneInput } from '../../utils/phone';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverBalance'>;
 
@@ -23,12 +26,25 @@ type TopUpInfo = {
   recipient: string;
   requisites: string;
   note: string;
+  /** The driver's phone, to write in the Kaspi transfer comment. */
+  transferComment?: string;
 };
 
 export const DriverBalanceScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [topUpInfo, setTopUpInfo] = useState<TopUpInfo | null>(null);
   const [modal, setModal] = useState({ visible: false, title: '', message: '' });
+  const [copied, setCopied] = useState(false);
+
+  // Copied as plain digits, the way people type a number into a comment.
+  const commentDigits = topUpInfo?.transferComment
+    ? `8${extractNationalDigits(topUpInfo.transferComment)}`
+    : '';
+  const copyComment = () => {
+    Clipboard.setStringAsync(commentDigits)
+      .then(() => setCopied(true))
+      .catch(() => null);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -94,7 +110,25 @@ export const DriverBalanceScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.value}>{topUpInfo?.recipient || '-'}</Text>
 
           <Text style={styles.label}>Реквизиты</Text>
-          <Text style={styles.value}>{topUpInfo?.requisites || '-'}</Text>
+          <Text style={styles.value} selectable>{topUpInfo?.requisites || '-'}</Text>
+
+          {commentDigits ? (
+            <View style={styles.commentBox}>
+              <Text style={styles.commentTitle}>В комментарии к переводу напишите свой номер</Text>
+              <Text style={styles.commentValue} selectable>
+                {formatPhoneInput(commentDigits)}
+              </Text>
+              <TouchableOpacity
+                style={styles.copyButton}
+                onPress={copyComment}
+                accessibilityRole="button"
+                accessibilityLabel="Скопировать номер для комментария"
+              >
+                <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={18} color={colors.textInverse} />
+                <Text style={styles.copyButtonText}>{copied ? 'Скопировано' : 'Скопировать номер'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <Text style={styles.note}>{topUpInfo?.note || ''}</Text>
         </View>
@@ -218,5 +252,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     marginTop: 16,
+  },
+  commentBox: {
+    backgroundColor: colors.warningSurface,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 16,
+  },
+  commentTitle: {
+    color: colors.warningText,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  commentValue: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 12,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.surfaceInverse,
+    borderRadius: 14,
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  copyButtonText: {
+    color: colors.textInverse,
+    fontSize: 15,
+    fontWeight: '900',
   },
 });

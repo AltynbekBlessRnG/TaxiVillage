@@ -132,12 +132,29 @@ const DOCUMENT_LABELS: Record<string, string> = {
   OTHER: 'Другое',
 };
 
+/**
+ * Drivers write their phone in the Kaspi transfer comment however they like
+ * (8 777…, +7 777…, with dashes), so phones compare on their last 10 digits.
+ */
+function matchesDriverQuery(driver: { fullName?: string | null; user: { phone: string } }, query: string) {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return true;
+  }
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length >= 4) {
+    return driver.user.phone.replace(/\D/g, '').slice(-10).includes(digits.slice(-10));
+  }
+  return (driver.fullName || '').toLowerCase().includes(trimmed.toLowerCase());
+}
+
 export const DashboardPage: React.FC<Props> = ({
   session,
   onSessionChange,
   onLogout,
 }) => {
   const [tab, setTab] = useState<Tab>('overview');
+  const [driverQuery, setDriverQuery] = useState('');
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [rides, setRides] = useState<Ride[]>([]);
@@ -455,6 +472,13 @@ export const DashboardPage: React.FC<Props> = ({
         {tab === 'drivers' && (
           <section className="card">
             <h2>Водители</h2>
+            <input
+              className="input"
+              placeholder="Номер из комментария к переводу или имя"
+              value={driverQuery}
+              onChange={(event) => setDriverQuery(event.target.value)}
+              style={{ maxWidth: 420, marginBottom: 12 }}
+            />
             <table className="table">
               <thead>
                 <tr>
@@ -468,7 +492,7 @@ export const DashboardPage: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {drivers.map((d) => (
+                {drivers.filter((d) => matchesDriverQuery(d, driverQuery)).map((d) => (
                   <tr key={d.id}>
                     <td>{d.user.phone}</td>
                     <td>{d.fullName || '—'}</td>

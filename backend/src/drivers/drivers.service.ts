@@ -533,6 +533,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
       where: { userId },
       select: {
         balance: true,
+        user: { select: { phone: true } },
       },
     });
 
@@ -542,6 +543,9 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
 
     return {
       balance: Number(driver.balance ?? 0),
+      // Transfers land on one Kaspi account; the phone in the comment is how
+      // the admin finds whose balance to credit.
+      transferComment: driver.user.phone,
       canGoOnline: Number(driver.balance ?? 0) > 0,
       title: this.configService.get<string>('DRIVER_TOPUP_TITLE') || 'Пополнение баланса',
       recipient: this.configService.get<string>('DRIVER_TOPUP_RECIPIENT') || 'TaxiVillage',
@@ -550,7 +554,7 @@ export class DriversService implements OnModuleInit, OnModuleDestroy {
         'Kaspi: +7 776 741 5410 Темірхан А.',
       note:
         this.configService.get<string>('DRIVER_TOPUP_NOTE') ||
-        'После перевода администратор пополнит баланс вручную.',
+        'Без номера в комментарии мы не узнаем, чей это перевод. Баланс пополнит администратор после проверки перевода.',
     };
   }
 
